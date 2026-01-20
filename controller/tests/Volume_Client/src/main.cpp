@@ -9,8 +9,8 @@ IPAddress serverIP(192, 168, 3, 11);
 const uint16_t serverPort = 80;
 WiFiClient client;
 
-const unsigned long WIFI_RETRY_INTERVAL = 4000;
-const unsigned long TIMEOUT = 2000;
+const unsigned long WIFI_RETRY_INTERVAL = 8000;
+const unsigned long TIMEOUT = 5000;
 
 unsigned long lastWiFiTry = 0;
 unsigned long lastPing = 0;
@@ -48,12 +48,15 @@ void loop() {
         String msg = client.readStringUntil('\n');
 
         if (msg == "ping\r"){
-            int value = analogRead(ANALOG_PIN);
-            int mapped = map(value, analog_min, analog_max, servo_min, servo_max);
-            client.println(mapped);
-            Serial.printf("Analog: %d, Servo: %d\n", value, mapped);
+            Serial.println("ping received");
         }
     }
+
+    int value = analogRead(ANALOG_PIN);
+    int mapped = map(value, analog_min, analog_max, servo_min, servo_max);
+    client.println(mapped);
+    // Serial.printf("Analog: %d, Servo: %d\n", value, mapped);
+    delay(10);
 }
 
 void handle_WiFi(){

@@ -11,8 +11,8 @@ const IPAddress subnet(255, 255, 255, 0);
 WiFiServer server(80);
 WiFiClient client;
 
-const unsigned long PING_INTERVAL = 100;
-const unsigned long TIMEOUT = 2000;
+const unsigned long PING_INTERVAL = 1000;
+const unsigned long TIMEOUT = 5000;
 
 // motor settings
 #define ICS_BAUDRATE 115200
@@ -23,6 +23,8 @@ const unsigned long TIMEOUT = 2000;
 #define myRX1 18
 
 IcsHardSerialClass krs1(&Serial1, myEN1, ICS_BAUDRATE, ICS_TIMEOUT, myRX1, myTX1);
+
+void handle_conne();
 
 void setup() {
     Serial.begin(115200);
@@ -46,15 +48,7 @@ void setup() {
 unsigned long lastPing = 0;
 unsigned long lastReply = 0;
 void loop() {
-    // if client is not defined or connected, create new
-    if(!client || !client.connected()){
-        client = server.available();
-        if(client){
-            Serial.println("connected");
-            neopixelWrite(RGB_BUILTIN, 0, 255, 0);
-            lastReply = millis();
-        }
-    }
+    handle_conne();
 
     // receive data
     if (client.available()) {
@@ -71,11 +65,22 @@ void loop() {
         client.println("ping");
         lastPing = millis();
     }
+}
 
-    // handle timeout
-    if (millis() - lastReply > TIMEOUT) {
-        Serial.println("disconnected");
-        neopixelWrite(RGB_BUILTIN, 255, 0, 0);
+void handle_conne(){
+    if (millis() - lastReply > TIMEOUT){
         client.stop();
+        Serial.println("timeout");
+    }
+    if (client && client.connected()) return;
+
+    // Serial.println("disconnected");
+    neopixelWrite(RGB_BUILTIN, 255, 0, 0);
+
+    client = server.available();
+    if(client){
+        Serial.println("connected");
+        neopixelWrite(RGB_BUILTIN, 0, 255, 0);
+        lastReply = millis();
     }
 }

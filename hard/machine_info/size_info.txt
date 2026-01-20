@@ -1,0 +1,12 @@
+body : 78*80*80
+body to arm (horizontal) : 62.2
+body to arm   (vertical) : 64.98
+arm  : 82.84
+hand : 111.72
+leg  yaw to roll  : 22.2
+leg roll to pitch : 26.01
+leg upper         : 78.02
+leg under         : 78.02
+leg to footz      : 37.5
+leg to foot frontx: 66
+foot : 50 * 87.5

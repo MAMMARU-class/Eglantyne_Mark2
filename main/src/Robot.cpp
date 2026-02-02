@@ -39,17 +39,17 @@ void Robot::init_home(float t){
         diff[id] = home[id] - current[id];
     }
 
-    this->move_all(home);
+    // this->move_all(home);
     
-    // int step = int(t/CTRL_CYCLE);
-    // for(int i=0; i<=step; i++){
-    //     array<float, LINK_SIZE> motion;
-    //     for(int id=0; id<LINK_SIZE; id++){
-    //         motion[id] = current[id] + diff[id]*( (float)(i) ) / (float)(step);
-    //     }
-    //     this->move_all(motion);
-    //     delay(CTRL_CYCLE);
-    // }
+    int step = int(t/CTRL_CYCLE * 1000);
+    for(int i=0; i<=step; i++){
+        array<float, LINK_SIZE> motion;
+        for(int id=0; id<LINK_SIZE; id++){
+            motion[id] = current[id] + diff[id]*( (float)(i) ) / (float)(step);
+        }
+        this->move_all(motion);
+        delay(CTRL_CYCLE);
+    }
 }
 
 void Robot::move_all(array<float, LINK_SIZE> motion){

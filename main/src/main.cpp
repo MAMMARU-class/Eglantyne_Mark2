@@ -40,11 +40,11 @@ void setup(){
 
     neopixelWrite(RGB_BUILTIN, 0, 255, 0);
 
-    // array<float, LINK_SIZE> home = Eglantyne.home();
-    // Serial.print("Home pos: ");
-    // Serial.println(home[0]);
-    // Eglantyne.init_home(2);
-    // delay(1000);
+    array<float, LINK_SIZE> home = Eglantyne.home();
+    Serial.print("Home pos: ");
+    Serial.println(home[0]);
+    Eglantyne.init_home(2);
+    delay(1000);
 
     neopixelWrite(RGB_BUILTIN, 0, 0, 255);
 }
@@ -54,10 +54,10 @@ array<float, LINK_SIZE> pos;
 array<float, LINK_SIZE> current;
 
 void loop(){
-    pos[0] = 0.8;
+    pos[0] = -0.5;
     Eglantyne.move_all(pos);
     delay(1000);
-    // current = Eglantyne.current();
-    // Serial.print("Current pos: ");
-    // Serial.println(current[0]);
+    current = Eglantyne.current();
+    Serial.print("Current pos: ");
+    Serial.println(current[0]);
 }

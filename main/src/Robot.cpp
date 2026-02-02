@@ -31,28 +31,24 @@ float Robot::current_link(int id){
 }
 
 void Robot::init_home(float t){
-    // array<float, LINK_SIZE> current;
-    // array<float, LINK_SIZE> home;
-    // vector< array<float, LINK_SIZE> > home_motion_list;
+    array<float, LINK_SIZE> current = this->current();
+    array<float, LINK_SIZE> home = this->home();
 
-    // int link_num = 0;
-    // for(auto* link : link_set){
-    //     current[link_num] = link->getq_current();
-    //     home[link_num] = link->getq_home();
-    //     link_num++;
-    // }
+    array<float, LINK_SIZE> diff;
+    for(int id=0; id<LINK_SIZE; id++){
+        diff[id] = home[id] - current[id];
+    }
+
+    this->move_all(home);
     
-    // int step_end = t*1000 / CONTROL_CYCLE;
-    // for(int step=0; step<step_end; step++){
-    //     array<float, 18> motion;
-    //     for(int id=0; id<current.size(); id++){
-    //         motion[id] = ( current[id]*( (float)(step_end-step) ) + home[id]*( (float)(step) ) ) / (float)step_end;
+    // int step = int(t/CTRL_CYCLE);
+    // for(int i=0; i<=step; i++){
+    //     array<float, LINK_SIZE> motion;
+    //     for(int id=0; id<LINK_SIZE; id++){
+    //         motion[id] = current[id] + diff[id]*( (float)(i) ) / (float)(step);
     //     }
-    //     home_motion_list.push_back(motion);
-    // }
-    // for(array<float, 18> motion : home_motion_list){
-    //     move_all(motion);
-    //     delay(CONTROL_CYCLE);
+    //     this->move_all(motion);
+    //     delay(CTRL_CYCLE);
     // }
 }
 

@@ -39,6 +39,14 @@ void setup(){
     Serial.println("Eglantyne Mark2 prepared");
 
     neopixelWrite(RGB_BUILTIN, 0, 255, 0);
+
+    // array<float, LINK_SIZE> home = Eglantyne.home();
+    // Serial.print("Home pos: ");
+    // Serial.println(home[0]);
+    // Eglantyne.init_home(2);
+    // delay(1000);
+
+    neopixelWrite(RGB_BUILTIN, 0, 0, 255);
 }
 
 double angle = 0;
@@ -46,17 +54,10 @@ array<float, LINK_SIZE> pos;
 array<float, LINK_SIZE> current;
 
 void loop(){
-    pos[0] = 0.0;
+    pos[0] = 0.8;
     Eglantyne.move_all(pos);
     delay(1000);
-    current = Eglantyne.current();
-    Serial.print("Current pos: ");
-    Serial.println(current[0]);
-
-    pos[0] = 1.2;
-    Eglantyne.move_all(pos);
-    delay(1000);
-    current = Eglantyne.current();
-    Serial.print("Current pos: ");
-    Serial.println(current[0]);
+    // current = Eglantyne.current();
+    // Serial.print("Current pos: ");
+    // Serial.println(current[0]);
 }

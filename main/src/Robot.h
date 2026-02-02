@@ -6,7 +6,7 @@
 #include <string>
 #include "RobotLink.h"
 
-#define CONTROL_CYCLE 10 // ms
+#define CTRL_CYCLE 10 // ms
 // for board test
 #define LINK_SIZE 1
 // #define LINK_SIZE 18

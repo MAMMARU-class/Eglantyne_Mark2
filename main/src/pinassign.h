@@ -1,16 +1,20 @@
 // for test board
-#define RobotEN1 16
-// #define RobotEN1 8
+// #define RobotEN1 16
+// #define RobotTX1 17
+// #define RobotRX1 18
+
+#define RobotEN1 8
 #define RobotTX1 17
 #define RobotRX1 18
 
 // for test board
-#define RobotEN2 8
-#define RobotTX2 4
-#define RobotRX2 5
-// #define RobotEN2 16
-// #define RobotTX2 15
-// #define RobotRX2 16
+// #define RobotEN2 8
+// #define RobotTX2 4
+// #define RobotRX2 5
+
+#define RobotEN2 16
+#define RobotTX2 15
+#define RobotRX2 7
 
 #define led 47
 

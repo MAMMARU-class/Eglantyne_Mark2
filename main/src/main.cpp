@@ -12,9 +12,7 @@ using std::array;
 using std::vector;
 
 // motor serial
-// #define BAUDRATE 1250000
-// for board test
-#define BAUDRATE 115200
+#define BAUDRATE 1250000
 #define TIMEOUT 1000
 IcsHardSerialClass krs1(&Serial1, RobotEN1, BAUDRATE, TIMEOUT, RobotRX1, RobotTX1);
 IcsHardSerialClass krs2(&Serial2, RobotEN2, BAUDRATE, TIMEOUT, RobotRX2, RobotTX2);
@@ -43,8 +41,13 @@ void setup(){
     array<float, LINK_SIZE> home = Eglantyne.home();
     Serial.print("Home pos: ");
     Serial.println(home[0]);
+    array<float, LINK_SIZE> current = Eglantyne.current();
+    Serial.print("Current pos: ");
+    Serial.println(current[0]);
+    
     Eglantyne.init_home(2);
     delay(1000);
+    
 
     neopixelWrite(RGB_BUILTIN, 0, 0, 255);
 }
@@ -54,10 +57,11 @@ array<float, LINK_SIZE> pos;
 array<float, LINK_SIZE> current;
 
 void loop(){
-    pos[0] = -0.5;
-    Eglantyne.move_all(pos);
+    // pos[0] = -0.5;
+    // Eglantyne.move_all(pos);
+    // delay(1000);
+    // current = Eglantyne.current();
+    // Serial.print("Current pos: ");
+    // Serial.println(current[0]);
     delay(1000);
-    current = Eglantyne.current();
-    Serial.print("Current pos: ");
-    Serial.println(current[0]);
 }

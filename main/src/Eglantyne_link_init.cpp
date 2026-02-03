@@ -27,13 +27,13 @@ void Robot::setLink(){
     leg_roll_right.setInitialPositionsDeg(9000, 0.0, 0,0);
     leg_roll_right.setMotor(serial2, 2, REVERSE);
 
-    leg_upper_right.setInitialPositionsDeg(9850, 0.0, 0,0);
+    leg_upper_right.setInitialPositionsDeg(9850, 30.0, 0,0);
     leg_upper_right.setMotor(serial2, 3, REVERSE);
 
-    leg_under_right.setInitialPositionsDeg(4200, 0.0, 0,0);
+    leg_under_right.setInitialPositionsDeg(4200, 60.0, 0,0);
     leg_under_right.setMotor(serial2, 4, FORWARD);
 
-    foot_pitch_right.setInitialPositionsDeg(5890, 0.0, 0,0);
+    foot_pitch_right.setInitialPositionsDeg(5890, 30.0, 0,0);
     foot_pitch_right.setMotor(serial2, 5, FORWARD);
 
     foot_roll_right.setInitialPositionsDeg(7600, 0.0, 0,0);
@@ -46,27 +46,27 @@ void Robot::setLink(){
     leg_roll_left.setInitialPositionsDeg(8330, 0.0, 0,0);
     leg_roll_left.setMotor(serial2, 8, REVERSE);
 
-    leg_upper_left.setInitialPositionsDeg(9750, 0, 0,0);
+    leg_upper_left.setInitialPositionsDeg(9750, 30.0, 0,0);
     leg_upper_left.setMotor(serial2, 9, REVERSE);
 
-    leg_under_left.setInitialPositionsDeg(4320, 0.0, 0,0);
+    leg_under_left.setInitialPositionsDeg(4320, 60.0, 0,0);
     leg_under_left.setMotor(serial2, 10, FORWARD);
 
-    foot_pitch_left.setInitialPositionsDeg(6090, 0.0, 0,0);
+    foot_pitch_left.setInitialPositionsDeg(6090, 30.0, 0,0);
     foot_pitch_left.setMotor(serial2, 11, FORWARD);
 
     foot_roll_left.setInitialPositionsDeg(7400, 0.0 ,0,0);
     foot_roll_left.setMotor(serial2, 12, FORWARD);
 
     // this->link_set = {&arm_pitch_right}; // for board test
-    
+
     // this->link_set = {
     //     &arm_pitch_right, &arm_roll_right, &hand_right,
-    //     &arm_pitch_left, &arm_roll_left, &hand_left,
-    //     &leg_yaw_right, &leg_roll_right, &leg_upper_right, &leg_under_right, &foot_pitch_right, &foot_roll_right,
-    //     &leg_yaw_left, &leg_roll_left, &leg_upper_left, &leg_under_left, &foot_pitch_left, &foot_roll_left };
-
-        this->link_set = {
+    //     &arm_pitch_left, &arm_roll_left, &hand_left };
+    
+    this->link_set = {
         &arm_pitch_right, &arm_roll_right, &hand_right,
-        &arm_pitch_left, &arm_roll_left, &hand_left};
+        &arm_pitch_left, &arm_roll_left, &hand_left,
+        &leg_yaw_right, &leg_roll_right, &leg_upper_right, &leg_under_right, &foot_pitch_right, &foot_roll_right,
+        &leg_yaw_left, &leg_roll_left, &leg_upper_left, &leg_under_left, &foot_pitch_left, &foot_roll_left };
 }

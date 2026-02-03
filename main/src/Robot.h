@@ -8,7 +8,7 @@
 
 #define CTRL_CYCLE 10 // ms
 // #define LINK_SIZE 1 // for board test
-#define LINK_SIZE 6
+#define LINK_SIZE 18
 using std::vector;
 using std::array;
 

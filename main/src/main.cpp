@@ -20,6 +20,12 @@ IcsHardSerialClass krs2(&Serial2, RobotEN2, BAUDRATE, TIMEOUT, RobotRX2, RobotTX
 // robot control object
 Robot Eglantyne;
 
+double angle = 0;
+array<float, LINK_SIZE> pos = {0,20*3.14159/180,0,
+                               0,20*3.14159/180,0,
+                               0,0,45*3.14159/180,90*3.14159/180,45*3.14159/180,0,
+                               0,0,45*3.14159/180,90*3.14159/180,45*3.14159/180,0};
+
 void setup(){
     neopixelWrite(RGB_BUILTIN, 255, 0, 0);
 
@@ -52,16 +58,11 @@ void setup(){
     neopixelWrite(RGB_BUILTIN, 0, 0, 255);
 }
 
-double angle = 0;
-array<float, LINK_SIZE> pos;
-array<float, LINK_SIZE> current;
-
 void loop(){
-    // pos[0] = -0.5;
-    // Eglantyne.move_all(pos);
-    // delay(1000);
-    // current = Eglantyne.current();
-    // Serial.print("Current pos: ");
-    // Serial.println(current[0]);
+    Eglantyne.move_all(pos);
+    Serial.println("to pos");
     delay(1000);
+    Eglantyne.move_all(Eglantyne.home());
+    delay(1000);
+    Serial.println("to home");
 }

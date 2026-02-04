@@ -31,6 +31,11 @@ public:
     void move_all(array<float, LINK_SIZE> motion);
     void move_link(int id, float q_order);
 
+    void move_arm_right(array<float, 3> motion);
+    void move_arm_left(array<float, 3> motion);
+    void move_leg_right(array<float, 6> motion);
+    void move_leg_left(array<float, 6> motion);
+
 private:
     // serial
     IcsHardSerialClass* serial1;

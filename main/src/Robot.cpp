@@ -60,3 +60,16 @@ void Robot::move_all(array<float, LINK_SIZE> motion){
 void Robot::move_link(int id, float q_order){
         link_set[id]->move(q_order);
 }
+
+void Robot::move_arm_right(array<float, 3> motion){
+    for(int id=0; id<3; id++){link_arm_right[id]->move(motion[id]);}
+}
+void Robot::move_arm_left(array<float, 3> motion){
+    for(int id=3; id<6; id++){link_arm_left[id]->move(motion[id]);}
+}
+void Robot::move_leg_right(array<float, 6> motion){
+    for(int id=6; id<12; id++){link_leg_right[id]->move(motion[id]);}
+}
+void Robot::move_leg_left(array<float, 6> motion){
+    for(int id=12; id<18; id++){link_leg_left[id]->move(motion[id]);}
+}

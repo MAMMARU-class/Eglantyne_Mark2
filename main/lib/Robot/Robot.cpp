@@ -62,14 +62,34 @@ void Robot::move_link(int id, float q_order){
 }
 
 void Robot::move_arm_right(array<float, 3> motion){
-    for(int id=0; id<3; id++){link_arm_right[id]->move(motion[id]);}
+    for(int id=0; id<3; id++){
+        link_set[id+0]->move(motion[id]);
+    }
 }
 void Robot::move_arm_left(array<float, 3> motion){
-    for(int id=3; id<6; id++){link_arm_left[id]->move(motion[id]);}
+    for(int id=0; id<3; id++){
+        link_set[id+3]->move(motion[id]);
+    }
 }
 void Robot::move_leg_right(array<float, 6> motion){
-    for(int id=6; id<12; id++){link_leg_right[id]->move(motion[id]);}
+    for(int id=0; id<6; id++){
+        link_set[id+6]->move(motion[id]);
+    }
 }
 void Robot::move_leg_left(array<float, 6> motion){
-    for(int id=12; id<18; id++){link_leg_left[id]->move(motion[id]);}
+    for(int id=0; id<6; id++){
+        link_set[id+12]->move(motion[id]);
+    }
+}
+
+void Robot::move_leg_ik(array<float, 3> foot2com, float theta, float phi, bool is_right){
+    array<float, 6> angles;
+    if(phi == 0.0f){
+        angles = this->leg_ik_solver_phi_zero(foot2com, theta, is_right);
+    }else{
+        angles = {0};
+    }
+
+    if (is_right){ this->move_leg_right(angles);
+    }else{ this->move_leg_left(angles); }
 }

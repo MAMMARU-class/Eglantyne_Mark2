@@ -27,13 +27,13 @@ void Robot::setLink(){
     leg_roll_right.setInitialPositions(9000, 0.0, 0,0);
     leg_roll_right.setMotor(serial2, 2, REVERSE);
 
-    leg_upper_right.setInitialPositions(9850, 0.7953, 0,0);
+    leg_upper_right.setInitialPositions(9850, 0.5775, 0,0);
     leg_upper_right.setMotor(serial2, 3, REVERSE);
 
-    leg_under_right.setInitialPositions(4200, 1.8852, 0,0);
+    leg_under_right.setInitialPositions(4200, 1.2833, 0,0);
     leg_under_right.setMotor(serial2, 4, FORWARD);
 
-    foot_pitch_right.setInitialPositions(5890, 0.4611, 0,0);
+    foot_pitch_right.setInitialPositions(5890, 0.7058, 0,0);
     foot_pitch_right.setMotor(serial2, 5, FORWARD);
 
     foot_roll_right.setInitialPositions(7600, 0.0, 0,0);
@@ -46,13 +46,13 @@ void Robot::setLink(){
     leg_roll_left.setInitialPositions(8330, 0.0, 0,0);
     leg_roll_left.setMotor(serial2, 8, FORWARD);
 
-    leg_upper_left.setInitialPositions(9750, 0.5236, 0,0);
+    leg_upper_left.setInitialPositions(9750, 0.5775, 0,0);
     leg_upper_left.setMotor(serial2, 9, REVERSE);
 
-    leg_under_left.setInitialPositions(4320, 1.0472, 0,0);
+    leg_under_left.setInitialPositions(4320, 1.2833, 0,0);
     leg_under_left.setMotor(serial2, 10, FORWARD);
 
-    foot_pitch_left.setInitialPositions(6090, 0.5236, 0,0);
+    foot_pitch_left.setInitialPositions(6090, 0.7058, 0,0);
     foot_pitch_left.setMotor(serial2, 11, FORWARD);
 
     foot_roll_left.setInitialPositions(7400, 0.0 ,0,0);

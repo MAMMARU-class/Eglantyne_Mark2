@@ -36,7 +36,27 @@ public:
     void move_leg_right(array<float, 6> motion);
     void move_leg_left(array<float, 6> motion);
 
+    // calculation
+    void move_leg_ik(array<float, 3> foot2com, float theta, float phi, bool is_right);
+
+    // Inverse Kinematics (foot2com: (x,y,z)[m], theta: foot_rotation[rad], is_right: bool)
+    array<float, 6> leg_ik_solver_phi_zero(array<float, 3> foot2com, float theta, bool is_right);
+
 private:
+    // link length [mm]
+    float l_pivot2com = 70;
+    float l_com_z = -52.2;
+    float l_com_y = 30;
+
+    float l_base_roll = 22.2;
+    float l_roll2pitch = 26.01;
+    float l_leg = 78.02;
+
+    float l_roll_com = l_com_z + l_base_roll;
+
+    float l_foot_z = 37.5;
+    float l_foot_x = 8.0;
+
     // serial
     IcsHardSerialClass* serial1;
     IcsHardSerialClass* serial2;

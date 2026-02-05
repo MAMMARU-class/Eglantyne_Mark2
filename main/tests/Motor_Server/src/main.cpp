@@ -3,6 +3,10 @@
 #include <IcsBaseClass.h>
 #include <IcsHardSerialClass.h>
 
+// multicore setting
+TaskHandle_t thp[1];
+void Core0a(void *args);
+
 // connection settings
 const char ssid[] = "Eglantyne";
 const char pass[] = "Eglantyne";
@@ -15,7 +19,7 @@ const unsigned long PING_INTERVAL = 1000;
 const unsigned long TIMEOUT = 5000;
 
 // motor settings
-#define ICS_BAUDRATE 115200
+#define ICS_BAUDRATE 1250000
 #define ICS_TIMEOUT 10
 
 #define myEN1 16
@@ -27,6 +31,9 @@ IcsHardSerialClass krs1(&Serial1, myEN1, ICS_BAUDRATE, ICS_TIMEOUT, myRX1, myTX1
 void handle_conne();
 
 void setup() {
+    // multicore init
+    xTaskCreatePinnedToCore(Core0a, "Core0a", 10000, NULL, 1, &thp[0], 0);
+
     Serial.begin(115200);
     digitalWrite(LED_BUILTIN, LOW);
 
@@ -45,6 +52,8 @@ void setup() {
     krs1.begin();
 }
 
+int angle = 0;
+
 unsigned long lastPing = 0;
 unsigned long lastReply = 0;
 void loop() {
@@ -57,13 +66,20 @@ void loop() {
         Serial.print("Received: ");
         Serial.println(msg);
 
-        krs1.setPos(1, msg.toInt());
+        angle = msg.toInt();
     }
 
     // send ping
     if (millis() - lastPing > PING_INTERVAL){
         client.println("ping");
         lastPing = millis();
+    }
+}
+
+void Core0a(void *args){
+    while(1){
+        krs1.setPos(1, angle);
+        delay(10);
     }
 }
 

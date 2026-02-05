@@ -37,6 +37,9 @@ void setup() {
     analogSetAttenuation(ADC_11db);  // 0–3.3V
 }
 
+int value = analog_min;
+int a = 200;
+
 void loop() {
     // ensure connection
     handle_WiFi();
@@ -52,11 +55,18 @@ void loop() {
         }
     }
 
-    int value = analogRead(ANALOG_PIN);
-    int mapped = map(value, analog_min, analog_max, servo_min, servo_max);
+    // int value = analogRead(ANALOG_PIN);
+    if (value > analog_max) {
+        a = -20;
+    }else if (value < analog_min) {
+        a = 20;
+    }
+    value += a;
+
+    int mapped = map(value, analog_min-200, analog_max+200, servo_min, servo_max);
     client.println(mapped);
     // Serial.printf("Analog: %d, Servo: %d\n", value, mapped);
-    delay(10);
+    delay(100);
 }
 
 void handle_WiFi(){

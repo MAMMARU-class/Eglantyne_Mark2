@@ -40,7 +40,7 @@ array<float, 6> Robot::leg_ik_solver_phi_zero(array<float, 3> foot2com, float th
     float arctan_x =
         com_z - (l_roll_com + l_foot_z + l_roll2pitch * cos(alpha));
     float arctan_y =
-        foot2leg_yaw_x - l_foot_x;
+        -foot2leg_yaw_x - l_foot_x;
 
     float beta = atan2(arctan_y, arctan_x);
 

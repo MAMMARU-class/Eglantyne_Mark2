@@ -52,18 +52,19 @@ void setup(){
     neopixelWrite(RGB_BUILTIN, 0, 0, 255);
 }
 
-array<float, 3> foot2com_right = {0.05, 0.04, 0.138};
-array<float, 3> foot2com_left = {0.0, -0.03, 0.138};
+array<float, 3> foot2com_right = {0.0, 0.06, 0.118};
+array<float, 3> foot2com_left = {0.0, -0.06, 0.118};
 float theta = 0.0;
-float a = 0.001;
+float a = 0.05;
 
 void loop(){
     // move legs with IK
     Eglantyne.move_leg_ik(foot2com_right, theta, 0.0, true);
+    Eglantyne.move_leg_ik(foot2com_left, theta, 0.0, false);
 
     theta += a;
-    if(theta > 0.2){a = -0.001;}
-    else if (theta < -0.2){a = 0.001;}
-
+    if(theta > 0.9){a = -0.05;}
+    else if (theta < -0.9){a = 0.05;}
+    
     delay(10);
 }

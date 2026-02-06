@@ -1,6 +1,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include "logo.h"
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
@@ -18,8 +19,23 @@ void testdrawchar(uint8_t offset = 0) {
     display.setTextColor(SSD1306_WHITE); // Draw white text
     display.setCursor(0, 0);             // Start at top-left corner
     display.cp437(true);                 // Use full 256 char 'Code Page 437' font
-    for (uint8_t i = 0; i < 170; i++)
-        display.write((uint8_t)((i + offset) % 26 + 65));// 65:A to 90:Z
+    display.write("preparing ");
+    for(int i=0; i<10; i++){
+        display.write(".");
+        display.display();
+        delay(300);
+    }
+    
+    display.clearDisplay();
+    display.display();
+
+    // draw Logo
+    display.drawBitmap(
+        (128 - 58)/2, 0,
+        epd_bitmap_LOGO,
+        58, 64,
+        SSD1306_WHITE
+    );
     display.display();
 }
 

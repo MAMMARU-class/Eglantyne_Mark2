@@ -26,14 +26,9 @@ const unsigned long TIMEOUT = 5000;
 #define myTX1 17
 #define myRX1 18
 
-IcsHardSerialClass krs1(&Serial1, myEN1, ICS_BAUDRATE, ICS_TIMEOUT, myRX1, myTX1);
-
 void handle_conne();
 
 void setup() {
-    // multicore init
-    xTaskCreatePinnedToCore(Core0a, "Core0a", 10000, NULL, 1, &thp[0], 0);
-
     Serial.begin(115200);
     digitalWrite(LED_BUILTIN, LOW);
 
@@ -67,19 +62,13 @@ void loop() {
         Serial.println(msg);
 
         angle = msg.toInt();
+        krs1.setPos(1, angle);
     }
 
     // send ping
     if (millis() - lastPing > PING_INTERVAL){
         client.println("ping");
         lastPing = millis();
-    }
-}
-
-void Core0a(void *args){
-    while(1){
-        krs1.setPos(1, angle);
-        delay(10);
     }
 }
 

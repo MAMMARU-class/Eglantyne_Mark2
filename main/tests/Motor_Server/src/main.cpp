@@ -17,7 +17,7 @@ WiFiClient client;
 
 const unsigned long PING_INTERVAL = 1000;
 const unsigned long TIMEOUT = 5000;
-
+code 
 // motor settings
 #define ICS_BAUDRATE 1250000
 #define ICS_TIMEOUT 10

@@ -4,17 +4,17 @@ void Robot::setLink(){
     arm_pitch_right.setInitialPositions(9470, 0.0 ,0,0);
     arm_pitch_right.setMotor(serial1, 1, REVERSE);
 
-    arm_roll_right.setInitialPositions(10420, 30.0 * 3.14/180 ,0,0);
+    arm_roll_right.setInitialPositions(10070, 00.0 * 3.14/180 ,0,0);
     arm_roll_right.setMotor(serial1, 2, REVERSE);
 
     hand_right.setInitialPositions(5700, 0.0 ,0,0);
     hand_right.setMotor(serial1, 3, FORWARD);
 
 
-    arm_pitch_left.setInitialPositions(5930, 0.0, 0,0);
+    arm_pitch_left.setInitialPositions(5430, 0.0, 0,0);
     arm_pitch_left.setMotor(serial1, 4, FORWARD);
 
-    arm_roll_left.setInitialPositions(10300, 30.0 * 3.14/180, 0,0);
+    arm_roll_left.setInitialPositions(10050, 00.0 * 3.14/180, 0,0);
     arm_roll_left.setMotor(serial1, 5, REVERSE);
 
     hand_left.setInitialPositions(6350, 0.0 ,0,0);

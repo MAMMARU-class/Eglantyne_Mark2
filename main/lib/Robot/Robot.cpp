@@ -93,3 +93,14 @@ void Robot::move_leg_ik(array<float, 3> foot2com, float theta, float phi, bool i
     if (is_right){ this->move_leg_right(angles);
     }else{ this->move_leg_left(angles); }
 }
+
+void Robot::free_upper(){
+    for(int id=0; id<6; id++){
+        link_set[id]->getq_current();
+    }
+}
+void Robot::free_all(){
+    for(int id=0; id<LINK_SIZE; id++){
+        link_set[id]->getq_current();
+    }
+}

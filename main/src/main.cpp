@@ -33,48 +33,45 @@ void setup(){
     Serial.println("Eglantyne Mark2 initializing...");
     delay(100);
 
-    krs1.begin();
-    krs2.begin();
-    Serial.println("Serials begin");
+    // Eglantyne initializations
+    // krs1.begin();
+    // krs2.begin();
+    // Serial.println("Serials begin");
 
-    // init robot
-    Eglantyne.setSerial(&krs1, &krs2);
-    Eglantyne.setLink();
-    Serial.println("Eglantyne Mark2 prepared");
+    // // init robot
+    // Eglantyne.setSerial(&krs1, &krs2);
+    // Eglantyne.setLink();
+    // Serial.println("Eglantyne Mark2 prepared");
 
-    array<float, LINK_SIZE> home = Eglantyne.home();
-    Serial.print("Home pos: ");
-    Serial.println(home[0]);
-    array<float, LINK_SIZE> current = Eglantyne.current();
-    Serial.print("Current pos: ");
-    Serial.println(current[0]);
-    
-    Eglantyne.init_home(1);
+    // Eglantyne.current();
+    // delay(100);
+    // Eglantyne.init_home(1);
     
     neopixelWrite(RGB_BUILTIN, 0, 0, 255);
 
     // esp now and upper body control task (core 0)
-    connection_init(&Eglantyne);
-    xTaskCreatePinnedToCore(
-        Core0Task,
-        "Core0Task",
-        8192,
-        NULL,
-        1,
-        NULL,
-        0 // core 0
-    );
+    // connection_init(&Eglantyne);
+    // xTaskCreatePinnedToCore(
+    //     Core0Task,
+    //     "Core0Task",
+    //     8192,
+    //     NULL,
+    //     1,
+    //     NULL,
+    //     0 // core 0
+    // );
 
     // lower body control task (core 1)
-    // xTaskCreatePinnedToCore(
-    //     Core1Task,
-    //     "Core1Task",
-    //     8192,
-    //     &Eglantyne,
-    //     configMAX_PRIORITIES+1, // max priority
-    //     NULL,
-    //     1 // core 1
-    // );
+    lower_body_control_init(&Eglantyne);
+    xTaskCreatePinnedToCore(
+        Core1Task,
+        "Core1Task",
+        8192,
+        NULL,
+        configMAX_PRIORITIES+1, // max priority
+        NULL,
+        1 // core 1
+    );
 }
 
 array<float, 3> foot2com_right = {0.0, 0.06, 0.118};
@@ -84,12 +81,12 @@ float a = 0.05;
 
 void loop(){
     // move legs with IK
-    Eglantyne.move_leg_ik(foot2com_right, theta, 0.0, true);
-    Eglantyne.move_leg_ik(foot2com_left, theta, 0.0, false);
+    // Eglantyne.move_leg_ik(foot2com_right, theta, 0.0, true);
+    // Eglantyne.move_leg_ik(foot2com_left, theta, 0.0, false);
 
-    theta += a;
-    if(theta > 0.9){a = -0.05;}
-    else if (theta < -0.9){a = 0.05;}
+    // theta += a;
+    // if(theta > 0.9){a = -0.05;}
+    // else if (theta < -0.9){a = 0.05;}
     
-    delay(10);
+    delay(100);
 }

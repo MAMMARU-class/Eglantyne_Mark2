@@ -39,6 +39,10 @@ public:
     // calculation
     void move_leg_ik(array<float, 3> foot2com, float theta, float phi, bool is_right);
 
+    // free motors
+    void free_upper();
+    void free_all();
+
     // Inverse Kinematics (foot2com: (x,y,z)[m], theta: foot_rotation[rad], is_right: bool)
     array<float, 6> leg_ik_solver_phi_zero(array<float, 3> foot2com, float theta, bool is_right);
 

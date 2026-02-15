@@ -5,12 +5,12 @@ GaitController::GaitController(){}
 
 void GaitController::init_param_walk(){
     model.set_z0(0.158f);
-    model.set_z_flight(0.03f);
-    model.set_foot_dist_y_base(0.03f);
+    model.set_z_flight(0.01f);
+    model.set_foot_dist_y_base(0.04f);
     model.set_foot_dist_x_max(0.12f);
-    model.set_T_sup_base(0.6f);
+    model.set_T_sup_base(0.2f);
     model.set_T_sup_min(0.3f);
-    model.set_fb_gain(0.003f, 0.0003f, 0.003f, 0.0003f);
+    model.set_fb_gain(0.003, 0.0003f, 0.003, 0.0003);
     model.calculate_initial_params();
 
     this->pivot = Pivot::LEFT;
@@ -26,7 +26,7 @@ void GaitController::init_param_walk(){
     this->cvn_m1_start = {0.0f, model.calc_basic_unpassing_com_vel(-this->pn[1], this->T_sup)};
     this->cvn_start = model.calc_LIP_v(this->T_sup, {-this->pn[0], -this->pn[1]}, this->cvn_m1_start);
 
-    this->ds_ratio = 0.2f;
+    this->ds_ratio = 0.3f;
     this->body_angle = 0.0f;
 }
 
@@ -233,8 +233,8 @@ void GaitController::init_single_0(){
     swing_com_0 = model.rotate_vec(swing_com_0, this->body_angle);
 
     array<float, 2> pivot_com_half = model.calc_LIP_p(T_sup*0.5f, {-pn[0], -pn[1]}, this->cvn_start);
-    float pivot_com_diff_y = pivot_com_half[1] - this->single_start_com[1]
-    swing_com_half = {0.0f, swing_com_0[1] + pivot_com_half};
+    float pivot_com_diff_y = pivot_com_half[1] - this->single_start_com[1];
+    swing_com_half = {0.0f, swing_com_0[1] + pivot_com_diff_y};
 }
 void GaitController::init_single_half(){
     array<float, 2> single_last_com = this->model.calc_LIP_p(

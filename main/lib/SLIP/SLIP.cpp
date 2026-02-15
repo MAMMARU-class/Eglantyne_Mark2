@@ -137,8 +137,7 @@ array<float, 2> SLIP::foot_pos_pd(array<float, 2> cvn_last,
     p_base[1] = calc_basic_unpassing_foot_pos(cvn_last[1], T_sup);
 
     float px = p_base[0] - kxp * err[0] - kxd * derr[0];
-    float py = p_base[1]
-             - (kyp * err[1] + kyd * derr[1]) * p_base[1] / std::abs(p_base[1]);
+    float py = p_base[1] - ( kyp * err[1] + kyd * derr[1]) * p_base[1] / std::abs(p_base[1]);
 
     return {px, py};
 }
@@ -210,14 +209,15 @@ array<float, 2> SLIP::calc_com_z(float t, float T_sup, float ds_ratio){
     float T_ss = T_sup * (1.0f - ds_ratio);
 
     // float z = this->z0 + std::cos(2*M_PI*t/T_ss)*T_sup/40.0f - T_sup/40.0f;
-    float z = this->z0 + std::cos(2*M_PI*t/T_ss)*T_sup/100.0f - T_sup/100.0f;
+    float z = this->z0 + std::cos(2*M_PI*t/T_ss)*0.3/100.0f - 0.3/100.0f;
 
     float zh;
-    if (t < T_ss/2){
-        zh = std::sin(M_PI*t/T_ss) * this->z_flight;
-    } else {
-        zh = std::cos(2*M_PI*(t - T_ss/2)/T_ss) * this->z_flight/2.0f + this->z_flight/2.0f;
-    }
+    // if (t < T_ss/2){
+    //     zh = std::sin(M_PI*t/T_ss) * this->z_flight;
+    // } else {
+    //     zh = std::cos(2*M_PI*(t - T_ss/2)/T_ss) * this->z_flight/2.0f + this->z_flight/2.0f;
+    // }
+    zh = std::sin(M_PI*t/T_ss) * this->z_flight;
 
     return {z, z - zh};
 }

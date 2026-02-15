@@ -1,6 +1,6 @@
 #include "lower_body.h"
 
-static array<float, 3> vd = {0.3f, 0.0f, 0.0f};
+static array<float, 3> vd = {0.15f, 0.0f, 0.0f};
 
 static Mode mode = Mode::WALK;
 
@@ -53,8 +53,8 @@ void Core1Task(void * parameter){
                 Serial.print("com right: "); Serial.print(leg_right_com[0], 4); Serial.print(", "); Serial.print(leg_right_com[1], 4); Serial.print(", "); Serial.println(leg_right_com[2], 4);
                 // Serial.print("com left: ");  Serial.print(leg_left_com[0]); Serial.print(", "); Serial.print(leg_left_com[1]); Serial.print(", "); Serial.println(leg_left_com[2]);
 
-                // robot->move_leg_ik(leg_right_com, com_pos[0][3], 0.0, true);
-                // robot->move_leg_ik(leg_left_com, com_pos[1][3], 0.0, false);
+                robot->move_leg_ik(leg_right_com, com_pos[0][3], 0.0, true);
+                robot->move_leg_ik(leg_left_com, com_pos[1][3], 0.0, false);
 
                 phase_count++;
                 if (phase_count == phase_length){
@@ -90,8 +90,8 @@ void Core1Task(void * parameter){
                 Serial.print("com right: "); Serial.print(leg_right_com[0], 4); Serial.print(", "); Serial.print(leg_right_com[1], 4); Serial.print(", "); Serial.println(leg_right_com[2], 4);
                 // Serial.print("com left: ");  Serial.print(leg_left_com[0]); Serial.print(", "); Serial.print(leg_left_com[1]); Serial.print(", "); Serial.println(leg_left_com[2]);
 
-                // robot->move_leg_ik(leg_right_com, com_pos_single[0][3], 0.0, true);
-                // robot->move_leg_ik(leg_left_com, com_pos_single[1][3], 0.0, false);
+                robot->move_leg_ik(leg_right_com, com_pos_single[0][3], 0.0, true);
+                robot->move_leg_ik(leg_left_com, com_pos_single[1][3], 0.0, false);
 
                 phase_count++;
                 if (phase_count == phase_length){
@@ -117,8 +117,8 @@ void Core1Task(void * parameter){
                 Serial.print("com right: "); Serial.print(leg_right_com[0], 4); Serial.print(", "); Serial.print(leg_right_com[1], 4); Serial.print(", "); Serial.println(leg_right_com[2], 4);
                 // Serial.print("com left: ");  Serial.print(leg_left_com[0]); Serial.print(", "); Serial.print(leg_left_com[1]); Serial.print(", "); Serial.println(leg_left_com[2]);
 
-                // robot->move_leg_ik(leg_right_com, com_pos_double[0][3], 0.0, true);
-                // robot->move_leg_ik(leg_left_com, com_pos_double[1][3], 0.0, false);
+                robot->move_leg_ik(leg_right_com, com_pos_double[0][3], 0.0, true);
+                robot->move_leg_ik(leg_left_com, com_pos_double[1][3], 0.0, false);
 
                 phase_count++;
                 if (phase_count == phase_length){
@@ -135,6 +135,6 @@ void Core1Task(void * parameter){
                 break;
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(50000 / CTRL_STEP));
+        vTaskDelay(pdMS_TO_TICKS(1000 / CTRL_STEP));
     }
 }

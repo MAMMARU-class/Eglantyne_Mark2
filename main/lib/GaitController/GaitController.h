@@ -37,7 +37,7 @@ public:
 
     // update state variables
     void init_state_variables();
-    void update_state_variables(array<float, 3> vd);
+    void update_state_variables(array<float, 3> vd, array<float, 2> foot_pos_fb);
 
     // update gait trajectory param
     void init_start();

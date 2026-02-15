@@ -11,16 +11,19 @@ static Phase phase_next;
 static int phase_length;
 static int phase_count;
 
+// other classees
 static Robot* robot;
 GaitController controller;
+SensorFB sensor;
 
 void lower_body_control_init(Robot* r){
     robot = r;
+    sensor.init();
     Serial.println("Lower body control initialized");
 }
 
-void update_vel(){
-    vd = vd;
+array<float, 3> update_vel(array<float, 3> vd){
+    return vd;
 }
 
 void init_phase(Mode next_mode, Phase next_phase, float next_phase_time){
@@ -36,6 +39,11 @@ Phase update_phase(){
 
 void Core1Task(void * parameter){
     while(1) {
+        vd = update_vel(vd);
+        vd = sensor.vd_fb(vd);
+
+        array<array<float, 5>, 2> com_pos;
+
         switch (phase){
             case Phase::START:{
                 if (phase_count == 0){
@@ -45,17 +53,9 @@ void Core1Task(void * parameter){
                     float T_ds = controller.get_T_sup() * controller.get_ds_ratio() * 0.5f;
                     phase_length = T_ds * CTRL_STEP;
                 }
+                com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP);
 
-                array<array<float, 5>, 2> com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP);
-                array<float, 3> leg_right_com = {com_pos[0][0], com_pos[0][1], com_pos[0][2]};
-                array<float, 3> leg_left_com = {com_pos[1][0], com_pos[1][1], com_pos[1][2]};
-
-                Serial.print("com right: "); Serial.print(leg_right_com[0], 4); Serial.print(", "); Serial.print(leg_right_com[1], 4); Serial.print(", "); Serial.println(leg_right_com[2], 4);
-                // Serial.print("com left: ");  Serial.print(leg_left_com[0]); Serial.print(", "); Serial.print(leg_left_com[1]); Serial.print(", "); Serial.println(leg_left_com[2]);
-
-                robot->move_leg_ik(leg_right_com, com_pos[0][3], 0.0, true);
-                robot->move_leg_ik(leg_left_com, com_pos[1][3], 0.0, false);
-
+                // phase transition
                 phase_count++;
                 if (phase_count == phase_length){
                     init_phase(
@@ -76,23 +76,17 @@ void Core1Task(void * parameter){
                     Serial.println("phase: SINGLE");
                     controller.init_single_0();
                 }
-                if (phase_count == int(phase_length/2)){
-                    update_vel();
-                    controller.update_state_variables(vd);
+                if (phase_count == int(phase_length/2)){             
+                    // sensor feedback
+                    array<float, 2> foot_pos_fb = sensor.foot_pos_fb();
+                    // update state variables in gait controller
+                    controller.update_state_variables(vd, foot_pos_fb);
                     controller.init_single_half();
                     phase_next = update_phase();
                 }
+                com_pos = controller.calc_com_traj_single(phase_count / (float)CTRL_STEP);
 
-                array<array<float, 5>, 2> com_pos_single = controller.calc_com_traj_single(phase_count / (float)CTRL_STEP);
-                array<float, 3> leg_right_com = {com_pos_single[0][0], com_pos_single[0][1], com_pos_single[0][2]};
-                array<float, 3> leg_left_com = {com_pos_single[1][0], com_pos_single[1][1], com_pos_single[1][2]};
-
-                Serial.print("com right: "); Serial.print(leg_right_com[0], 4); Serial.print(", "); Serial.print(leg_right_com[1], 4); Serial.print(", "); Serial.println(leg_right_com[2], 4);
-                // Serial.print("com left: ");  Serial.print(leg_left_com[0]); Serial.print(", "); Serial.print(leg_left_com[1]); Serial.print(", "); Serial.println(leg_left_com[2]);
-
-                robot->move_leg_ik(leg_right_com, com_pos_single[0][3], 0.0, true);
-                robot->move_leg_ik(leg_left_com, com_pos_single[1][3], 0.0, false);
-
+                // phase transition
                 phase_count++;
                 if (phase_count == phase_length){
                     init_phase(
@@ -110,16 +104,9 @@ void Core1Task(void * parameter){
                     controller.inverse_pivot();
                     controller.init_state_variables();
                 }
-                array<array<float, 5>, 2> com_pos_double = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP);
-                array<float, 3> leg_right_com = {com_pos_double[0][0], com_pos_double[0][1], com_pos_double[0][2]};
-                array<float, 3> leg_left_com = {com_pos_double[1][0], com_pos_double[1][1], com_pos_double[1][2]};
-                
-                Serial.print("com right: "); Serial.print(leg_right_com[0], 4); Serial.print(", "); Serial.print(leg_right_com[1], 4); Serial.print(", "); Serial.println(leg_right_com[2], 4);
-                // Serial.print("com left: ");  Serial.print(leg_left_com[0]); Serial.print(", "); Serial.print(leg_left_com[1]); Serial.print(", "); Serial.println(leg_left_com[2]);
+                array<array<float, 5>, 2> com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP);
 
-                robot->move_leg_ik(leg_right_com, com_pos_double[0][3], 0.0, true);
-                robot->move_leg_ik(leg_left_com, com_pos_double[1][3], 0.0, false);
-
+                // phase transition
                 phase_count++;
                 if (phase_count == phase_length){
                     init_phase(
@@ -135,6 +122,23 @@ void Core1Task(void * parameter){
                 break;
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(1000 / CTRL_STEP));
+
+        // sensor feedback
+        sensor.update();
+        array<float, 2> com_pos_fb = sensor.com_pos_fb();
+        float delay_duration = sensor.acc_delay_duration_fb(CTRL_STEP);
+        
+        // move robot
+        array<float, 3> leg_right_com = {com_pos[0][0], com_pos[0][1], com_pos[0][2]};
+        array<float, 3> leg_left_com = {com_pos[1][0], com_pos[1][1], com_pos[1][2]};
+
+        Serial.print("com right: "); Serial.print(leg_right_com[0], 4); Serial.print(", "); Serial.print(leg_right_com[1], 4); Serial.print(", "); Serial.println(leg_right_com[2], 4);
+        Serial.print("com left: ");  Serial.print(leg_left_com[0]); Serial.print(", "); Serial.print(leg_left_com[1]); Serial.print(", "); Serial.println(leg_left_com[2]);
+
+        robot->move_leg_ik(leg_right_com, com_pos[0][3], 0.0, true);
+        robot->move_leg_ik(leg_left_com, com_pos[1][3], 0.0, false);
+
+        // delay
+        vTaskDelay(pdMS_TO_TICKS(delay_duration));
     }
 }

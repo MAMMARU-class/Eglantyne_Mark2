@@ -128,7 +128,7 @@ void GaitController::init_state_variables()
     );
 }
 
-void GaitController::update_state_variables(array<float, 3> vd){
+void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> foot_pos_fb){
     // normalize control input
     vd = model.normalize_vel(vd);
     float v_mag = sqrt(vd[0]*vd[0] + vd[1]*vd[1]);

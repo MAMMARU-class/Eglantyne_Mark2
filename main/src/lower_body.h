@@ -1,5 +1,6 @@
 #include "Robot.h"
 #include "GaitController.h"
+#include "SensorFB.h"
 
 #define CTRL_STEP 100 //Hz
 

@@ -67,9 +67,9 @@ void onReceive(const uint8_t *mac_addr, const uint8_t *data, int len) {
         global_control_pkt.arm_left[1],
         global_control_pkt.arm_left[2]
     };
-    // robot->move_arm_right(arm_right);
-    // robot->move_arm_left(arm_left);
-    robot->free_upper();
+    robot->move_arm_right(arm_right);
+    robot->move_arm_left(arm_left);
+    // robot->free_upper();
 }
 
 // connection handling

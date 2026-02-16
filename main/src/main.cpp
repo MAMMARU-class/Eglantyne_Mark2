@@ -46,42 +46,52 @@ void setup(){
     Eglantyne.current();
     delay(100);
     Eglantyne.init_home(1);
-    // delay(1000);
-    
-    neopixelWrite(RGB_BUILTIN, 0, 0, 255);
 
-    // esp now and upper body control task (core 0)
-    // connection_init(&Eglantyne);
-    // xTaskCreatePinnedToCore(
-    //     Core0Task,
-    //     "Core0Task",
-    //     8192,
-    //     NULL,
-    //     1,
-    //     NULL,
-    //     0 // core 0
-    // );
-
-    // lower body control task (core 1)
+    // sub loop initializations
+    connection_init(&Eglantyne);
     lower_body_control_init(&Eglantyne);
+    neopixelWrite(RGB_BUILTIN, 0, 0, 255);
+    
+    // esp now and upper body control task (core 0)
     xTaskCreatePinnedToCore(
-        Core1Task,
-        "Core1Task",
+        Core0Task,
+        "Core0Task",
         8192,
         NULL,
-        configMAX_PRIORITIES+1, // max priority
+        1,
         NULL,
-        1 // core 1
+        0 // core 0
     );
+
+    // lower body control task (core 1)
+    // xTaskCreatePinnedToCore(
+    //     Core1Task,
+    //     "Core1Task",
+    //     8192,
+    //     NULL,
+    //     configMAX_PRIORITIES+1, // max priority
+    //     NULL,
+    //     1 // core 1
+    // );
 }
 
-array<float, 3> foot2com_right = {0.0, 0.03, 0.158};
-array<float, 3> foot2com_left = {0.0, -0.03, 0.158};
+array<float, 3> foot2com_right = {-0.02, 0.06, 0.148};
+array<float, 3> foot2com_left = {-0.02, -0.06, 0.148};
 float theta = 0.0;
 float height = 0.0;
 float a = 0.0005;
 
 void loop(){
+    float right_elbow = global_control_pkt.arm_right[2];
+    float left_elbow = global_control_pkt.arm_left[2];
+
+    float twist = (right_elbow * left_elbow) / (120.0*PI/180.0);
+    if (twist >= 0){
+        twist *= 90 * PI / 180.0f;
+    }else{
+        twist += 20 * PI / 180.0f;
+    }
+
     // array<float, 18> angles = Eglantyne.current();
     // Serial.println("Current angles:");
     // for (int i = 0; i < 18; i++){
@@ -90,12 +100,13 @@ void loop(){
     // move legs with IK
     // foot2com_right [2] = 0.158 + height;
     // foot2com_left [2] = 0.158 + height;
-    // Eglantyne.move_leg_ik(foot2com_right, 0.0, 0.0, true);
-    // Eglantyne.move_leg_ik(foot2com_left, 0.0, 0.0, false);
+    
+    Eglantyne.move_leg_ik(foot2com_right, 45.0 * PI / 180.0 + twist, 0.0, true);
+    Eglantyne.move_leg_ik(foot2com_left, -30.0 * PI / 180.0 + twist, 0.0, false);
 
     // height += a;
     // if(height > 0){a = -0.0005;}
     // else if (height < -0.05){a = 0.0005;}
     
-    delay(100);
+    delay(10);
 }

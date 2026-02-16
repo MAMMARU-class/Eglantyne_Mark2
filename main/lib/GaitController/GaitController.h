@@ -47,8 +47,8 @@ public:
     void init_double();
 
     // calculate trajectory for each steps
-    array<array<float, 5>, 2> calc_com_traj_single(float t);
-    array<array<float, 5>, 2> calc_com_traj_double(float t);
+    array<array<float, 5>, 3> calc_com_traj_single(float t);
+    array<array<float, 5>, 3> calc_com_traj_double(float t);
 
     // getters
     float get_T_sup(){ return this->T_sup; }

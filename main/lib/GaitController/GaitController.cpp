@@ -4,15 +4,19 @@
 GaitController::GaitController(){}
 
 void GaitController::init_param_walk(){
+    // initialize control parameters
     model.set_z0(0.158f);
     model.set_z_flight(0.01f);
     model.set_foot_dist_y_base(0.04f);
     model.set_foot_dist_x_max(0.12f);
     model.set_T_sup_base(0.2f);
     model.set_T_sup_min(0.3f);
-    model.set_fb_gain(0.003, 0.0003f, 0.003, 0.0003);
+    // model.set_fb_gain(0.003, 0.0003f, 0.003, 0.0003);
+    model.set_fb_gain(0.00001, 0.000001f, 0.00001, 0.000001);
     model.calculate_initial_params();
+    set_ds_ratio(0.3f);
 
+    // set initial pose
     this->pivot = Pivot::LEFT;
     this->cpn_start = {0.0f, this->pivot_sign(this->pivot) * model.get_foot_dist_y_base()};
 
@@ -26,7 +30,6 @@ void GaitController::init_param_walk(){
     this->cvn_m1_start = {0.0f, model.calc_basic_unpassing_com_vel(-this->pn[1], this->T_sup)};
     this->cvn_start = model.calc_LIP_v(this->T_sup, {-this->pn[0], -this->pn[1]}, this->cvn_m1_start);
 
-    this->ds_ratio = 0.3f;
     this->body_angle = 0.0f;
 }
 
@@ -148,6 +151,8 @@ void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> 
     this->cvn_last = model.calc_LIP_v(this->T_sup, {-this->pn[0], -this->pn[1]}, this->cvn_start);
     this->cvn_last = model.rotate_vec(this->cvn_last, -this->body_angle);
     this->pn_p1 = model.foot_pos_pd(this->cvn_last, this->cvn_start, vd, this->pn, this->T_sup_next);
+    this->pn_p1[0] += foot_pos_fb[0];
+    this->pn_p1[1] += foot_pos_fb[1];
 
     array<float, 2> cpn_last = model.calc_LIP_p(this->T_sup, {-this->pn[0], -this->pn[1]}, this->cvn_start);
     array<float, 2> pn_p1_rot = model.rotate_vec(this->pn_p1, this->body_angle);
@@ -253,7 +258,7 @@ void GaitController::init_single_half(){
 /* -------------------------
 calculate trajectory for each steps
 ---------------------------- */
-array<array<float, 5>, 2> GaitController::calc_com_traj_single(float t){
+array<array<float, 5>, 3> GaitController::calc_com_traj_single(float t){
     float T_ss = this->T_sup * (1.0f - this->ds_ratio);
 
     array<float, 2> com = model.calc_LIP_p(t + this->T_sup*this->ds_ratio/2, {-this->pn[0], -this->pn[1]}, this->cvn_start);
@@ -274,14 +279,18 @@ array<array<float, 5>, 2> GaitController::calc_com_traj_single(float t){
     array<float, 5> com_pivot = {com[0], com[1], com_z[0], this->pivot_leg_angle, 0};
     array<float, 5> com_else = {swing_com[0], swing_com[1], com_z[1], this->swing_leg_angle, 0};
 
+    // calculate com acceleration
+    float Tc = model.get_Tc();
+    array<float, 5> com_acc = {com[0]/(Tc*Tc), com[1]/(Tc*Tc), 0.0f, 0.0f, 0.0f};
+
     if(pivot == Pivot::RIGHT){
-        return {com_pivot, com_else};
+        return {com_pivot, com_else, com_acc};
     }else{
-        return {com_else, com_pivot};
+        return {com_else, com_pivot, com_acc};
     }
 }
 
-array<array<float, 5>, 2> GaitController::calc_com_traj_double(float t){
+array<array<float, 5>, 3> GaitController::calc_com_traj_double(float t){
     array<float, 2> com = model.calc_double_support_com_p(t);
     float com_z = model.get_z0();
 
@@ -290,9 +299,13 @@ array<array<float, 5>, 2> GaitController::calc_com_traj_double(float t){
     com_else_xy = model.rotate_vec(com_else_xy, this->body_angle);
     array<float, 5> com_else = {com_else_xy[0], com_else_xy[1], com_z, this->body_angle, 0};
 
+    // calculate com acceleration
+    array<float, 2> com_acc = model.calc_double_support_com_a(t);
+    array<float, 5> com_acc_5d = {com_acc[0], com_acc[1], 0.0f, 0.0f, 0.0f};
+
     if(pivot == Pivot::RIGHT){
-        return {com_pivot, com_else};
+        return {com_pivot, com_else, com_acc_5d};
     }else{
-        return {com_else, com_pivot};
+        return {com_else, com_pivot, com_acc_5d};
     }
 }

@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include <cmath>
 
-#define g 9.81 // m/s^2
-#define m 1.2 // kg
+#define G 9.81 // m/s^2
+#define M 1.2 // kg
 
 using std::array;
 
@@ -49,6 +49,7 @@ public:
     // double support spline
     void calc_double_support_coeff(float T_ds, array<float, 2> cpn_d_0, array<float, 2> cvn_d_0, array<float, 2> can_d_0, array<float, 2> cpn_d_T, array<float, 2> cvn_d_T, array<float, 2> can_d_T);
     array<float, 2> calc_double_support_com_p(float t);
+    array<float, 2> calc_double_support_com_a(float t);
 
     // z
     array<float, 2>calc_com_z(float t, float T_sup, float ds_ratio);

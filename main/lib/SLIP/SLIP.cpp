@@ -7,7 +7,7 @@ SLIP::SLIP(){}
  * initial params
  * ----------------------------- */
 void SLIP::calculate_initial_params(){
-    this->Tc = std::sqrt(z0 / g);
+    this->Tc = std::sqrt(z0 / G);
     this->v_mag_boarder = calc_basic_passing_com_vel(-1 * foot_dist_x_max, T_sup_base);
     this->v_mag_max     = calc_basic_passing_com_vel(-1 * foot_dist_x_max, T_sup_min);
 }
@@ -200,6 +200,17 @@ array<float, 2> SLIP::calc_double_support_com_p(float t){
         tt *= t;
     }
     return {x, y};
+}
+array<float, 2> SLIP::calc_double_support_com_a(float t){
+    float ax = 0.0f, ay = 0.0f;
+    float tt = 1.0f;
+
+    for (int i = 2; i < 6; i++){
+        ax += this->ds_coeff[0][i] * tt * i * (i-1);
+        ay += this->ds_coeff[1][i] * tt * i * (i-1);
+        tt *= t;
+    }
+    return {ax, ay};
 }
 
 /* -----------------------------

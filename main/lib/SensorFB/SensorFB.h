@@ -19,6 +19,9 @@ public:
     void update();
     void init_norm();
 
+    // state check
+    bool fall();
+
     // feedback
     // body inclination feedback
     array<float, 2> angle_com_pos_fb();

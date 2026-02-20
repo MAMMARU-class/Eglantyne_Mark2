@@ -45,6 +45,15 @@ void SensorFB::init_norm(){
     this->gyro_norm = this->gyro;
 }
 
+// state check
+bool fall(){
+    if(euler.y() > -20 && euler.y() < 20 && euler.z() > -20 && euler.z() < 20){
+        return false;
+    }else{
+        return true;
+    }
+}
+
 // feedback functions
 // body inclination feedback
 array<float, 2> SensorFB::angle_com_pos_fb(){

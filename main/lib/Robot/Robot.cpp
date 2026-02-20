@@ -100,6 +100,7 @@ void Robot::move_leg_left(array<float, 6> motion){
     }
 }
 
+// inverted kinematics
 void Robot::move_leg_ik(array<float, 3> foot2com, float theta, float phi, bool is_right){
     array<float, 6> angles;
     if(phi == 0.0f){
@@ -112,6 +113,37 @@ void Robot::move_leg_ik(array<float, 3> foot2com, float theta, float phi, bool i
     }else{ this->move_leg_left(angles); }
 }
 
+void Robot::move_leg_ik_t(array<float, 3> foot2com, float theta, float phi, bool is_right, float t){
+    array<float, LINK_SIZE> current = this->current();
+    array<float, 6> leg_current;
+    if(is_right){
+        leg_current = {current[6], current[7], current[8], current[9], current[10], current[11]};
+    }else{
+        leg_current = {current[12], current[13], current[14], current[15], current[16], current[17]};
+    }
+    array<float, 6> leg_goal = this->leg_ik_solver_phi_zero(foot2com, theta, is_right);
+
+    array<float, 6> diff;
+    for(int id=0; id<6; id++){
+        diff[id] = leg_goal[id] - leg_current[id];
+    }
+
+    int step = int(t/CTRL_CYCLE * 1000);
+    for(int i=0; i<=step; i++){
+        array<float, 6> motion;
+        for(int id=0; id<6; id++){
+            motion[id] = leg_current[id] + diff[id]*( (float)(i) ) / (float)(step);
+        }
+        if(is_right){
+            this->move_leg_right(motion);
+        }else{
+            this->move_leg_left(motion);
+        }
+        delay(CTRL_CYCLE);
+    }
+}
+
+// free
 void Robot::free_upper(){
     for(int id=0; id<6; id++){
         link_set[id]->getq_current();

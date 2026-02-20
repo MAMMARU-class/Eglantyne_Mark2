@@ -45,7 +45,7 @@ void Core1Task(void * parameter){
         // torque off order
         // fall check
         if(sensor.fall()){
-            
+            phse = Phase::FALL;
         }
 
         // vd update
@@ -135,6 +135,17 @@ void Core1Task(void * parameter){
 
             case Phase::FLIGHT:{
                 break;
+            }
+
+            case Phase::FALL:{
+                
+
+                // phase transition
+                init_phase(
+                    Mode::WAIT,
+                    Phase::WAKE,
+                    0,
+                )
             }
         }
 

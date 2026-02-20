@@ -18,7 +18,7 @@
 
 #define led 47
 
-#define SW 31
+#define SW 38
 
 #define SCL 4
 #define SDA 5

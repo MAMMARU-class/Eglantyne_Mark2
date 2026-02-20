@@ -42,6 +42,13 @@ Phase update_phase(){
 
 void Core1Task(void * parameter){
     while(1) {
+        // torque off order
+        // fall check
+        if(sensor.fall()){
+            
+        }
+
+        // vd update
         vd = update_vel(vd);
         // array<float, 3> vd_fb = sensor.vd_fb(vd);
         // vd[0] += vd_fb[0];

@@ -3,14 +3,16 @@
 #include "SD.h"
 #include "SPI.h"
 
-#define SDA 5
-#define SCL 4
+#define CS 10
+#define MOSI 11
+#define CLK 12
+#define MISO 13
 
 using std::array;
 
-class SD{
+class MotionSD{
 public:
-    SD()
+    MotionSD();
 
     void init();
 
@@ -21,6 +23,10 @@ public:
     array<float, 18> read_motion(
         const char* filename,
         size_t id);
+    
+    void delete_motion_file(const char* filename){
+        SD.remove(filename);
+    }
 
 private:
 

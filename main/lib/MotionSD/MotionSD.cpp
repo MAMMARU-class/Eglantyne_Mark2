@@ -1,9 +1,11 @@
-#include "SD.h"
+#include "MotionSD.h"
 
-SD::SD(){}
+MotionSD::MotionSD(){}
 
-void SD::init(){
-    if (!SD.begin()){
+void MotionSD::init(){
+    SPI.begin(CLK, MISO, MOSI, CS);
+    if (!SD.begin(CS)){
+        Serial.println("Failed to initialize MotionSD card");
         delay(100);
     }
 
@@ -13,17 +15,24 @@ void SD::init(){
         Serial.println("No SD card attached");
         return;
     }
+    Serial.println("MotionSD card initialized");
 }
 
-void SD::write_motion(
+void MotionSD::write_motion(
     const char* filename,
     array<float, 18> data
 ){
+    Serial.print("Writing: ");
+    for (const auto &v : data) {
+        Serial.print(v, 3); Serial.print(" ");
+    }
+    Serial.println();
+
     File file = SD.open(filename, FILE_APPEND);
     if (!file) return;
 
     for (size_t i = 0; i < 18; ++i) {
-        file.print(joint_angles[i], 6);
+        file.print(data[i], 6);
         if (i < 17) file.print(",");
     }
     file.println();
@@ -31,7 +40,7 @@ void SD::write_motion(
     file.close();
 }
 
-array<float, 18> SD::read_motion(
+array<float, 18> MotionSD::read_motion(
     const char* filename,
     size_t id)
 {
@@ -53,7 +62,7 @@ array<float, 18> SD::read_motion(
         size_t len = file.readBytesUntil('\n', buffer, sizeof(buffer) - 1);
         buffer[len] = '\0';
 
-        if (current_line == line_number) {
+        if (current_line == id) {
 
             char* token = strtok(buffer, ",");
             size_t index = 0;
@@ -75,5 +84,11 @@ array<float, 18> SD::read_motion(
     }
 
     file.close();
+
+    Serial.print("data: ");
+    for (const auto &v : result) {
+        Serial.print(v, 3); Serial.print(" ");
+    }
+    Serial.println();
     return result;
 }

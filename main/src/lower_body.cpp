@@ -138,14 +138,21 @@ void Core1Task(void * parameter){
             }
 
             case Phase::FALL:{
-                
+                free = true;
+                robot->move_leg_ik_t({0.0, 0.04, 0.09}, 0.0, 0.0, true, 0.6);
+                robot->move_leg_ik_t({0.0, -0.04, 0.09}, 0.0, 0.0, false, 0.6);
 
                 // phase transition
                 init_phase(
                     Mode::WAIT,
                     Phase::WAKE,
                     0,
-                )
+                );
+                break;
+            }
+
+            case Phase::WAKE:{
+                break;
             }
         }
 

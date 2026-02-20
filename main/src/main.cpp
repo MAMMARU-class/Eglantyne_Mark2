@@ -27,8 +27,9 @@ Robot Eglantyne;
 // SD card
 MotionSD sd;
 
-// controller info handle
+// glbal variables
 volatile ControlPacket global_control_pkt = {};
+bool free = false;
 
 void setup(){
     neopixelWrite(RGB_BUILTIN, 255, 0, 0);

@@ -31,6 +31,7 @@ public:
     void move_all(array<float, LINK_SIZE> motion);
     void move_all_t(array<float, LINK_SIZE> goal, float t);
     void move_link(int id, float q_order);
+    void move_link_t(int id, float q_order, float t);
 
     void move_arm_right(array<float, 3> motion);
     void move_arm_left(array<float, 3> motion);

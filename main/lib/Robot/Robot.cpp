@@ -78,6 +78,17 @@ void Robot::move_all_t(array<float, LINK_SIZE> goal, float t){
 void Robot::move_link(int id, float q_order){
         link_set[id]->move(q_order);
 }
+void Robot::move_link_t(int id, float q_order, float t){
+    float current = this->current_link(id);
+    float diff = q_order - current;
+
+    int step = int(t/CTRL_CYCLE * 1000);
+    for(int i=0; i<=step; i++){
+        float motion = current + diff*( (float)(i) ) / (float)(step);
+        this->move_link(id, motion);
+        delay(CTRL_CYCLE);
+    }
+}
 
 void Robot::move_arm_right(array<float, 3> motion){
     for(int id=0; id<3; id++){

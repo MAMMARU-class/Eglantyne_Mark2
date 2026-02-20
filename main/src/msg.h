@@ -9,4 +9,5 @@ typedef struct __attribute__((packed)) {
     float   arm_left[3];
 } ControlPacket;
 
+extern bool free;
 extern volatile ControlPacket global_control_pkt;

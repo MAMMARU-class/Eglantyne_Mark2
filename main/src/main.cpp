@@ -29,8 +29,11 @@ MotionSD sd;
 
 // glbal variables
 volatile ControlPacket global_control_pkt = {};
-bool order_free = false;
+bool order_free = true;
 bool connected = false;
+
+// motionn register
+bool motion_register_mode = false;
 
 void setup(){
     neopixelWrite(RGB_BUILTIN, 255, 0, 0);
@@ -58,7 +61,7 @@ void setup(){
     connection_init(&Eglantyne);
     lower_body_control_init(&Eglantyne, &sd);
     neopixelWrite(RGB_BUILTIN, 0, 0, 255);
-    
+
     // esp now and upper body control task (core 0)
     xTaskCreatePinnedToCore(
         Core0Task,
@@ -70,88 +73,113 @@ void setup(){
         0 // core 0
     );
 
-    // lower body control task (core 1)
-    xTaskCreatePinnedToCore(
-        Core1Task,
-        "Core1Task",
-        12288,
-        NULL,
-        configMAX_PRIORITIES+1, // max priority
-        NULL,
-        1 // core 1
-    );
-
-
-    // motion test code
-    // SD
-    // sd.init();
-    // pinMode(SW, INPUT);
-    // // test wake_up motion
-    // int id = 0;
-    // while(1){
-    //     array<float, LINK_SIZE> motion = sd.read_motion("/wake_face_down.txt", id);
-    //     if (std::isnan(motion[0])){
-    //         break;
-    //     }
-    //     Eglantyne.move_all_t(motion, 0.5);
-    //     id++;
-    // }
-    // Eglantyne.init_home(2);
-    // delay(3000);
+    // init register mode
+    pinMode(SW, INPUT);
+    if (digitalRead(SW) == LOW){
+        order_free = true;
+        Serial.println("motion register mode");
+        neopixelWrite(RGB_BUILTIN, 255, 192, 203);
+        motion_register_mode = true;
+        return;
+    }
+    
+    if(!motion_register_mode){
+        order_free = false;
+        // lower body control task (core 1)
+        xTaskCreatePinnedToCore(
+            Core1Task,
+            "Core1Task",
+            12288,
+            NULL,
+            configMAX_PRIORITIES+1, // max priority
+            NULL,
+            1 // core 1
+        );
+    }
 }
 
-array<float, 3> foot2com_right = {-0.03, 0.05, 0.148};
-array<float, 3> foot2com_left = {-0.03, -0.05, 0.148};
-float theta = 0.0;
-float height = 0.0;
-float a = 0.0005;
-
-bool set = false;
-float t = 0.0;
 void loop(){
-    // array<float, 18> angles = Eglantyne.current();
-    // Serial.println("Current angles:");
-    // for (int i = 0; i < 18; i++){
-    //     Serial.print(angles[i], 4); Serial.print(" ");
-    // }
-    // move legs with IK
-    // foot2com_right [2] = 0.158 + height;
-    // foot2com_left [2] = 0.158 + height;
+    // sleep if not in motion register mode
+    if (!motion_register_mode){
+        vTaskDelay(portMAX_DELAY);
+        return;
+    }
 
-    
-    // fighting pose test
-    // float right_elbow = global_control_pkt.arm_right[2];
-    // float left_elbow = global_control_pkt.arm_left[2];
+    // choose motion file to register
+    size_t file_id = 0;
+    std::string fname;
+    while(1){
+        // choose
+        if (global_control_pkt.button_right[1] == 0){
+            file_id++;
+            while(global_control_pkt.button_right[1] == 0){
+                delay(10);
+            }
+            delay(100);
+        }
+        send_msg2controller(sd.get_filename_by_id(file_id).c_str());
+        delay(100);
 
-    // float twist = (right_elbow - left_elbow) / (120.0*PI/180.0);
-    // if (twist >= 0){
-    //     twist *= 10 * PI / 180.0f;
-    // }else{
-    //     twist += 0 * PI / 180.0f;
-    // }
-    // Eglantyne.move_leg_ik(foot2com_right, 30.0 * PI / 180.0 - twist, 0.0, true);
-    // Eglantyne.move_leg_ik(foot2com_left, -30.0 * PI / 180.0 - twist, 0.0, false);
+        // select
+        if (global_control_pkt.button_right[0] == 0){
+            fname = sd.get_filename_by_id(file_id);
+             Serial.print("Selected file: ");
+             Serial.println(fname.c_str());
+             while(global_control_pkt.button_right[0] == 0){
+                delay(10);
+            }
+            delay(100);
+            Eglantyne.free_all();
+            neopixelWrite(RGB_BUILTIN, 0, 0, 255);
+            break;
+        }
+    }
 
-    // height += a;
-    // if(height > 0){a = -0.0005;}
-    // else if (height < -0.05){a = 0.0005;}
-    
-    // Eglantyne.current();
+    bool set = false;
+    while(1){
+        // set motion
+        if (set && global_control_pkt.button_left[1] == 1){
+            sd.write_motion(fname.c_str(), Eglantyne.current());
+            set = false;
+        }
 
-    // int sw = digitalRead(SW);
-    // // Serial.println(sw);
-    // if (sw == HIGH){
-    //     t = millis();
-    //     if (set){
-    //         sd.write_motion("/wake_face_down.txt", Eglantyne.current());
-    //         set = false;
-    //     }
-    // }
-    // if (sw == LOW) {
-    //     set = true;
-    //     if (millis() - t > 3000){
-    //         sd.delete_motion_file("/wake_face_down.txt");
-    //     }
-    // }
-    delay(100);
+        if (global_control_pkt.button_left[1] == 0){
+            Serial.println("Registering motion...");
+            set = true;
+            while(global_control_pkt.button_left[1] == 0){
+                delay(10);
+            }
+        }
+
+        // delete motion
+        if (global_control_pkt.button_left[2] == 0){
+            sd.delete_motion_file(fname.c_str());
+            neopixelWrite(RGB_BUILTIN, 255, 0, 0);
+            Serial.println("Motion deleted");
+            while(global_control_pkt.button_left[2] == 0){
+                delay(10);
+            }
+            delay(100);
+            neopixelWrite(RGB_BUILTIN, 0, 0, 255);
+            return;
+        }
+
+        // play motion
+        if (global_control_pkt.button_left[0] == 0){
+            neopixelWrite(RGB_BUILTIN, 0, 255, 0);
+
+            Eglantyne.init_home(1);
+            sd.play_motion(&Eglantyne, fname.c_str(), 0.5);
+            Eglantyne.init_home(1);
+
+            while(global_control_pkt.button_left[0] == 0){
+                delay(10);
+            }
+
+            delay(100);
+            neopixelWrite(RGB_BUILTIN, 0, 0, 255);
+        }
+
+       delay(100);
+    }
 }

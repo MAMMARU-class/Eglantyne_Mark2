@@ -22,7 +22,6 @@ void lower_body_control_init(Robot* r, MotionSD* s){
     sd = s;
 
     sd->init();
-    pinMode(SW, INPUT);
 
     sensor.init();
     delay(1000);
@@ -42,7 +41,11 @@ void init_phase(Mode next_mode, Phase next_phase, float next_phase_time){
     phase_count = 0;
 }
 
-Phase update_phase(){
+Phase next_phase(){
+    if (controller.p_n2p1_equels_p_n2m1() && 
+        abs(vd[0]) < 0.005f && abs(vd[1]) < 0.005f && abs(vd[2]) < 0.005f){
+        return Phase::END;
+    }
     return Phase::DOUBLE;
 }
 
@@ -58,6 +61,7 @@ void Core1Task(void * parameter){
     }
 
     while(1) {
+        sensor.update();
         /* #########################################################################
         ORDER AND MODE INITIALIZEAITON
         In the first step, check
@@ -74,8 +78,11 @@ void Core1Task(void * parameter){
         }
         // fall check
         if(sensor.fall() && phase != Phase::FALL && phase != Phase::WAKE){
-            phase = Phase::FALL;
-            mode  = Mode::WALK;
+            init_phase(
+                Mode::WALK,
+                Phase::FALL,
+                0
+            );
         }
 
         // update vd
@@ -87,11 +94,16 @@ void Core1Task(void * parameter){
 
         // walk if vd is large enough
         if (abs(vd[0]) > 0.005f || abs(vd[1]) > 0.005f || abs(vd[2]) > 0.005f){
-            mode = Mode::WALK;
+            init_phase(
+                Mode::WALK,
+                Phase::START,
+                0
+            );
         }
 
         // do nothing if WAIT
         if (mode == Mode::WAIT){
+            delay(1000/CTRL_STEP);
             continue;
         }
 
@@ -165,7 +177,7 @@ void Core1Task(void * parameter){
                     Serial.println("phase: SINGLE");
                     controller.init_single_0();
                 }
-                if (phase_count == int(phase_length/2)){             
+                if (phase_count == int(phase_length/2)){
                     // sensor feedback
                     // array<float, 2> foot_pos_fb = sensor.foot_pos_fb();
                     // sensor.init_norm();
@@ -173,7 +185,7 @@ void Core1Task(void * parameter){
                     // update state variables in gait controller
                     controller.update_state_variables(vd, foot_pos_fb);
                     controller.init_single_half();
-                    phase_next = update_phase();
+                    phase_next = next_phase();
                 }
                 com_pos = controller.calc_com_traj_single(phase_count / (float)CTRL_STEP);
 
@@ -275,7 +287,6 @@ void Core1Task(void * parameter){
         /* #########################################################################
         ##########################################################################*/
         // sensor feedback
-        sensor.update();
         array<float, 2> ideal_acc = {com_pos[2][0], com_pos[2][1]};
         array<float, 2> angle_com_pos_fb = sensor.angle_com_pos_fb();
         float delay_duration = sensor.delay_duration_fb(ideal_acc, CTRL_STEP);
@@ -332,60 +343,13 @@ void Core1Task(void * parameter){
 void wake_face_up(){
     Serial.println("Wake up face up");
 
-    array<float, LINK_SIZE> motion;
-
-    motion = sd->read_motion("/wake_face_up.txt", 0);
-    robot->move_all_t(motion, 0.5);
-
-    motion = sd->read_motion("/wake_face_up.txt", 1);
-    robot->move_all_t(motion, 0.5);
-
-    motion = sd->read_motion("/wake_face_up.txt", 2);
-    robot->move_all_t(motion, 1.5);
-
-    motion = sd->read_motion("/wake_face_up.txt", 3);
-    robot->move_all_t(motion, 1.5);
-
-    motion = sd->read_motion("/wake_face_up.txt", 4);
-    robot->move_all_t(motion, 1.5);
-
-    motion = sd->read_motion("/wake_face_up.txt", 5);
-    robot->move_all_t(motion, 1.5);
-
-    motion = sd->read_motion("/wake_face_up.txt", 6);
-    robot->move_all_t(motion, 1.5);
-
-    motion = sd->read_motion("/wake_face_up.txt", 7);
-    robot->move_all_t(motion, 1.5);
-
-    motion = sd->read_motion("/wake_face_up.txt", 8);
-    robot->move_all_t(motion, 0.5);
-
-    robot->init_home(1.5);
+    sd.play_motion(robot, "/wake_face_up.csv", 0.5);
+    robot->init_home(1);
 }
 
 void wake_face_down(){
     Serial.println("Wake up face down");
 
-    array<float, LINK_SIZE> motion;
-
-    motion = sd->read_motion("/wake_face_down.txt", 0);
-    robot->move_all_t(motion, 0.5);
-
-    motion = sd->read_motion("/wake_face_down.txt", 1);
-    robot->move_all_t(motion, 0.5);
-
-    motion = sd->read_motion("/wake_face_down.txt", 2);
-    robot->move_all_t(motion, 1.5);
-
-    motion = sd->read_motion("/wake_face_down.txt", 3);
-    robot->move_all_t(motion, 1.5);
-
-    motion = sd->read_motion("/wake_face_down.txt", 4);
-    robot->move_all_t(motion, 1.5);
-
-    motion = sd->read_motion("/wake_face_down.txt", 5);
-    robot->move_all_t(motion, 0.5);
-
-    robot->init_home(1.5);
+    sd.play_motion(robot, "/wake_face_down.csv", 0.5);
+    robot->init_home(1);
 }

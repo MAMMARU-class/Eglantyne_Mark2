@@ -118,3 +118,7 @@ void Core0Task(void * parameter){
         delay(10);
     }
 }
+
+void send_msg2controller(const char* msg){
+    esp_now_send(clientMac, (uint8_t *)msg, strlen(msg) + 1);
+}

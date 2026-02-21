@@ -6,6 +6,8 @@
 #include "SD.h"
 #include "SPI.h"
 
+#include "Robot.h"
+
 #define CS 10
 #define MOSI 11
 #define CLK 12
@@ -26,6 +28,13 @@ public:
     array<float, 18> read_motion(
         const char* filename,
         size_t id);
+
+    void play_motion(
+        Robot* r,
+        const char* fname,
+        float duration);
+
+    String get_filename_by_id(size_t id);
     
     void delete_motion_file(const char* filename){
         SD.remove(filename);

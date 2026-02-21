@@ -25,7 +25,7 @@ enum class Phase: uint8_t {
 void lower_body_control_init(Robot* r, MotionSD* s);
 
 void init_phase(Mode next_mode, Phase next_phase, float next_phase_length);
-Phase update_phase();
+Phase next_phase();
 void Core1Task(void * parameter);
 
 void wake_face_up();

@@ -66,6 +66,12 @@ public:
     float get_T_sup(){ return this->T_sup; }
     float get_T_ds(){ return this->T_ds; }
     float get_ds_ratio(){ return this->ds_ratio; }
+    bool p_n2p1_equels_p_n2m1(){
+        return (
+            abs(this->p_n2p1[0] - this->p_n2m1[0]) < 1e-4f &&
+            abs(this->p_n2p1[1] - this->p_n2m1[1]) < 1e-4f
+        );
+    };
 
 private:
     // model

@@ -135,10 +135,10 @@ float SensorFB::delay_duration_fb(array<float, 2> ideal_acc, int step){
     }
     if (fb_mag == 0){fb_mag = 1;}
     float fb_dir = fb_mag / abs(fb_mag);
-    Serial.println("ideal_acc: " + String(ideal_acc[1], 4));
-    Serial.println("acc: " + String(this->acc.z(), 4));
-    Serial.println("fb_mag: " + String(fb_mag, 4));
-    Serial.println("fb_dir: " + String(fb_dir, 4));
+    // Serial.println("ideal_acc: " + String(ideal_acc[1], 4));
+    // Serial.println("acc: " + String(this->acc.z(), 4));
+    // Serial.println("fb_mag: " + String(fb_mag, 4));
+    // Serial.println("fb_dir: " + String(fb_dir, 4));
 
     // calculate error
     float err = abs(ideal_acc[1]) - abs(this->acc.z());
@@ -152,8 +152,8 @@ float SensorFB::delay_duration_fb(array<float, 2> ideal_acc, int step){
 
     // normalize into 0-2
     float acc_fb = 0.95 * (2.0f / PI * atan(acc_fb_coeff) + 1.0f);
-    Serial.println("acc_fb_coeff: " + String(acc_fb_coeff, 4));
-    Serial.println("acc_fb: " + String(acc_fb, 4));
+    // Serial.println("acc_fb_coeff: " + String(acc_fb_coeff, 4));
+    // Serial.println("acc_fb: " + String(acc_fb, 4));
 
     // show error as color
     show_acc_error(acc_fb);

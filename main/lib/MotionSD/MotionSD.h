@@ -36,9 +36,7 @@ public:
 
     std::string get_filename_by_id(size_t id);
     
-    void delete_motion_file(const char* filename){
-        SD.remove(filename);
-    }
+    void delete_motion_file(const char* filename);
 
 private:
 

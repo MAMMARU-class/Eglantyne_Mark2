@@ -80,7 +80,7 @@ void Core1Task(void * parameter){
         if(order_free){
             init_phase(
                 Mode::WALK,
-                Phase::FALL,
+                Phase::WAKE,
                 0
             );
         }
@@ -234,6 +234,7 @@ void Core1Task(void * parameter){
             }
 
             case Phase::FALL:{
+                Serial.println("phase: FALL");
                 order_free = true;
                 robot->free_upper();
                 array<float, 3> current_order_right = {com_pos[0][0], com_pos[0][1], com_pos[0][2]};
@@ -260,6 +261,7 @@ void Core1Task(void * parameter){
             }
 
             case Phase::WAKE:{
+                Serial.println("phase: WAKE");
                 // robot->move_link_t(1, 3.14/2.5, 0.8);
                 // robot->move_link_t(4, 3.14/2.5, 0.8);
                 if (sensor.face_up()){

@@ -102,7 +102,7 @@ void MotionSD::play_motion(Robot* r, const char* fname, float duration){
     robot = r;
     size_t id = 0;
     while(1){
-        array<float, LINK_SIZE> motion = read_motion(fname, id);
+        array<float, LINK_SIZE> motion = this->read_motion(fname, id);
         if (std::isnan(motion[0])){
             break;
         }
@@ -161,4 +161,21 @@ std::string MotionSD::get_filename_by_id(size_t id){
 
     root.close();
     return "";
+}
+
+void MotionSD::delete_motion_file(const char* filename){
+    if (!SD.exists(filename)) {
+        Serial.print("File not found: ");
+        Serial.println(filename);
+        return;
+    }
+
+    if (!SD.remove(filename)) {
+        Serial.print("Failed to delete: ");
+        Serial.println(filename);
+    } else {
+        Serial.print("Deleted: ");
+        Serial.println(filename);
+    }
+
 }

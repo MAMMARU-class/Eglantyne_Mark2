@@ -78,7 +78,8 @@ void setup(){
     if (digitalRead(SW) == LOW){
         order_free = true;
         Serial.println("motion register mode");
-        neopixelWrite(RGB_BUILTIN, 255, 192, 203);
+        neopixelWrite(RGB_BUILTIN, 255, 255, 0);
+        delay(1000);
         motion_register_mode = true;
         return;
     }
@@ -123,14 +124,13 @@ void loop(){
         // select
         if (global_control_pkt.button_right[0] == 0){
             fname = sd.get_filename_by_id(file_id);
-             Serial.print("Selected file: ");
-             Serial.println(fname.c_str());
-             while(global_control_pkt.button_right[0] == 0){
+            Serial.print("Selected file: ");
+            Serial.println(fname.c_str());
+            while(global_control_pkt.button_right[0] == 0){
                 delay(10);
             }
             delay(100);
             Eglantyne.free_all();
-            neopixelWrite(RGB_BUILTIN, 0, 0, 255);
             send_msg2controller("LOGO");
             break;
         }
@@ -139,46 +139,55 @@ void loop(){
     bool set = false;
     while(1){
         // set motion
-        if (set && global_control_pkt.button_left[1] == 1){
-            sd.write_motion(fname.c_str(), Eglantyne.current());
+        if (set && global_control_pkt.button_right[1] == 1){
+            sd.write_motion(("/" + fname).c_str(), Eglantyne.current());
             set = false;
+            send_msg2controller("LOGO");
         }
 
-        if (global_control_pkt.button_left[1] == 0){
+        if (global_control_pkt.button_right[1] == 0){
             Serial.println("Registering motion...");
+            send_msg2controller("Registering motion...");
             set = true;
-            while(global_control_pkt.button_left[1] == 0){
+            while(global_control_pkt.button_right[1] == 0){
                 delay(10);
             }
         }
 
         // delete motion
-        if (global_control_pkt.button_left[2] == 0){
-            sd.delete_motion_file(fname.c_str());
+        if (global_control_pkt.button_right[2] == 0){
+            sd.delete_motion_file(("/" + fname).c_str());
             neopixelWrite(RGB_BUILTIN, 255, 0, 0);
             Serial.println("Motion deleted");
-            while(global_control_pkt.button_left[2] == 0){
+            send_msg2controller("delete motion");
+            while(global_control_pkt.button_right[2] == 0){
                 delay(10);
             }
             delay(100);
-            neopixelWrite(RGB_BUILTIN, 0, 0, 255);
-            return;
+            neopixelWrite(RGB_BUILTIN, 255, 255, 0);
+            send_msg2controller("LOGO");
         }
 
         // play motion
-        if (global_control_pkt.button_left[0] == 0){
-            neopixelWrite(RGB_BUILTIN, 0, 255, 0);
+        if (global_control_pkt.button_right[0] == 0){
+            send_msg2controller(("playing " + fname).c_str());
+            Serial.print("Playing motion: ");
+            Serial.println(fname.c_str());
+            neopixelWrite(RGB_BUILTIN, 0, 0, 255);
 
             Eglantyne.init_home(1);
-            sd.play_motion(&Eglantyne, fname.c_str(), 0.5);
+            sd.play_motion(&Eglantyne, ("/" + fname).c_str(), 0.5);
             Eglantyne.init_home(1);
+            delay(3000);
 
-            while(global_control_pkt.button_left[0] == 0){
+            while(global_control_pkt.button_right[0] == 0){
                 delay(10);
             }
 
             delay(100);
-            neopixelWrite(RGB_BUILTIN, 0, 0, 255);
+            neopixelWrite(RGB_BUILTIN, 255, 255, 0);
+            Eglantyne.free_all();
+            send_msg2controller("LOGO");
         }
 
        delay(100);

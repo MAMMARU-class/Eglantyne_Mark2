@@ -1,3 +1,6 @@
+#ifndef PINASSIGN_H
+#define PINASSIGN_H
+
 // for test board
 // #define RobotEN1 16
 // #define RobotTX1 17
@@ -23,3 +26,5 @@
 #define SCL 4
 #define SDA 5
 #define BNO_RST 9
+
+#endif

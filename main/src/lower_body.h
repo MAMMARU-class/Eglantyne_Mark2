@@ -1,6 +1,9 @@
 #include "Robot.h"
+#include "MotionSD.h"
 #include "GaitController.h"
 #include "SensorFB.h"
+#include "msg.h"
+#include "pinassign.h"
 
 #define CTRL_STEP 100 //Hz
 
@@ -19,7 +22,7 @@ enum class Phase: uint8_t {
     WAKE
 };
 
-void lower_body_control_init(Robot* r);
+void lower_body_control_init(Robot* r, MotionSD* s);
 
 void init_phase(Mode next_mode, Phase next_phase, float next_phase_length);
 Phase update_phase();

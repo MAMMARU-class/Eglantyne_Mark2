@@ -13,11 +13,17 @@ static int phase_count;
 
 // other classees
 static Robot* robot;
+static MotionSD* sd;
 GaitController controller;
 SensorFB sensor;
 
-void lower_body_control_init(Robot* r){
+void lower_body_control_init(Robot* r, MotionSD* s){
     robot = r;
+    sd = s;
+
+    sd->init();
+    pinMode(SW, INPUT);
+
     sensor.init();
     delay(1000);
     sensor.update();
@@ -41,22 +47,41 @@ Phase update_phase(){
 }
 
 void Core1Task(void * parameter){
+    if(robot == nullptr){
+        Serial.println("Robot is null");
+        while(1);
+    }
+    if(sd == nullptr){
+        Serial.println("MotionSD is null");
+        while(1);
+    }
+
     while(1) {
         // torque off order
+        if(global_control_pkt.button_right[0] == 0 && global_control_pkt.button_left[0] == 0){
+            order_free = true;
+            robot->free_all();
+            return;
+        }
         // fall check
-        if(sensor.fall()){
-            phse = Phase::FALL;
+        if(sensor.fall() && phase != Phase::FALL && phase != Phase::WAKE){
+            phase = Phase::FALL;
         }
 
-        // vd update
+        // update vd
         vd = update_vel(vd);
         // array<float, 3> vd_fb = sensor.vd_fb(vd);
         // vd[0] += vd_fb[0];
         // vd[1] += vd_fb[1];
         // vd[2] += vd_fb[2];
 
-        array<array<float, 5>, 3> com_pos;
-
+        // move robot
+        // init com_pos
+        array<array<float, 5>, 3> com_pos = {{
+            {0.0,  0.04, 0.158, 0.0, 0.0},
+            {0.0, -0.04, 0.158, 0.0, 0.0},
+            {0.0, 0.0, 0.0, 0.0, 0.0}
+        }};
         switch (phase){
             case Phase::START:{
                 if (phase_count == 0){
@@ -138,20 +163,60 @@ void Core1Task(void * parameter){
             }
 
             case Phase::FALL:{
-                free = true;
-                robot->move_leg_ik_t({0.0, 0.04, 0.09}, 0.0, 0.0, true, 0.6);
-                robot->move_leg_ik_t({0.0, -0.04, 0.09}, 0.0, 0.0, false, 0.6);
+                order_free = true;
+                robot->free_upper();
+                array<float, 3> current_order_right = {com_pos[0][0], com_pos[0][1], com_pos[0][2]};
+                array<float, 3> current_order_left =  {com_pos[1][0], com_pos[1][1], com_pos[1][2]};
+                float current_theta_right = com_pos[0][3];
+                float current_theta_left =  com_pos[1][3];
+
+                array<float, 3> diff_right = {0.0 - current_order_right[0], 0.04 - current_order_right[1], 0.08 - current_order_right[2]};
+                array<float, 3> diff_left = {0.0 - current_order_left[0], -0.04 - current_order_left[1], 0.08 - current_order_left[2]};
+                float diff_theta_right = 0.0 - current_theta_right;
+                float diff_theta_left = 0.0 - current_theta_left;
+
+                int step = int(0.3 * CTRL_STEP);
+                for(int i=0; i<=step; i++){
+                    array<float, 3> motion_right;
+                    array<float, 3> motion_left;
+
+                    for(int id = 0; id<3; id++){
+                        motion_right[id] = current_order_right[id] + diff_right[id]*( (float)(i) ) / (step);
+                        motion_left[id]  = current_order_left[id]  + diff_left[id] *( (float)(i) ) / (step);
+                    }
+
+                    robot->move_leg_ik(motion_right, current_theta_right + diff_theta_right * ( (float)(i) ) / (step), 0.0, true);
+                    robot->move_leg_ik(motion_left,  current_theta_left  + diff_theta_left  * ( (float)(i) ) / (step), 0.0, false);
+        
+                    delay(CTRL_CYCLE);
+                }
+                delay(600);
 
                 // phase transition
                 init_phase(
-                    Mode::WAIT,
+                    Mode::WALK,
                     Phase::WAKE,
-                    0,
+                    0
                 );
                 break;
             }
 
             case Phase::WAKE:{
+                // robot->move_link_t(1, 3.14/2.5, 0.8);
+                // robot->move_link_t(4, 3.14/2.5, 0.8);
+                if (sensor.face_up()){
+                    wake_face_up();
+                }else{
+                    wake_face_down();
+                }
+                order_free = false;
+
+                // phase transition
+                init_phase(
+                    Mode::WALK,
+                    Phase::START,
+                    0
+                );
                 break;
             }
         }
@@ -170,15 +235,34 @@ void Core1Task(void * parameter){
         // dummy
         // float delay_duration = 1000.0f / CTRL_STEP;
         // array<float, 2> com_pos_fb = {0,0};
+
+        // arm feedback
+        array<float, 3> arm_pos_right = robot->arm_k_solver({global_control_pkt.arm_right[0], global_control_pkt.arm_right[1], global_control_pkt.arm_right[2]});
+        array<float, 3> arm_pos_left  = robot->arm_k_solver({global_control_pkt.arm_left[0], global_control_pkt.arm_left[1], global_control_pkt.arm_left[2]});
+        array<float, 2> arm_mass_pos = {arm_pos_right[0] + arm_pos_left[0], arm_pos_right[1] + arm_pos_left[1]};
+
+        array<float, 2> com_diff = {arm_mass_pos[0] / 6, arm_mass_pos[1] / 6};
         
         // move robot
         // devide com pos into each leg
-        array<float, 3> leg_right_com = {com_pos[0][0] - com_pos_fb[0], com_pos[0][1] - com_pos_fb[1], com_pos[0][2]};
-        array<float, 3> leg_left_com =  {com_pos[1][0] - com_pos_fb[0], com_pos[1][1] - com_pos_fb[1], com_pos[1][2]};
-        // check com pos
-        // Serial.print("com right: "); Serial.print(leg_right_com[0], 4); Serial.print(", "); Serial.print(leg_right_com[1], 4); Serial.print(", "); Serial.println(leg_right_com[2], 4);
-        // Serial.print("com left: ");  Serial.print(leg_left_com[0]); Serial.print(", "); Serial.print(leg_left_com[1]); Serial.print(", "); Serial.println(leg_left_com[2]);
-        // move legs
+        // array<float, 3> leg_right_com = {
+        //     com_pos[0][0] - com_pos_fb[0] - com_diff[0] * cos(com_pos[0][3]) - com_diff[1] * sin(com_pos[0][3]), 
+        //     com_pos[0][1] - com_pos_fb[1] - com_diff[0] * sin(com_pos[0][3]) - com_diff[1] * cos(com_pos[0][3]), 
+        //     com_pos[0][2]};
+        // array<float, 3> leg_left_com =  {
+        //     com_pos[1][0] - com_pos_fb[0] - com_diff[1] * cos(com_pos[1][3]) - com_diff[0] * sin(com_pos[1][3]), 
+        //     com_pos[1][1] - com_pos_fb[1] - com_diff[1] * sin(com_pos[1][3]) - com_diff[0] * cos(com_pos[1][3]),
+        //     com_pos[1][2]};
+        array<float, 3> leg_right_com = {
+            com_pos[0][0] - com_pos_fb[0], 
+            com_pos[0][1] - com_pos_fb[1], 
+            com_pos[0][2]};
+        array<float, 3> leg_left_com =  {
+            com_pos[1][0] - com_pos_fb[0], 
+            com_pos[1][1] - com_pos_fb[1],
+            com_pos[1][2]};
+
+        // send order
         robot->move_leg_ik(leg_right_com, com_pos[0][3], 0.0, true);
         robot->move_leg_ik(leg_left_com, com_pos[1][3], 0.0, false);
 
@@ -188,4 +272,65 @@ void Core1Task(void * parameter){
         // delay
         vTaskDelay(pdMS_TO_TICKS(delay_duration));
     }
+}
+
+void wake_face_up(){
+    Serial.println("Wake up face up");
+
+    array<float, LINK_SIZE> motion;
+
+    motion = sd->read_motion("/wake_face_up.txt", 0);
+    robot->move_all_t(motion, 0.5);
+
+    motion = sd->read_motion("/wake_face_up.txt", 1);
+    robot->move_all_t(motion, 0.5);
+
+    motion = sd->read_motion("/wake_face_up.txt", 2);
+    robot->move_all_t(motion, 1.5);
+
+    motion = sd->read_motion("/wake_face_up.txt", 3);
+    robot->move_all_t(motion, 1.5);
+
+    motion = sd->read_motion("/wake_face_up.txt", 4);
+    robot->move_all_t(motion, 1.5);
+
+    motion = sd->read_motion("/wake_face_up.txt", 5);
+    robot->move_all_t(motion, 1.5);
+
+    motion = sd->read_motion("/wake_face_up.txt", 6);
+    robot->move_all_t(motion, 1.5);
+
+    motion = sd->read_motion("/wake_face_up.txt", 7);
+    robot->move_all_t(motion, 1.5);
+
+    motion = sd->read_motion("/wake_face_up.txt", 8);
+    robot->move_all_t(motion, 0.5);
+
+    robot->init_home(1.5);
+}
+
+void wake_face_down(){
+    Serial.println("Wake up face down");
+
+    array<float, LINK_SIZE> motion;
+
+    motion = sd->read_motion("/wake_face_down.txt", 0);
+    robot->move_all_t(motion, 0.5);
+
+    motion = sd->read_motion("/wake_face_down.txt", 1);
+    robot->move_all_t(motion, 0.5);
+
+    motion = sd->read_motion("/wake_face_down.txt", 2);
+    robot->move_all_t(motion, 1.5);
+
+    motion = sd->read_motion("/wake_face_down.txt", 3);
+    robot->move_all_t(motion, 1.5);
+
+    motion = sd->read_motion("/wake_face_down.txt", 4);
+    robot->move_all_t(motion, 1.5);
+
+    motion = sd->read_motion("/wake_face_down.txt", 5);
+    robot->move_all_t(motion, 0.5);
+
+    robot->init_home(1.5);
 }

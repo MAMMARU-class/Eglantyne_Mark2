@@ -21,6 +21,7 @@ public:
 
     // state check
     bool fall();
+    bool face_up();
 
     // feedback
     // body inclination feedback

@@ -35,6 +35,7 @@ public:
 
     void move_arm_right(array<float, 3> motion);
     void move_arm_left(array<float, 3> motion);
+    void move_arm_t(array<float, 3> right_motion, array<float, 3> left_motion, float t);
     void move_leg_right(array<float, 6> motion);
     void move_leg_left(array<float, 6> motion);
 
@@ -46,8 +47,9 @@ public:
     void free_upper();
     void free_all();
 
-    // Inverse Kinematics (foot2com: (x,y,z)[m], theta: foot_rotation[rad], is_right: bool)
+    // Kinematics (foot2com: (x,y,z)[m], theta: foot_rotation[rad], is_right: bool)
     array<float, 6> leg_ik_solver_phi_zero(array<float, 3> foot2com, float theta, bool is_right);
+    array<float, 3> arm_k_solver(array<float, 3> arm_angles);
 
 private:
     // link length [mm]
@@ -63,6 +65,9 @@ private:
 
     float l_foot_z = 37.5;
     float l_foot_x = 8.0;
+
+    float l_arm_upper = 82.84;
+    float l_arm_lower = 55;
 
     // serial
     IcsHardSerialClass* serial1;

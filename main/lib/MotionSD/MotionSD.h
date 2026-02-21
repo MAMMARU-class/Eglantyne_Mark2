@@ -1,3 +1,6 @@
+#ifndef MOTIONSD_H
+#define MOTIONSD_H
+
 #include <Arduino.h>
 #include "FS.h"
 #include "SD.h"
@@ -31,3 +34,5 @@ public:
 private:
 
 };
+
+#endif

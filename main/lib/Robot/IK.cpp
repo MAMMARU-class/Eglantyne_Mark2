@@ -64,3 +64,30 @@ array<float, 6> Robot::leg_ik_solver_phi_zero(array<float, 3> foot2com, float th
 
     return angles;
 }
+
+array<float, 3> Robot::arm_k_solver(array<float, 3> arm_angles)
+{
+    float l1 = this->l_arm_upper;
+    float l2 = this->l_arm_lower;
+    float theta1 = arm_angles[0];
+    float theta2 = arm_angles[1];
+    float theta4 = arm_angles[2];
+    float theta3 = M_PI / 4.0f; // 45 degrees
+
+    // T1: rotation around Z
+    float c1 = cos(theta1), s1 = sin(theta1);
+    // T2: rotation around Y
+    float c2 = cos(-theta2), s2 = sin(-theta2);
+    // T3: rotation around Z + translation
+    float c3 = cos(theta3), s3 = sin(theta3);
+    // T4: rotation around Z
+    float c4 = cos(theta4), s4 = sin(theta4);
+
+    // Combined transformation matrix multiplication result
+    // Extract final position from T = T1 @ T2 @ T3 @ T4 @ T5
+    float x = -l1*s3*c1 - l2*(s3*c1*c4 - s1*s4);
+    float y = l1*c3*s2 + l2*(c3*s2*c4 + c2*s4);
+    float z = -l1*c3 - l2*c3*c4;
+
+    return array<float, 3>{x, y, z};
+}

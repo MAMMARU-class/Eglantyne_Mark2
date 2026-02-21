@@ -1,3 +1,6 @@
+#ifndef MSG_H
+#define MSG_H
+
 # include <stdint.h>
 
 typedef struct __attribute__((packed)) {
@@ -9,5 +12,7 @@ typedef struct __attribute__((packed)) {
     float   arm_left[3];
 } ControlPacket;
 
-extern bool free;
+extern bool order_free;
 extern volatile ControlPacket global_control_pkt;
+
+#endif

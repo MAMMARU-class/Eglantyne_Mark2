@@ -8,6 +8,7 @@ const unsigned long TIMEOUT       = 3000;
 
 unsigned long lastPing  = 0;
 unsigned long lastReply = 0;
+bool connected = false;
 
 static Robot* robot;
 
@@ -27,9 +28,27 @@ void connection_init(Robot* r){
     Serial.println("ESP-NOW server ready");
     Serial.print("MAC Address: ");
     Serial.println(WiFi.macAddress());
+
+    for(int i=0; i<3; i++){
+        global_control_pkt.button_right[i] = 1;
+        global_control_pkt.stick_right[i] = 0;
+        global_control_pkt.arm_right[i] = 0;
+
+        global_control_pkt.button_left[i] = 1;
+        global_control_pkt.stick_left[i] = 0;
+        global_control_pkt.arm_left[i] = 0;
+    }
+    global_control_pkt.stick_right[2] = 1;
+    global_control_pkt.stick_left[2] = 1;
 }
 
 void onReceive(const uint8_t *mac_addr, const uint8_t *data, int len) {
+    // while free order
+    if (order_free){
+        connected = false;
+        return;
+    }
+
     memcpy(clientMac, mac_addr, 6);
     lastReply = millis();
 
@@ -68,13 +87,15 @@ void onReceive(const uint8_t *mac_addr, const uint8_t *data, int len) {
         global_control_pkt.arm_left[2]
     };
 
-    // don't send any msg if free
-    if (free){
-        return 0;
+    // when reconnected, move smoothly
+    if(!connected){
+        Serial.println("ESP-NOW client reconnected");
+        neopixelWrite(RGB_BUILTIN, 0, 0, 255);
+        connected = true;
+        robot->move_arm_t(arm_right, arm_left, 0.6);
     }else{
-        // robot->move_arm_right(arm_right);
-        // robot->move_arm_left(arm_left);
-        robot->free_upper();
+         robot->move_arm_right(arm_right);
+         robot->move_arm_left(arm_left);
     }
 }
 
@@ -86,6 +107,7 @@ void Core0Task(void * parameter){
             neopixelWrite(RGB_BUILTIN, 255, 0, 0);
             esp_now_del_peer(clientMac);
             clientRegistered = false;
+            connected = false;
         }
 
         // send ping

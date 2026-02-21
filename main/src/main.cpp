@@ -29,7 +29,7 @@ MotionSD sd;
 
 // glbal variables
 volatile ControlPacket global_control_pkt = {};
-bool free = false;
+bool order_free = false;
 
 void setup(){
     neopixelWrite(RGB_BUILTIN, 255, 0, 0);
@@ -38,10 +38,6 @@ void setup(){
     Serial.begin(115200);
     Serial.println("Eglantyne Mark2 initializing...");
     delay(100);
-
-    // SD
-    sd.init();
-    pinMode(SW, INPUT);
 
     // Eglantyne initializations
     krs1.begin();
@@ -58,40 +54,49 @@ void setup(){
     Eglantyne.init_home(1);
 
     // sub loop initializations
-    // connection_init(&Eglantyne);
-    // lower_body_control_init(&Eglantyne);
+    connection_init(&Eglantyne);
+    lower_body_control_init(&Eglantyne, &sd);
     neopixelWrite(RGB_BUILTIN, 0, 0, 255);
     
     // esp now and upper body control task (core 0)
-    // xTaskCreatePinnedToCore(
-    //     Core0Task,
-    //     "Core0Task",
-    //     8192,
-    //     NULL,
-    //     1,
-    //     NULL,
-    //     0 // core 0
-    // );
+    xTaskCreatePinnedToCore(
+        Core0Task,
+        "Core0Task",
+        8192,
+        NULL,
+        1,
+        NULL,
+        0 // core 0
+    );
 
     // lower body control task (core 1)
-    // xTaskCreatePinnedToCore(
-    //     Core1Task,
-    //     "Core1Task",
-    //     8192,
-    //     NULL,
-    //     configMAX_PRIORITIES+1, // max priority
-    //     NULL,
-    //     1 // core 1
-    // );
+    xTaskCreatePinnedToCore(
+        Core1Task,
+        "Core1Task",
+        12288,
+        NULL,
+        configMAX_PRIORITIES+1, // max priority
+        NULL,
+        1 // core 1
+    );
 
 
-    // test wake_up motion
-    for (int i=0; i<9; i++){
-        array<float, LINK_SIZE> motion = sd.read_motion("/motion1.txt", i);
-        Eglantyne.move_all_t(motion, 1.5);
-    }
-    Eglantyne.init_home(2);
-    delay(3000);
+    // motion test code
+    // SD
+    // sd.init();
+    // pinMode(SW, INPUT);
+    // // test wake_up motion
+    // int id = 0;
+    // while(1){
+    //     array<float, LINK_SIZE> motion = sd.read_motion("/wake_face_down.txt", id);
+    //     if (std::isnan(motion[0])){
+    //         break;
+    //     }
+    //     Eglantyne.move_all_t(motion, 1.5);
+    //     id++;
+    // }
+    // Eglantyne.init_home(2);
+    // delay(3000);
 }
 
 array<float, 3> foot2com_right = {-0.03, 0.05, 0.148};
@@ -130,22 +135,22 @@ void loop(){
     // if(height > 0){a = -0.0005;}
     // else if (height < -0.05){a = 0.0005;}
     
-    Eglantyne.current();
+    // Eglantyne.current();
 
-    int sw = digitalRead(SW);
-    // Serial.println(sw);
-    if (sw == HIGH){
-        t = millis();
-        if (set){
-            sd.write_motion("/motion1.txt", Eglantyne.current());
-            set = false;
-        }
-    }
-    if (sw == LOW) {
-        set = true;
-        if (millis() - t > 3000){
-            sd.delete_motion_file("/motion1.txt");
-        }
-    }
+    // int sw = digitalRead(SW);
+    // // Serial.println(sw);
+    // if (sw == HIGH){
+    //     t = millis();
+    //     if (set){
+    //         sd.write_motion("/wake_face_down.txt", Eglantyne.current());
+    //         set = false;
+    //     }
+    // }
+    // if (sw == LOW) {
+    //     set = true;
+    //     if (millis() - t > 3000){
+    //         sd.delete_motion_file("/wake_face_down.txt");
+    //     }
+    // }
     delay(100);
 }

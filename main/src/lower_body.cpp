@@ -76,6 +76,14 @@ void Core1Task(void * parameter){
             robot->free_all();
             continue;
         }
+        // if last order is "order_free", start from falling phase
+        if(order_free){
+            init_phase(
+                Mode::WALK,
+                Phase::FALL,
+                0
+            );
+        }
         // fall check
         if(sensor.fall() && phase != Phase::FALL && phase != Phase::WAKE){
             init_phase(
@@ -233,26 +241,13 @@ void Core1Task(void * parameter){
                 float current_theta_right = com_pos[0][3];
                 float current_theta_left =  com_pos[1][3];
 
-                array<float, 3> diff_right = {0.0f - current_order_right[0],  0.04f - current_order_right[1], 0.08f - current_order_right[2]};
-                array<float, 3> diff_left =  {0.0f - current_order_left[0] , -0.04f - current_order_left[1] , 0.08f - current_order_left[2]};
-                float diff_theta_right = 0.0f - current_theta_right;
-                float diff_theta_left = 0.0f - current_theta_left;
-
-                int step = int(0.2 * CTRL_STEP);
-                for(int i=0; i<=step; i++){
-                    array<float, 3> motion_right;
-                    array<float, 3> motion_left;
-
-                    for(int id = 0; id<3; id++){
-                        motion_right[id] = current_order_right[id] + diff_right[id]*( (float)(i) ) / (step);
-                        motion_left[id]  = current_order_left[id]  + diff_left[id] *( (float)(i) ) / (step);
-                    }
-
-                    robot->move_leg_ik(motion_right, current_theta_right + diff_theta_right * ( (float)(i) ) / (step), 0.0, true);
-                    robot->move_leg_ik(motion_left,  current_theta_left  + diff_theta_left  * ( (float)(i) ) / (step), 0.0, false);
-        
-                    delay(CTRL_CYCLE);
-                }
+                robot->move_safely_fall(
+                    current_order_right,
+                    current_theta_right,
+                    current_order_left,
+                    current_theta_left,
+                    0.2f
+                );
                 delay(600);
 
                 // phase transition

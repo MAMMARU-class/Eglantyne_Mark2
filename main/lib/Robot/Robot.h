@@ -39,6 +39,14 @@ public:
     void move_leg_right(array<float, 6> motion);
     void move_leg_left(array<float, 6> motion);
 
+    void move_safely_fall(
+        array<float, 3> current_order_right,
+        float current_theta_right,
+        array<float, 3> current_order_left,
+        float current_theta_left,
+        float t
+    );
+
     // calculation
     void move_leg_ik(array<float, 3> foot2com, float theta, float phi, bool is_right);
     void move_leg_ik_t(array<float, 3> foot2com, float theta, float phi, bool is_right, float t);

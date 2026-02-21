@@ -139,6 +139,35 @@ void Robot::move_leg_left(array<float, 6> motion){
     }
 }
 
+void Robot::move_safely_fall(
+    array<float, 3> current_order_right,
+    float current_theta_right,
+    array<float, 3> current_order_left,
+    float current_theta_left,
+    float t
+){
+    array<float, 3> diff_right = {0.0f - current_order_right[0],  0.04f - current_order_right[1], 0.08f - current_order_right[2]};
+    array<float, 3> diff_left =  {0.0f - current_order_left[0] , -0.04f - current_order_left[1] , 0.08f - current_order_left[2]};
+    float diff_theta_right = 0.0f - current_theta_right;
+    float diff_theta_left = 0.0f - current_theta_left;
+
+    int step = int(t/CTRL_CYCLE * 1000);
+    for(int i=0; i<=step; i++){
+        array<float, 3> motion_right;
+        array<float, 3> motion_left;
+
+        for(int id = 0; id<3; id++){
+            motion_right[id] = current_order_right[id] + diff_right[id]*( (float)(i) ) / (step);
+            motion_left[id]  = current_order_left[id]  + diff_left[id] *( (float)(i) ) / (step);
+        }
+
+        this->move_leg_ik(motion_right, current_theta_right + diff_theta_right * ( (float)(i) ) / (step), 0.0, true);
+        this->move_leg_ik(motion_left,  current_theta_left  + diff_theta_left  * ( (float)(i) ) / (step), 0.0, false);
+
+        delay(CTRL_CYCLE);
+    }
+}
+
 // inverted kinematics
 void Robot::move_leg_ik(array<float, 3> foot2com, float theta, float phi, bool is_right){
     array<float, 6> angles;

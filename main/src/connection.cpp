@@ -115,7 +115,7 @@ void Core0Task(void * parameter){
             esp_now_send(clientMac, (uint8_t *)ping, strlen(ping) + 1);
             lastPing = millis();
         }
-        delay(10);
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 

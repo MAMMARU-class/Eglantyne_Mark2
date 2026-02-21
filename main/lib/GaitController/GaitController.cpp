@@ -3,6 +3,9 @@
 
 GaitController::GaitController(){}
 
+/* #########################################################################
+CALCULATION PARAMETERS
+##########################################################################*/
 void GaitController::init_param_walk(){
     // initialize control parameters
     model.set_z0(0.158f);
@@ -49,9 +52,9 @@ int GaitController::pivot_sign(Pivot p){
     return (p == Pivot::RIGHT) ? 1 : -1;
 }
 
-/* -------------------------
-update state variables
----------------------------- */
+/* #########################################################################
+STATE VARIABLES
+##########################################################################*/
 void GaitController::init_state_variables()
 {
     float Tc = model.get_Tc();
@@ -165,9 +168,14 @@ void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> 
     this->T_ds = (this->T_sup_next + this->T_sup) / 2 * this->ds_ratio;
 }
 
-/* -------------------------
-init gait trajectory param
----------------------------- */
+/* #########################################################################
+INITIALIZE PHASE PARAMETERS
+at the beginning of each phase (or middle for single support), initialize the parameters related to the phase transition
+- start            : 
+- end              : 
+- single (at 0)    : 
+- single (at half) : Calculate swing foot goal position and update swing leg angle
+##########################################################################*/
 void GaitController::init_start(){
     // com state at start
     this->inverse_pivot();
@@ -221,6 +229,7 @@ void GaitController::init_start(){
 }
 
 void GaitController::init_end(){
+
 }
 
 void GaitController::init_single_0(){
@@ -255,9 +264,10 @@ void GaitController::init_single_half(){
     this->swing_leg_angle = 0.0f;
 }
 
-/* -------------------------
+/* #########################################################################
+TRAJECTORY CALCULATION
 calculate trajectory for each steps
----------------------------- */
+##########################################################################*/
 array<array<float, 5>, 3> GaitController::calc_com_traj_single(float t){
     float T_ss = this->T_sup * (1.0f - this->ds_ratio);
 

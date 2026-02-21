@@ -47,7 +47,7 @@ void SensorFB::init_norm(){
 
 // state check
 bool SensorFB::fall(){
-    if(this->euler.y() > -35 && this->euler.y() < 35 && this->euler.z() > -35 && this->euler.z() < 35){
+    if(this->euler.y() > -25 && this->euler.y() < 25 && this->euler.z() > -25 && this->euler.z() < 25){
         return false;
     }else{
         return true;

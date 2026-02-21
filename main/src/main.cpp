@@ -30,6 +30,7 @@ MotionSD sd;
 // glbal variables
 volatile ControlPacket global_control_pkt = {};
 bool order_free = false;
+bool connected = false;
 
 void setup(){
     neopixelWrite(RGB_BUILTIN, 255, 0, 0);
@@ -92,7 +93,7 @@ void setup(){
     //     if (std::isnan(motion[0])){
     //         break;
     //     }
-    //     Eglantyne.move_all_t(motion, 1.5);
+    //     Eglantyne.move_all_t(motion, 0.5);
     //     id++;
     // }
     // Eglantyne.init_home(2);

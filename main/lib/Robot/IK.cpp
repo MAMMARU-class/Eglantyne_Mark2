@@ -89,5 +89,5 @@ array<float, 3> Robot::arm_k_solver(array<float, 3> arm_angles)
     float y = l1*c3*s2 + l2*(c3*s2*c4 + c2*s4);
     float z = -l1*c3 - l2*c3*c4;
 
-    return array<float, 3>{x, y, z};
+    return array<float, 3>{x*0.001f, y*0.001f, z*0.001f}; // convert to meters
 }

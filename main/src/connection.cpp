@@ -8,7 +8,6 @@ const unsigned long TIMEOUT       = 3000;
 
 unsigned long lastPing  = 0;
 unsigned long lastReply = 0;
-bool connected = false;
 
 static Robot* robot;
 
@@ -43,12 +42,6 @@ void connection_init(Robot* r){
 }
 
 void onReceive(const uint8_t *mac_addr, const uint8_t *data, int len) {
-    // while free order
-    if (order_free){
-        connected = false;
-        return;
-    }
-
     memcpy(clientMac, mac_addr, 6);
     lastReply = millis();
 
@@ -87,6 +80,11 @@ void onReceive(const uint8_t *mac_addr, const uint8_t *data, int len) {
         global_control_pkt.arm_left[2]
     };
 
+    // while free order
+    if (order_free){
+        connected = false;
+        return;
+    }
     // when reconnected, move smoothly
     if(!connected){
         Serial.println("ESP-NOW client reconnected");

@@ -12,6 +12,9 @@ enum class Pivot : uint8_t{
 class GaitController{
 public:
     GaitController();
+    /* #########################
+    CALCULATION PARAMETERS
+    ##########################*/
     // initialization
     void set_cpn_start(array<float, 2> cpn){ this->cpn_start = cpn; }
     void set_cvn_start(array<float, 2> cvn){ this->cvn_start = cvn; }
@@ -35,10 +38,16 @@ public:
     void inverse_pivot();
     int pivot_sign(Pivot p);
 
+    /* #########################
+    STATE VARIABLES
+    ##########################*/
     // update state variables
     void init_state_variables();
     void update_state_variables(array<float, 3> vd, array<float, 2> foot_pos_fb);
 
+    /* #########################
+    INITIALIZE PHASE PARAMETERS
+    ##########################*/
     // update gait trajectory param
     void init_start();
     void init_end();
@@ -46,6 +55,9 @@ public:
     void init_single_half();
     void init_double();
 
+    /* #########################
+    TRAJECTORY CALCULATION
+    ##########################*/
     // calculate trajectory for each steps
     array<array<float, 5>, 3> calc_com_traj_single(float t);
     array<array<float, 5>, 3> calc_com_traj_double(float t);

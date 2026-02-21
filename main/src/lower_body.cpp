@@ -47,6 +47,7 @@ Phase update_phase(){
 }
 
 void Core1Task(void * parameter){
+    // check is robot and sd is given
     if(robot == nullptr){
         Serial.println("Robot is null");
         while(1);
@@ -57,15 +58,24 @@ void Core1Task(void * parameter){
     }
 
     while(1) {
+        /* #########################################################################
+        ORDER AND MODE INITIALIZEAITON
+        In the first step, check
+        - Torque off order is given -> free all joint and skip the rest of the loop
+        - Fall                      -> Switch to FALL phase
+        - Velocity update           -> Update vd with controller input and sensor feedback. Switch to WALK mode if vd is large enough
+        - Mode                      -> If in WAIT mode, skip the rest of the loop
+        ##########################################################################*/
         // torque off order
         if(global_control_pkt.button_right[0] == 0 && global_control_pkt.button_left[0] == 0){
             order_free = true;
             robot->free_all();
-            return;
+            continue;
         }
         // fall check
         if(sensor.fall() && phase != Phase::FALL && phase != Phase::WAKE){
             phase = Phase::FALL;
+            mode  = Mode::WALK;
         }
 
         // update vd
@@ -75,6 +85,28 @@ void Core1Task(void * parameter){
         // vd[1] += vd_fb[1];
         // vd[2] += vd_fb[2];
 
+        // walk if vd is large enough
+        if (abs(vd[0]) > 0.005f || abs(vd[1]) > 0.005f || abs(vd[2]) > 0.005f){
+            mode = Mode::WALK;
+        }
+
+        // do nothing if WAIT
+        if (mode == Mode::WAIT){
+            continue;
+        }
+
+        /* #########################################################################
+        TRAJECTORY CALCULATION AND PHASE UPDATE
+        In the second step, calculate the desired com position based on the phase. Update the phase at the end of each phase duration
+        For each phase, 
+        - START    : Initialize satrt parameters and phase length. Next phase is SINGLE 
+        - END      : Initialize end parameters and phase length. Next phase is START, and change mode to WAIT
+        - SINGLE   : At the middle of the phase, decide next phase and next foot position. Next phase is (DOUBLE / END / )
+        - DOUBLE   : CoM transition between SINGLE and SINGLE. calculate next SINGLE phase parameters and change pivot in the first step. Next phase is SINGLE.
+        - FLIGHT   : 
+        - FALL     : After slip is detected, free upper body and shrink lower body for the safety. Next phase is WAKE.
+        - WAKE     : WAKE the robot up. Next phase is START. and change the mode to WAIT.
+        ##########################################################################*/
         // move robot
         // init com_pos
         array<array<float, 5>, 3> com_pos = {{
@@ -106,6 +138,23 @@ void Core1Task(void * parameter){
             }
             
             case Phase::END:{
+                if (phase_count == 0){
+                    Serial.println("phase: END");
+                    controller.init_end();
+                    float T_ds = controller.get_T_sup() * controller.get_ds_ratio() * 0.5f;
+                    phase_length = T_ds * CTRL_STEP;
+                }
+                com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP);
+
+                // phase transition
+                phase_count++;
+                if (phase_count == phase_length){
+                    init_phase(
+                        Mode::WAIT,
+                        Phase::START,
+                        0
+                    );
+                }
                 break;
             }
 
@@ -150,7 +199,7 @@ void Core1Task(void * parameter){
                 phase_count++;
                 if (phase_count == phase_length){
                     init_phase(
-                        Mode::WALK, 
+                        Mode::WALK,
                         Phase::SINGLE, 
                         controller.get_T_sup()*(1.0f - controller.get_ds_ratio())
                     );
@@ -170,10 +219,10 @@ void Core1Task(void * parameter){
                 float current_theta_right = com_pos[0][3];
                 float current_theta_left =  com_pos[1][3];
 
-                array<float, 3> diff_right = {0.0 - current_order_right[0], 0.04 - current_order_right[1], 0.08 - current_order_right[2]};
-                array<float, 3> diff_left = {0.0 - current_order_left[0], -0.04 - current_order_left[1], 0.08 - current_order_left[2]};
-                float diff_theta_right = 0.0 - current_theta_right;
-                float diff_theta_left = 0.0 - current_theta_left;
+                array<float, 3> diff_right = {0.0f - current_order_right[0],  0.04f - current_order_right[1], 0.08f - current_order_right[2]};
+                array<float, 3> diff_left =  {0.0f - current_order_left[0] , -0.04f - current_order_left[1] , 0.08f - current_order_left[2]};
+                float diff_theta_right = 0.0f - current_theta_right;
+                float diff_theta_left = 0.0f - current_theta_left;
 
                 int step = int(0.3 * CTRL_STEP);
                 for(int i=0; i<=step; i++){
@@ -213,7 +262,7 @@ void Core1Task(void * parameter){
 
                 // phase transition
                 init_phase(
-                    Mode::WALK,
+                    Mode::WAIT,
                     Phase::START,
                     0
                 );
@@ -221,6 +270,8 @@ void Core1Task(void * parameter){
             }
         }
 
+        /* #########################################################################
+        ##########################################################################*/
         // sensor feedback
         sensor.update();
         array<float, 2> ideal_acc = {com_pos[2][0], com_pos[2][1]};
@@ -245,22 +296,22 @@ void Core1Task(void * parameter){
         
         // move robot
         // devide com pos into each leg
-        // array<float, 3> leg_right_com = {
-        //     com_pos[0][0] - com_pos_fb[0] - com_diff[0] * cos(com_pos[0][3]) - com_diff[1] * sin(com_pos[0][3]), 
-        //     com_pos[0][1] - com_pos_fb[1] - com_diff[0] * sin(com_pos[0][3]) - com_diff[1] * cos(com_pos[0][3]), 
-        //     com_pos[0][2]};
-        // array<float, 3> leg_left_com =  {
-        //     com_pos[1][0] - com_pos_fb[0] - com_diff[1] * cos(com_pos[1][3]) - com_diff[0] * sin(com_pos[1][3]), 
-        //     com_pos[1][1] - com_pos_fb[1] - com_diff[1] * sin(com_pos[1][3]) - com_diff[0] * cos(com_pos[1][3]),
-        //     com_pos[1][2]};
         array<float, 3> leg_right_com = {
-            com_pos[0][0] - com_pos_fb[0], 
-            com_pos[0][1] - com_pos_fb[1], 
+            com_pos[0][0] - com_pos_fb[0] - com_diff[0] * cos(com_pos[0][3]) - com_diff[1] * sin(com_pos[0][3]), 
+            com_pos[0][1] - com_pos_fb[1] - com_diff[0] * sin(com_pos[0][3]) - com_diff[1] * cos(com_pos[0][3]), 
             com_pos[0][2]};
         array<float, 3> leg_left_com =  {
-            com_pos[1][0] - com_pos_fb[0], 
-            com_pos[1][1] - com_pos_fb[1],
+            com_pos[1][0] - com_pos_fb[0] - com_diff[1] * cos(com_pos[1][3]) - com_diff[0] * sin(com_pos[1][3]), 
+            com_pos[1][1] - com_pos_fb[1] - com_diff[1] * sin(com_pos[1][3]) - com_diff[0] * cos(com_pos[1][3]),
             com_pos[1][2]};
+        // array<float, 3> leg_right_com = {
+        //     com_pos[0][0] - com_pos_fb[0], 
+        //     com_pos[0][1] - com_pos_fb[1], 
+        //     com_pos[0][2]};
+        // array<float, 3> leg_left_com =  {
+        //     com_pos[1][0] - com_pos_fb[0], 
+        //     com_pos[1][1] - com_pos_fb[1],
+        //     com_pos[1][2]};
 
         // send order
         robot->move_leg_ik(leg_right_com, com_pos[0][3], 0.0, true);
@@ -269,6 +320,8 @@ void Core1Task(void * parameter){
         // robot->move_leg_ik({- com_pos_fb[0], 0.04 - com_pos_fb[1], 0.158}, com_pos[0][3], 0.0, true);
         // robot->move_leg_ik({- com_pos_fb[0], -0.04 - com_pos_fb[1], 0.158}, com_pos[1][3], 0.0, false);
 
+        /* #########################################################################
+        ##########################################################################*/
         // delay
         vTaskDelay(pdMS_TO_TICKS(delay_duration));
     }

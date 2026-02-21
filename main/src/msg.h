@@ -12,6 +12,7 @@ typedef struct __attribute__((packed)) {
     float   arm_left[3];
 } ControlPacket;
 
+extern bool connected;
 extern bool order_free;
 extern volatile ControlPacket global_control_pkt;
 

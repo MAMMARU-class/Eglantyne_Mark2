@@ -270,7 +270,7 @@ void GaitController::init_end(){
 
     cpn_d_T = {0.0f, model.get_foot_dist_y_base()*this->pivot_sign(this->pivot)};
     cvn_d_T = {0.0f, 0.0f};
-    can_d_T = {0.0f, 0.0f}
+    can_d_T = {0.0f, 0.0f};
 
     this->T_ds = this->T_sup * this->ds_ratio * 0.5f;
 

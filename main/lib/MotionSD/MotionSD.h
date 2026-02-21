@@ -34,7 +34,7 @@ public:
         const char* fname,
         float duration);
 
-    String get_filename_by_id(size_t id);
+    std::string get_filename_by_id(size_t id);
     
     void delete_motion_file(const char* filename){
         SD.remove(filename);

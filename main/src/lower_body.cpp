@@ -238,7 +238,7 @@ void Core1Task(void * parameter){
                 float diff_theta_right = 0.0f - current_theta_right;
                 float diff_theta_left = 0.0f - current_theta_left;
 
-                int step = int(0.3 * CTRL_STEP);
+                int step = int(0.2 * CTRL_STEP);
                 for(int i=0; i<=step; i++){
                     array<float, 3> motion_right;
                     array<float, 3> motion_left;
@@ -285,6 +285,7 @@ void Core1Task(void * parameter){
         }
 
         /* #########################################################################
+        FEEDBACK SENSOR VALUE
         ##########################################################################*/
         // sensor feedback
         array<float, 2> ideal_acc = {com_pos[2][0], com_pos[2][1]};
@@ -334,6 +335,7 @@ void Core1Task(void * parameter){
         // robot->move_leg_ik({- com_pos_fb[0], -0.04 - com_pos_fb[1], 0.158}, com_pos[1][3], 0.0, false);
 
         /* #########################################################################
+        DELAY for NEXT CYCLE
         ##########################################################################*/
         // delay
         vTaskDelay(pdMS_TO_TICKS(delay_duration));
@@ -343,13 +345,13 @@ void Core1Task(void * parameter){
 void wake_face_up(){
     Serial.println("Wake up face up");
 
-    sd.play_motion(robot, "/wake_face_up.csv", 0.5);
+    sd->play_motion(robot, "/wake_face_up.csv", 0.5);
     robot->init_home(1);
 }
 
 void wake_face_down(){
     Serial.println("Wake up face down");
 
-    sd.play_motion(robot, "/wake_face_down.csv", 0.5);
+    sd->play_motion(robot, "/wake_face_down.csv", 0.5);
     robot->init_home(1);
 }

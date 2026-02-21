@@ -209,7 +209,7 @@ void MotionSD::delete_motion_line(
 /* #########################################################################
 FILE NAME
 ##########################################################################*/
-String MotionSD::get_filename_by_id(size_t id){
+std::string MotionSD::get_filename_by_id(size_t id){
     File root = SD.open("/");
     if (!root) return "";
 

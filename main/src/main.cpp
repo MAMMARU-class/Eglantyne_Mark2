@@ -131,6 +131,7 @@ void loop(){
             delay(100);
             Eglantyne.free_all();
             neopixelWrite(RGB_BUILTIN, 0, 0, 255);
+            send_msg2controller("LOGO");
             break;
         }
     }

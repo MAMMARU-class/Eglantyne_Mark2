@@ -65,7 +65,7 @@ private:
     float kd_angle_foot = 0.001f;
 
     float kp_angle_vd = 0.001f;
-    float kd_angle_vd = 0.0001f;
+    float kd_angle_vd = 0.0f;
 
     float kp_acc_delay = 3.0f;
     float kd_acc_delay = 0.0f;

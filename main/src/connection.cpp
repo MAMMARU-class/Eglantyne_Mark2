@@ -28,6 +28,7 @@ void connection_init(Robot* r){
     Serial.print("MAC Address: ");
     Serial.println(WiFi.macAddress());
 
+    // initial input
     for(int i=0; i<3; i++){
         global_control_pkt.button_right[i] = 1;
         global_control_pkt.stick_right[i] = 0;
@@ -80,7 +81,7 @@ void onReceive(const uint8_t *mac_addr, const uint8_t *data, int len) {
         global_control_pkt.arm_left[2]
     };
 
-    // while free order
+    // while free order, do nothing
     if (order_free){
         connected = false;
         return;

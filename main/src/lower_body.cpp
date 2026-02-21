@@ -118,6 +118,7 @@ void Core1Task(void * parameter){
             case Phase::START:{
                 if (phase_count == 0){
                     Serial.println("phase: START");
+                    controller.inverse_pivot();
                     controller.init_param_walk();
                     controller.init_start();
                     float T_ds = controller.get_T_sup() * controller.get_ds_ratio() * 0.5f;
@@ -140,6 +141,7 @@ void Core1Task(void * parameter){
             case Phase::END:{
                 if (phase_count == 0){
                     Serial.println("phase: END");
+                    controller.inverse_pivot();
                     controller.init_end();
                     float T_ds = controller.get_T_sup() * controller.get_ds_ratio() * 0.5f;
                     phase_length = T_ds * CTRL_STEP;

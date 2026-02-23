@@ -19,7 +19,7 @@ STANCE_INFO stance_fight = {
     .relative_leg_angle = -60.0 * PI / 180.0f
 };
 STANCE_INFO stance = stance_walk;
-STANCE_INFO diff = stance_walk;
+STANCE_INFO stance_diff = stance_walk;
 
 // mode and phase
 static Mode mode = Mode::WALK;

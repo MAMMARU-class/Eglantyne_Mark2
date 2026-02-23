@@ -19,16 +19,16 @@ enum class Order: uint8_t {
 
     // orders while WALK mode
     CROUCH,
-    UNCROUCH,
+    UNCROUCH
 
     // orders while FIGHT mode
-}
+};
 
 enum class Mode: uint8_t {
     WAIT,
     TRANSITION,
     WALK,
-    FIGHT,
+    FIGHT
 };
 
 enum class Phase: uint8_t {

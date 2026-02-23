@@ -7,16 +7,19 @@ static Order order;
 
 // stances
 STANCE_INFO stance_walk = {
+    .height_diff = 0.0f,
     .relative_body_angle = 0.0f,
     .relative_body_pos = 0.0f,
     .relative_leg_angle = 0.0f
 };
 STANCE_INFO stance_fight = {
-    .relative_body_angle = 0.0f,
+    .height_diff = 0.0f,
+    .relative_body_angle = -30.0 * PI / 180.0f,
     .relative_body_pos = 0.0f,
-    .relative_leg_angle = 0.0f
+    .relative_leg_angle = -60.0 * PI / 180.0f
 };
 STANCE_INFO stance = stance_walk;
+STANCE_INFO diff = stance_walk;
 
 // mode and phase
 static Mode mode = Mode::WALK;
@@ -48,7 +51,19 @@ void lower_body_control_init(Robot* r, MotionSD* s){
     Serial.println("Lower body control initialized");
 }
 
-array<float, 3> update_vel(array<float, 3> vd){
+array<float, 3> update_vel(array<float, 3> vd, Order order){
+    if (order == Order::CROUCH || order == Order::UNCROUCH){
+        // If crouching or uncrouching, set velocity to zero
+        vd[0] = 0.0f;
+        vd[1] = 0.0f;
+        vd[2] = 0.0f;
+        return vd;
+    }
+
+    array<float, 3> vd_max_abs = controller.get_vd_max_abs();
+    vd[0] = global_control_pkt.stick_right[0] * vd_max_abs[0];
+    vd[1] = global_control_pkt.stick_right[1] * vd_max_abs[1];
+    vd[2] = global_control_pkt.stick_left[1] * vd_max_abs[2];
     return vd;
 }
 
@@ -71,6 +86,33 @@ void update_phase(){
     }
 }
 
+array<array<float, 5>, 3> attach_stance(array<array<float, 5>, 3> com_pos, STANCE_INFO stance){
+    // height
+    com_pos[0][2] += stance.height_diff;
+    com_pos[1][2] += stance.height_diff;
+
+    // relative body angle
+    com_pos[0][3] += stance.relative_body_angle;
+    com_pos[1][3] += stance.relative_body_angle;
+
+    // left leg angle
+    com_pos[1][3] += stance.relative_leg_angle;
+
+    // adjust rotation to com pos
+    float px_r = com_pos[0][0]; float py_r = com_pos[0][1];
+    float theta_r = com_pos[0][3];
+    float pl_x = com_pos[1][0]; float py_l = com_pos[1][1];
+    float theta_l = com_pos[1][3];
+
+    com_pos[0][0] =  px_r * cos(theta_r) + py_r * sin(theta_r);
+    com_pos[0][1] = -px_r * sin(theta_r) + py_r * cos(theta_r);
+
+    com_pos[1][0] =  pl_x * cos(theta_l) + py_l * sin(theta_l);
+    com_pos[1][1] = -pl_x * sin(theta_l) + py_l * cos(theta_l);
+
+    return com_pos;
+}
+
 void Core1Task(void * parameter){
     // check is robot and sd is given
     if(robot == nullptr){
@@ -88,15 +130,35 @@ void Core1Task(void * parameter){
         CONTROLLER HANDLER
         handle controller order. 
         dont change order while first order is not executed.
-        Orders: 
-        - mode_change (WALK / FIGHT)
+        Basic Orders: 
+        - MODE_CHANGE : Change mode between WALK and FIGHT. Change stance and control parametres whiile last half of SINGLE phase (which labeled as STANCE).
+        - ROTATE      : dynamically change the body angle. Define as the function of STANCE.
+
+        Orders while WALK mode:
+        CROUCH        : Crouch the robot. transit to END before CROUCH. 
+        UNCROUCH      : Return to WALK mode.
         ######################################################################### */
         if(order == Order::NONE){
+            // MODE_CHENGE
             if (global_control_pkt.button_right[0] == 0){
                 order = Order::MODE_CHANGE;
             }
+            else if (mode == Mode::WALK){
+                // CROUCH
+                if (global_control_pkt.button_left[2] == 0){
+                    order = Order::CROUCH;
+                }
+            }
+            else if (mode == Mode::FIGHT){
+            }
         }
 
+        // UNCROUCH
+        if (order == Order::CROUCH){
+            if (global_control_pkt.button_left[2] == 1){
+                order = Order::UNCROUCH;
+            }
+        }
         /* #########################################################################
         ORDER AND MODE INITIALIZEAITON
         In the first step, check
@@ -129,7 +191,7 @@ void Core1Task(void * parameter){
         }
 
         // update vd
-        vd = update_vel(vd);
+        vd = update_vel(vd, order);
         // array<float, 3> vd_fb = sensor.vd_fb(vd);
         // vd[0] += vd_fb[0];
         // vd[1] += vd_fb[1];
@@ -154,10 +216,10 @@ void Core1Task(void * parameter){
         TRAJECTORY CALCULATION AND PHASE UPDATE
         In the second step, calculate the desired com position based on the phase. Update the phase at the end of each phase duration
         For each phase, 
-        - STANCE   : Start from middle point of SINGLE. decide next foot position. Next phase is DOUBLE
-        - START    : Initialize satrt parameters and phase length. Next phase is SINGLE 
-        - END      : Initialize end parameters and phase length. Next phase is START, and change mode to WAIT
-        - SINGLE   : At the middle of the phase, decide next phase and next foot position. Next phase is (DOUBLE / END / )
+        - STANCE   : Start from middle point of SINGLE. decide next foot position. Next phase is DOUBLE.
+        - START    : Initialize satrt parameters and phase length. Next phase is SINGLE.
+        - END      : Initialize end parameters and phase length. Next phase is START, and change mode to WAIT. CROUCH / UNCROUCH before phase initialization when order given.
+        - SINGLE   : At the middle of the phase, decide next phase and next foot position. Next phase is (DOUBLE / END / ).
         - DOUBLE   : CoM transition between SINGLE and SINGLE. calculate next SINGLE phase parameters and change pivot in the first step. Next phase is SINGLE.
         - FLIGHT   : 
         - FALL     : After slip is detected, free upper body and shrink lower body for the safety. Next phase is WAKE.
@@ -178,12 +240,33 @@ void Core1Task(void * parameter){
                         // change calculation parameters except height
                         if (mode_last == Mode::WALK){
                             controller.init_param_fight(HEIGHT_FIGHT);
+                            stance.height_diff = HEIGHT_WALK - HEIGHT_FIGHT;
+                            stance_diff.height_diff = (HEIGHT_FIGHT - HEIGHT_WALK) / phase_length;
+                            stance_diff.relative_body_angle = 
+                                (stance_fight.relative_body_angle - stance.relative_body_angle) / phase_length;
+                            stance_diff.relative_body_pos = 
+                                (stance_fight.relative_body_pos - stance.relative_body_pos) / phase_length;
+                            stance_diff.relative_leg_angle = 
+                                (stance_fight.relative_leg_angle - stance.relative_leg_angle) / phase_length;
+                            // change mode from TRANSITION to FIGHT
+                            mode = Mode::FIGHT;
                         }else if (mode_last == Mode::FIGHT){
                             controller.init_param_walk(HEIGHT_WALK);
+                            stance.height_diff = HEIGHT_FIGHT - HEIGHT_WALK;
+                            stance_diff.height_diff = (HEIGHT_WALK - HEIGHT_FIGHT) / phase_length;
+                            stance_diff.relative_body_angle = 
+                                (stance_walk.relative_body_angle - stance.relative_body_angle) / phase_length;
+                            stance_diff.relative_body_pos = 
+                                (stance_walk.relative_body_pos - stance.relative_body_pos) / phase_length;
+                            stance_diff.relative_leg_angle = 
+                                (stance_walk.relative_leg_angle - stance.relative_leg_angle) / phase_length;
+                            // change mode from TRANSITION to WALK
+                            mode = Mode::WALK;
                         }
 
                         controller.update_state_variables({0,0,0}, {0,0}, 0);
                         controller.init_single_half();
+                        order = Order::NONE;
 
                     }else if(order == Order::ROTATE){
                         float body_angle_order;
@@ -196,9 +279,16 @@ void Core1Task(void * parameter){
                     }
                 }
 
+                com_pos = controller.calc_com_traj_single(phase_count / (float)CTRL_STEP);
+                stance.height_diff += stance_diff.height_diff;
+                stance.relative_body_angle += stance_diff.relative_body_angle;
+                stance.relative_body_pos += stance_diff.relative_body_pos;
+                stance.relative_leg_angle += stance_diff.relative_leg_angle;
+
                 // phase transition
                 phase_count++;
                 if (phase_count == phase_length){
+                    stance_diff = stance_walk;
                     init_phase(
                         mode,
                         Phase::DOUBLE, 
@@ -212,7 +302,11 @@ void Core1Task(void * parameter){
                 if (phase_count == 0){
                     Serial.println("phase: START");
                     controller.inverse_pivot();
-                    controller.init_param_walk(HEIGHT_WALK);
+                    if (order == Order::CROUCH){
+                        controller.init_param_walk(HEIGHT_CROUCH);
+                    }else{
+                        controller.init_param_walk(HEIGHT_WALK);
+                    }
                     controller.init_pose_walk();
                     controller.init_start();
                     float T_ds = controller.get_T_sup() * controller.get_ds_ratio() * 0.5f;
@@ -245,6 +339,10 @@ void Core1Task(void * parameter){
                 // phase transition
                 phase_count++;
                 if (phase_count == phase_length){
+                    // CROUCH or UNCROUCH according to order
+                    if (order == Order::CROUCH || order == Order::UNCROUCH){
+                        crouch(order, com_pos);
+                    }
                     init_phase(
                         Mode::WAIT,
                         Phase::START,
@@ -338,6 +436,7 @@ void Core1Task(void * parameter){
                     current_theta_right,
                     current_order_left,
                     current_theta_left,
+                    0.06f,
                     0.2f
                 );
                 delay(600);
@@ -377,6 +476,8 @@ void Core1Task(void * parameter){
         - sensor feedback
         - motion feedback
         ##########################################################################*/
+        // attach stance
+        com_pos = attach_stance(com_pos, stance);
         // sensor feedback
         array<float, 2> ideal_acc = {com_pos[2][0], com_pos[2][1]};
         array<float, 2> angle_com_pos_fb = sensor.angle_com_pos_fb();
@@ -427,6 +528,35 @@ void Core1Task(void * parameter){
         // delay
         vTaskDelay(pdMS_TO_TICKS(delay_duration));
     }
+}
+
+void crouch(Order order, array<array<float, 5>, 3>& com_pos){
+    // similar movement as FALL
+    array<float, 3> current_order_right = {com_pos[0][0], com_pos[0][1], com_pos[0][2]};
+    array<float, 3> current_order_left =  {com_pos[1][0], com_pos[1][1], com_pos[1][2]};
+    float current_theta_right = com_pos[0][3];
+    float current_theta_left =  com_pos[1][3];
+
+    float height;
+    if (order == Order::CROUCH){
+        Serial.println("Crouch");
+        height = HEIGHT_CROUCH;
+    }else if (order == Order::UNCROUCH){
+        Serial.println("Uncrouch");
+        height = HEIGHT_WALK;
+        mode = Mode::WALK;
+        order = Order::NONE;
+    }
+
+    robot->move_safely_fall(
+        current_order_right,
+        current_theta_right,
+        current_order_left,
+        current_theta_left,
+        height,
+        0.8f
+    );
+
 }
 
 void wake_face_up(){

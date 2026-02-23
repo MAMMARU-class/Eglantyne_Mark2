@@ -44,6 +44,7 @@ public:
         float current_theta_right,
         array<float, 3> current_order_left,
         float current_theta_left,
+        float height,
         float t
     );
 

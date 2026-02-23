@@ -170,12 +170,7 @@ void MotionSD::delete_motion_file(const char* filename){
         return;
     }
 
-    if (!SD.remove(filename)) {
-        Serial.print("Failed to delete: ");
-        Serial.println(filename);
-    } else {
-        Serial.print("Deleted: ");
-        Serial.println(filename);
-    }
-
+    // create empty file to overwrite
+    File file = SD.open(filename, FILE_WRITE);
+    file.close();
 }

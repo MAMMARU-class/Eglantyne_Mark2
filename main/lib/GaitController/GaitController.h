@@ -4,6 +4,7 @@
 
 #define HEIGHT_WALK 0.158f
 #define HEIGHT_FIGHT 0.135f
+#define HEIGHT_CROUCH 0.08f
 
 using std::array;
 
@@ -19,6 +20,7 @@ public:
     CALCULATION PARAMETERS
     ##########################*/
     // initialization
+    void set_vd_max_abs(array<float, 3> vd_max_abs){ this->vd_max_abs = vd_max_abs; }
     void set_cpn_start(array<float, 2> cpn){ this->cpn_start = cpn; }
     void set_cvn_start(array<float, 2> cvn){ this->cvn_start = cvn; }
     void set_cvn_m1_start(array<float, 2> cvn_m1){ this->cvn_m1_start = cvn_m1; }
@@ -77,6 +79,7 @@ public:
             abs(this->p_n2p1[1] - this->p_n2m1[1]) < 1e-4f
         );
     };
+    array<float, 3> get_vd_max_abs(){ return this->vd_max_abs; }
 
 private:
     // model
@@ -84,6 +87,8 @@ private:
 
     // pivot
     Pivot pivot;
+    // v input
+    array<float, 3> vd_max_abs;
     
     // state variables
     // com state at start and last (no consideration about double support phase)

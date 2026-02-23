@@ -98,7 +98,7 @@ array<float, 2> SensorFB::angle_foot_pos_fb(){
 array<float, 3> SensorFB::vd_fb(array<float, 3> vd){
     array<float, 3> vd_fb = {
         kp_angle_vd * float(-this->euler.y()) + kd_angle_vd * float(-this->gyro.y()),
-        kp_angle_vd * float(this->euler.z()) + kd_angle_vd * float(this->gyro.z()),
+        kp_angle_vd * float( this->euler.z()) + kd_angle_vd * float( this->gyro.z()),
         0
     };
     return vd_fb;

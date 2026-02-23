@@ -144,10 +144,11 @@ void Robot::move_safely_fall(
     float current_theta_right,
     array<float, 3> current_order_left,
     float current_theta_left,
+    float height,
     float t
 ){
-    array<float, 3> diff_right = {0.0f - current_order_right[0],  0.04f - current_order_right[1], 0.08f - current_order_right[2]};
-    array<float, 3> diff_left =  {0.0f - current_order_left[0] , -0.04f - current_order_left[1] , 0.08f - current_order_left[2]};
+    array<float, 3> diff_right = {0.0f - current_order_right[0],  0.04f - current_order_right[1], height - current_order_right[2]};
+    array<float, 3> diff_left =  {0.0f - current_order_left[0] , -0.04f - current_order_left[1] , height - current_order_left[2]};
     float diff_theta_right = 0.0f - current_theta_right;
     float diff_theta_left = 0.0f - current_theta_left;
 

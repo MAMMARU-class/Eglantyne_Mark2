@@ -2,7 +2,25 @@
 
 static array<float, 3> vd = {0.0001f, 0.0f, 0.0f};
 
+// orders
+static Order order;
+
+// stances
+STANCE_INFO stance_walk = {
+    .relative_body_angle = 0.0f,
+    .relative_body_pos = 0.0f,
+    .relative_leg_angle = 0.0f
+};
+STANCE_INFO stance_fight = {
+    .relative_body_angle = 0.0f,
+    .relative_body_pos = 0.0f,
+    .relative_leg_angle = 0.0f
+};
+STANCE_INFO stance = stance_walk;
+
+// mode and phase
 static Mode mode = Mode::WALK;
+static Mode mode_last = Mode::WALK;
 
 static Phase phase = Phase::START;
 static Phase phase_next;
@@ -35,18 +53,22 @@ array<float, 3> update_vel(array<float, 3> vd){
 }
 
 void init_phase(Mode next_mode, Phase next_phase, float next_phase_time){
+    mode_last = mode;
     mode = next_mode;
     phase = next_phase;
     phase_length = next_phase_time * CTRL_STEP;
     phase_count = 0;
 }
 
-Phase next_phase(){
+void update_phase(){
+    // stop if no movement
     if (controller.p_n2p1_equels_p_n2m1() && 
         abs(vd[0]) < 0.005f && abs(vd[1]) < 0.005f && abs(vd[2]) < 0.005f){
-        return Phase::END;
+        phase_next = Phase::END;
     }
-    return Phase::DOUBLE;
+    else{
+        phase_next = Phase::DOUBLE;
+    }
 }
 
 void Core1Task(void * parameter){
@@ -62,6 +84,19 @@ void Core1Task(void * parameter){
 
     while(1) {
         sensor.update();
+        /* #########################################################################
+        CONTROLLER HANDLER
+        handle controller order. 
+        dont change order while first order is not executed.
+        Orders: 
+        - mode_change (WALK / FIGHT)
+        ######################################################################### */
+        if(order == Order::NONE){
+            if (global_control_pkt.button_right[0] == 0){
+                order = Order::MODE_CHANGE;
+            }
+        }
+
         /* #########################################################################
         ORDER AND MODE INITIALIZEAITON
         In the first step, check
@@ -103,7 +138,7 @@ void Core1Task(void * parameter){
         // walk if vd is large enough
         if (abs(vd[0]) > 0.005f || abs(vd[1]) > 0.005f || abs(vd[2]) > 0.005f){
             init_phase(
-                Mode::WALK,
+                mode_last,
                 Phase::START,
                 0
             );
@@ -119,6 +154,7 @@ void Core1Task(void * parameter){
         TRAJECTORY CALCULATION AND PHASE UPDATE
         In the second step, calculate the desired com position based on the phase. Update the phase at the end of each phase duration
         For each phase, 
+        - STANCE   : Start from middle point of SINGLE. decide next foot position. Next phase is DOUBLE
         - START    : Initialize satrt parameters and phase length. Next phase is SINGLE 
         - END      : Initialize end parameters and phase length. Next phase is START, and change mode to WAIT
         - SINGLE   : At the middle of the phase, decide next phase and next foot position. Next phase is (DOUBLE / END / )
@@ -130,16 +166,54 @@ void Core1Task(void * parameter){
         // move robot
         // init com_pos
         array<array<float, 5>, 3> com_pos = {{
-            {0.0,  0.04, 0.158, 0.0, 0.0},
-            {0.0, -0.04, 0.158, 0.0, 0.0},
+            {0.0,  0.04, HEIGHT_WALK, 0.0, 0.0},
+            {0.0, -0.04, HEIGHT_WALK, 0.0, 0.0},
             {0.0, 0.0, 0.0, 0.0, 0.0}
         }};
+        // phase switch-case sentences
         switch (phase){
+            case Phase::STANCE:{
+                if (phase_count == 0){
+                    if (order == Order::MODE_CHANGE){
+                        // change calculation parameters except height
+                        if (mode_last == Mode::WALK){
+                            controller.init_param_fight(HEIGHT_FIGHT);
+                        }else if (mode_last == Mode::FIGHT){
+                            controller.init_param_walk(HEIGHT_WALK);
+                        }
+
+                        controller.update_state_variables({0,0,0}, {0,0}, 0);
+                        controller.init_single_half();
+
+                    }else if(order == Order::ROTATE){
+                        float body_angle_order;
+                        if (global_control_pkt.stick_left[0] < 0){
+                            body_angle_order = -0.1f;
+                        }
+                        controller.update_state_variables({0,0,0}, {0,0}, body_angle_order);
+                        controller.init_single_half();
+                        order = Order::NONE;
+                    }
+                }
+
+                // phase transition
+                phase_count++;
+                if (phase_count == phase_length){
+                    init_phase(
+                        mode,
+                        Phase::DOUBLE, 
+                        controller.get_T_ds()
+                    );
+                }
+                break;
+            }
+
             case Phase::START:{
                 if (phase_count == 0){
                     Serial.println("phase: START");
                     controller.inverse_pivot();
-                    controller.init_param_walk();
+                    controller.init_param_walk(HEIGHT_WALK);
+                    controller.init_pose_walk();
                     controller.init_start();
                     float T_ds = controller.get_T_sup() * controller.get_ds_ratio() * 0.5f;
                     phase_length = T_ds * CTRL_STEP;
@@ -150,7 +224,7 @@ void Core1Task(void * parameter){
                 phase_count++;
                 if (phase_count == phase_length){
                     init_phase(
-                        Mode::WALK, 
+                        mode,
                         Phase::SINGLE, 
                         controller.get_T_sup()*(1.0f - controller.get_ds_ratio())
                     );
@@ -186,14 +260,31 @@ void Core1Task(void * parameter){
                     controller.init_single_0();
                 }
                 if (phase_count == int(phase_length/2)){
+                    // change phase to STANCE if order is mode_change
+                    if (order == Order::MODE_CHANGE && controller.pivot_right()){
+                        init_phase(
+                            Mode::TRANSITION,
+                            Phase::STANCE,
+                            controller.get_T_sup()*(1.0f - controller.get_ds_ratio()) / 2
+                        );
+                        break;
+                    }else if (order == Order::ROTATE){
+                        init_phase(
+                            mode,
+                            Phase::STANCE,
+                            controller.get_T_sup()*(1.0f - controller.get_ds_ratio()) / 2
+                        );
+                        break;
+                    }
+
                     // sensor feedback
                     // array<float, 2> foot_pos_fb = sensor.foot_pos_fb();
                     // sensor.init_norm();
                     array<float, 2> foot_pos_fb = {0,0};
                     // update state variables in gait controller
-                    controller.update_state_variables(vd, foot_pos_fb);
+                    controller.update_state_variables(vd, foot_pos_fb, 0);
                     controller.init_single_half();
-                    phase_next = next_phase();
+                    update_phase();
                 }
                 com_pos = controller.calc_com_traj_single(phase_count / (float)CTRL_STEP);
 
@@ -201,7 +292,7 @@ void Core1Task(void * parameter){
                 phase_count++;
                 if (phase_count == phase_length){
                     init_phase(
-                        Mode::WALK, 
+                        mode,
                         phase_next,
                         controller.get_T_ds()
                     );
@@ -221,7 +312,7 @@ void Core1Task(void * parameter){
                 phase_count++;
                 if (phase_count == phase_length){
                     init_phase(
-                        Mode::WALK,
+                        mode,
                         Phase::SINGLE, 
                         controller.get_T_sup()*(1.0f - controller.get_ds_ratio())
                     );
@@ -282,7 +373,9 @@ void Core1Task(void * parameter){
         }
 
         /* #########################################################################
-        FEEDBACK SENSOR VALUE
+        FEEDBACK
+        - sensor feedback
+        - motion feedback
         ##########################################################################*/
         // sensor feedback
         array<float, 2> ideal_acc = {com_pos[2][0], com_pos[2][1]};
@@ -294,7 +387,7 @@ void Core1Task(void * parameter){
             angle_com_pos_fb[1]
         };
 
-        // dummy
+        // dummy feedback
         // float delay_duration = 1000.0f / CTRL_STEP;
         // array<float, 2> com_pos_fb = {0,0};
 
@@ -327,9 +420,6 @@ void Core1Task(void * parameter){
         // send order
         robot->move_leg_ik(leg_right_com, com_pos[0][3], 0.0, true);
         robot->move_leg_ik(leg_left_com, com_pos[1][3], 0.0, false);
-
-        // robot->move_leg_ik({- com_pos_fb[0], 0.04 - com_pos_fb[1], 0.158}, com_pos[0][3], 0.0, true);
-        // robot->move_leg_ik({- com_pos_fb[0], -0.04 - com_pos_fb[1], 0.158}, com_pos[1][3], 0.0, false);
 
         /* #########################################################################
         DELAY for NEXT CYCLE

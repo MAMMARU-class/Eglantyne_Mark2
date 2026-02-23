@@ -6,9 +6,9 @@ GaitController::GaitController(){}
 /* #########################################################################
 CALCULATION PARAMETERS
 ##########################################################################*/
-void GaitController::init_param_walk(){
+void GaitController::init_param_walk(float z0){
     // initialize control parameters
-    model.set_z0(0.158f);
+    model.set_z0(z0);
     model.set_z_flight(0.01f);
     model.set_foot_dist_y_base(0.04f);
     model.set_foot_dist_x_max(0.12f);
@@ -18,7 +18,9 @@ void GaitController::init_param_walk(){
     model.set_fb_gain(0.00001, 0.000001f, 0.00001, 0.000001);
     model.calculate_initial_params();
     set_ds_ratio(0.3f);
+}
 
+void GaitController::init_pose_walk(){
     // set initial pose
     this->pivot = Pivot::LEFT;
     this->cpn_start = {0.0f, this->pivot_sign(this->pivot) * model.get_foot_dist_y_base()};
@@ -36,7 +38,18 @@ void GaitController::init_param_walk(){
     this->body_angle = 0.0f;
 }
 
-void GaitController::init_param_fight(){
+void GaitController::init_param_fight(float z0){
+    // initialize control parameters
+    model.set_z0(z0);
+    model.set_z_flight(0.01f);
+    model.set_foot_dist_y_base(0.06f);
+    model.set_foot_dist_x_max(0.12f);
+    model.set_T_sup_base(0.2f);
+    model.set_T_sup_min(0.3f);
+    // model.set_fb_gain(0.003, 0.0003f, 0.003, 0.0003);
+    model.set_fb_gain(0.00001, 0.000001f, 0.00001, 0.000001);
+    model.calculate_initial_params();
+    set_ds_ratio(0.2f);
 }
 
 void GaitController::inverse_pivot(){
@@ -134,7 +147,7 @@ void GaitController::init_state_variables()
     );
 }
 
-void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> foot_pos_fb){
+void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> foot_pos_fb, float body_angle_order){
     // normalize control input
     vd = model.normalize_vel(vd);
     float v_mag = sqrt(vd[0]*vd[0] + vd[1]*vd[1]);
@@ -148,7 +161,7 @@ void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> 
     } else {
         rotation = angle_limits[1] * abs(rotation);
     }
-    this->body_angle = rotation;
+    this->body_angle = rotation + body_angle_order;
 
     // decide pn_p1
     this->cvn_last = model.calc_LIP_v(this->T_sup, {-this->pn[0], -this->pn[1]}, this->cvn_start);

@@ -2,6 +2,9 @@
 #include <cmath>
 #include "SLIP.h"
 
+#define HEIGHT_WALK 0.158f
+#define HEIGHT_FIGHT 0.135f
+
 using std::array;
 
 enum class Pivot : uint8_t{
@@ -31,8 +34,9 @@ public:
     void set_ds_ratio(float ds_ratio){ this->ds_ratio = ds_ratio; }
     void set_body_angle(float body_angle){ this->body_angle = body_angle; }
 
-    void init_param_walk();
-    void init_param_fight();
+    void init_param_walk(float z0);
+    void init_pose_walk();
+    void init_param_fight(float z0);
 
     // pivot
     void inverse_pivot();
@@ -43,7 +47,7 @@ public:
     ##########################*/
     // update state variables
     void init_state_variables();
-    void update_state_variables(array<float, 3> vd, array<float, 2> foot_pos_fb);
+    void update_state_variables(array<float, 3> vd, array<float, 2> foot_pos_fb, float body_angle_order);
 
     /* #########################
     INITIALIZE PHASE PARAMETERS
@@ -66,6 +70,7 @@ public:
     float get_T_sup(){ return this->T_sup; }
     float get_T_ds(){ return this->T_ds; }
     float get_ds_ratio(){ return this->ds_ratio; }
+    bool pivot_right(){ return this->pivot == Pivot::RIGHT; }
     bool p_n2p1_equels_p_n2m1(){
         return (
             abs(this->p_n2p1[0] - this->p_n2m1[0]) < 1e-4f &&

@@ -1,6 +1,6 @@
 #include "lower_body.h"
 
-static array<float, 3> vd = {0.0001f, 0.0f, 0.0f};
+static array<float, 3> vd = {0.0f, 0.0f, 0.0f};
 
 // orders
 static Order order;
@@ -52,18 +52,18 @@ void lower_body_control_init(Robot* r, MotionSD* s){
 }
 
 array<float, 3> update_vel(array<float, 3> vd, Order order){
-    if (order == Order::CROUCH || order == Order::UNCROUCH){
-        // If crouching or uncrouching, set velocity to zero
-        vd[0] = 0.0f;
-        vd[1] = 0.0f;
-        vd[2] = 0.0f;
-        return vd;
-    }
+    // if (order == Order::CROUCH || order == Order::UNCROUCH){
+    //     // If crouching or uncrouching, set velocity to zero
+    //     vd[0] = 0.0f;
+    //     vd[1] = 0.0f;
+    //     vd[2] = 0.0f;
+    //     return vd;
+    // }
 
-    array<float, 3> vd_max_abs = controller.get_vd_max_abs();
-    vd[0] = global_control_pkt.stick_right[0] * vd_max_abs[0];
-    vd[1] = global_control_pkt.stick_right[1] * vd_max_abs[1];
-    vd[2] = global_control_pkt.stick_left[1] * vd_max_abs[2];
+    // array<float, 3> vd_max_abs = controller.get_vd_max_abs();
+    // vd[0] = global_control_pkt.stick_right[0] * vd_max_abs[0];
+    // vd[1] = global_control_pkt.stick_right[1] * vd_max_abs[1];
+    // vd[2] = global_control_pkt.stick_left[1] * vd_max_abs[2];
     return vd;
 }
 
@@ -87,28 +87,28 @@ void update_phase(){
 }
 
 array<array<float, 5>, 3> attach_stance(array<array<float, 5>, 3> com_pos, STANCE_INFO stance){
-    // height
-    com_pos[0][2] += stance.height_diff;
-    com_pos[1][2] += stance.height_diff;
+    // // height
+    // com_pos[0][2] += stance.height_diff;
+    // com_pos[1][2] += stance.height_diff;
 
-    // relative body angle
-    com_pos[0][3] += stance.relative_body_angle;
-    com_pos[1][3] += stance.relative_body_angle;
+    // // relative body angle
+    // com_pos[0][3] += stance.relative_body_angle;
+    // com_pos[1][3] += stance.relative_body_angle;
 
-    // left leg angle
-    com_pos[1][3] += stance.relative_leg_angle;
+    // // left leg angle
+    // com_pos[1][3] += stance.relative_leg_angle;
 
-    // adjust rotation to com pos
-    float px_r = com_pos[0][0]; float py_r = com_pos[0][1];
-    float theta_r = com_pos[0][3];
-    float pl_x = com_pos[1][0]; float py_l = com_pos[1][1];
-    float theta_l = com_pos[1][3];
+    // // adjust rotation to com pos
+    // float px_r = com_pos[0][0]; float py_r = com_pos[0][1];
+    // float theta_r = com_pos[0][3];
+    // float pl_x = com_pos[1][0]; float py_l = com_pos[1][1];
+    // float theta_l = com_pos[1][3];
 
-    com_pos[0][0] =  px_r * cos(theta_r) + py_r * sin(theta_r);
-    com_pos[0][1] = -px_r * sin(theta_r) + py_r * cos(theta_r);
+    // com_pos[0][0] =  px_r * cos(theta_r) + py_r * sin(theta_r);
+    // com_pos[0][1] = -px_r * sin(theta_r) + py_r * cos(theta_r);
 
-    com_pos[1][0] =  pl_x * cos(theta_l) + py_l * sin(theta_l);
-    com_pos[1][1] = -pl_x * sin(theta_l) + py_l * cos(theta_l);
+    // com_pos[1][0] =  pl_x * cos(theta_l) + py_l * sin(theta_l);
+    // com_pos[1][1] = -pl_x * sin(theta_l) + py_l * cos(theta_l);
 
     return com_pos;
 }
@@ -197,8 +197,10 @@ void Core1Task(void * parameter){
         // vd[1] += vd_fb[1];
         // vd[2] += vd_fb[2];
 
-        // walk if vd is large enough
-        if (abs(vd[0]) > 0.005f || abs(vd[1]) > 0.005f || abs(vd[2]) > 0.005f){
+        // walk if vd is large enough or in MODE_CHANGE order
+        if (mode == Mode::WAIT && 
+            (abs(vd[0]) > 0.005f || abs(vd[1]) > 0.005f || abs(vd[2]) > 0.005f || order == Order::MODE_CHANGE)
+            ){
             init_phase(
                 mode_last,
                 Phase::START,
@@ -206,16 +208,10 @@ void Core1Task(void * parameter){
             );
         }
 
-        // do nothing if WAIT
-        if (mode == Mode::WAIT){
-            delay(1000/CTRL_STEP);
-            continue;
-        }
-
         /* #########################################################################
         TRAJECTORY CALCULATION AND PHASE UPDATE
         In the second step, calculate the desired com position based on the phase. Update the phase at the end of each phase duration
-        For each phase, 
+        For each phase,
         - STANCE   : Start from middle point of SINGLE. decide next foot position. Next phase is DOUBLE.
         - START    : Initialize satrt parameters and phase length. Next phase is SINGLE.
         - END      : Initialize end parameters and phase length. Next phase is START, and change mode to WAIT. CROUCH / UNCROUCH before phase initialization when order given.
@@ -224,6 +220,7 @@ void Core1Task(void * parameter){
         - FLIGHT   : 
         - FALL     : After slip is detected, free upper body and shrink lower body for the safety. Next phase is WAKE.
         - WAKE     : WAKE the robot up. Next phase is START. and change the mode to WAIT.
+        - WAIT     : Do nothing.
         ##########################################################################*/
         // move robot
         // init com_pos
@@ -301,13 +298,13 @@ void Core1Task(void * parameter){
             case Phase::START:{
                 if (phase_count == 0){
                     Serial.println("phase: START");
-                    controller.inverse_pivot();
                     if (order == Order::CROUCH){
                         controller.init_param_walk(HEIGHT_CROUCH);
                     }else{
                         controller.init_param_walk(HEIGHT_WALK);
                     }
                     controller.init_pose_walk();
+                    controller.inverse_pivot();
                     controller.init_start();
                     float T_ds = controller.get_T_sup() * controller.get_ds_ratio() * 0.5f;
                     phase_length = T_ds * CTRL_STEP;
@@ -316,6 +313,7 @@ void Core1Task(void * parameter){
                 
                 // phase transition
                 phase_count++;
+                Serial.println(phase_length);
                 if (phase_count == phase_length){
                     init_phase(
                         mode,
@@ -469,10 +467,15 @@ void Core1Task(void * parameter){
                 );
                 break;
             }
+
+            case Phase::WAIT:{
+                break;
+            }
         }
 
         /* #########################################################################
         FEEDBACK
+        - attach stance
         - sensor feedback
         - motion feedback
         ##########################################################################*/
@@ -490,7 +493,7 @@ void Core1Task(void * parameter){
 
         // dummy feedback
         // float delay_duration = 1000.0f / CTRL_STEP;
-        // array<float, 2> com_pos_fb = {0,0};
+        com_pos_fb = {0,0};
 
         // arm feedback
         array<float, 3> arm_pos_right = robot->arm_k_solver({global_control_pkt.arm_right[0], global_control_pkt.arm_right[1], global_control_pkt.arm_right[2]});
@@ -501,26 +504,29 @@ void Core1Task(void * parameter){
         
         // move robot
         // devide com pos into each leg
-        array<float, 3> leg_right_com = {
-            com_pos[0][0] - com_pos_fb[0] - com_diff[0] * cos(com_pos[0][3]) - com_diff[1] * sin(com_pos[0][3]), 
-            com_pos[0][1] - com_pos_fb[1] - com_diff[0] * sin(com_pos[0][3]) - com_diff[1] * cos(com_pos[0][3]), 
-            com_pos[0][2]};
-        array<float, 3> leg_left_com =  {
-            com_pos[1][0] - com_pos_fb[0] - com_diff[1] * cos(com_pos[1][3]) - com_diff[0] * sin(com_pos[1][3]), 
-            com_pos[1][1] - com_pos_fb[1] - com_diff[1] * sin(com_pos[1][3]) - com_diff[0] * cos(com_pos[1][3]),
-            com_pos[1][2]};
         // array<float, 3> leg_right_com = {
-        //     com_pos[0][0] - com_pos_fb[0], 
-        //     com_pos[0][1] - com_pos_fb[1], 
+        //     com_pos[0][0] - com_pos_fb[0] - com_diff[0] * cos(com_pos[0][3]) - com_diff[1] * sin(com_pos[0][3]), 
+        //     com_pos[0][1] - com_pos_fb[1] - com_diff[0] * sin(com_pos[0][3]) - com_diff[1] * cos(com_pos[0][3]), 
         //     com_pos[0][2]};
         // array<float, 3> leg_left_com =  {
-        //     com_pos[1][0] - com_pos_fb[0], 
-        //     com_pos[1][1] - com_pos_fb[1],
+        //     com_pos[1][0] - com_pos_fb[0] - com_diff[1] * cos(com_pos[1][3]) - com_diff[0] * sin(com_pos[1][3]), 
+        //     com_pos[1][1] - com_pos_fb[1] - com_diff[1] * sin(com_pos[1][3]) - com_diff[0] * cos(com_pos[1][3]),
         //     com_pos[1][2]};
+        array<float, 3> leg_right_com = {
+            com_pos[0][0] - com_pos_fb[0], 
+            com_pos[0][1] - com_pos_fb[1], 
+            com_pos[0][2]};
+        array<float, 3> leg_left_com =  {
+            com_pos[1][0] - com_pos_fb[0], 
+            com_pos[1][1] - com_pos_fb[1],
+            com_pos[1][2]};
+
+        Serial.println("com_pos:");
+        Serial.print(com_pos[0][0]); Serial.print(", "); Serial.print(com_pos[0][1]); Serial.print(", "); Serial.println(com_pos[0][2]);
 
         // send order
-        robot->move_leg_ik(leg_right_com, com_pos[0][3], 0.0, true);
-        robot->move_leg_ik(leg_left_com, com_pos[1][3], 0.0, false);
+        // robot->move_leg_ik(leg_right_com, com_pos[0][3], 0.0, true);
+        // robot->move_leg_ik(leg_left_com, com_pos[1][3], 0.0, false);
 
         /* #########################################################################
         DELAY for NEXT CYCLE

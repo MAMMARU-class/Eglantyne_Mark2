@@ -39,7 +39,8 @@ enum class Phase: uint8_t {
     STANCE,
     FLIGHT,
     FALL,
-    WAKE
+    WAKE,
+    WAIT
 };
 
 typedef struct __attribute__((packed)) {

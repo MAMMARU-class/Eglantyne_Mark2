@@ -91,11 +91,12 @@ void onReceive(const uint8_t *mac_addr, const uint8_t *data, int len) {
         Serial.println("ESP-NOW client reconnected");
         neopixelWrite(RGB_BUILTIN, 0, 0, 255);
         connected = true;
-        robot->move_arm_t(arm_right, arm_left, 0.6);
+        // robot->move_arm_t(arm_right, arm_left, 0.6);
     }else{
-         robot->move_arm_right(arm_right);
-         robot->move_arm_left(arm_left);
+        //  robot->move_arm_right(arm_right);
+        //  robot->move_arm_left(arm_left);
     }
+    // Serial.println("controller");
 }
 
 // connection handling
@@ -115,7 +116,8 @@ void Core0Task(void * parameter){
             esp_now_send(clientMac, (uint8_t *)ping, strlen(ping) + 1);
             lastPing = millis();
         }
-        vTaskDelay(pdMS_TO_TICKS(10));
+        // Serial.println("0");
+        vTaskDelay(pdMS_TO_TICKS(200));
     }
 }
 

@@ -2,7 +2,7 @@
 #include <cmath>
 #include "SLIP.h"
 
-#define HEIGHT_WALK 0.158f
+#define HEIGHT_WALK 0.140f
 #define HEIGHT_FIGHT 0.135f
 #define HEIGHT_CROUCH 0.08f
 
@@ -88,7 +88,7 @@ private:
     // pivot
     Pivot pivot;
     // v input
-    array<float, 3> vd_max_abs;
+    array<float, 3> vd_max_abs = {0.02f, 0.02f, 0.2f};
     
     // state variables
     // com state at start and last (no consideration about double support phase)

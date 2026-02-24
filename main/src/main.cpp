@@ -92,7 +92,7 @@ void setup(){
             "Core1Task",
             12288,
             NULL,
-            configMAX_PRIORITIES+1, // max priority
+            configMAX_PRIORITIES-1, // max priority
             NULL,
             1 // core 1
         );
@@ -102,7 +102,7 @@ void setup(){
 void loop(){
     // sleep if not in motion register mode
     if (!motion_register_mode){
-        vTaskDelay(portMAX_DELAY);
+        vTaskDelay(10);
         return;
     }
 

@@ -1,6 +1,6 @@
 #include "lower_body.h"
 
-static array<float, 3> vd = {0.01f, 0.0f, 0.0f};
+static array<float, 3> vd = {0.2f, 0.0f, 0.0f};
 
 // orders
 static Order order;
@@ -22,10 +22,10 @@ STANCE_INFO stance = stance_walk;
 STANCE_INFO stance_diff = stance_walk;
 
 // mode and phase
-static Mode mode = Mode::WALK;
+static Mode mode = Mode::WAIT;
 static Mode mode_last = Mode::WALK;
 
-static Phase phase = Phase::START;
+static Phase phase = Phase::WAIT;
 static Phase phase_next;
 
 // step counter
@@ -60,10 +60,11 @@ array<float, 3> update_vel(array<float, 3> vd, Order order){
     //     return vd;
     // }
 
-    // array<float, 3> vd_max_abs = controller.get_vd_max_abs();
-    // vd[0] = global_control_pkt.stick_right[0] * vd_max_abs[0];
-    // vd[1] = global_control_pkt.stick_right[1] * vd_max_abs[1];
-    // vd[2] = global_control_pkt.stick_left[1] * vd_max_abs[2];
+    // Serial.print("vd: "); Serial.print(vd[0], 4); Serial.print(", "); Serial.print(vd[1], 4); Serial.print(", "); Serial.println(vd[2], 4);
+    array<float, 3> vd_max_abs = controller.get_vd_max_abs();
+    vd[0] = global_control_pkt.stick_right[0] * vd_max_abs[0];
+    vd[1] = global_control_pkt.stick_right[1] * vd_max_abs[1];
+    vd[2] = global_control_pkt.stick_left[1] * vd_max_abs[2];
     return vd;
 }
 
@@ -192,7 +193,7 @@ void Core1Task(void * parameter){
 
         // update vd
         vd = update_vel(vd, order);
-        // array<float, 3> vd_fb = sensor.vd_fb(vd);
+        array<float, 3> vd_fb = sensor.vd_fb(vd);
         // vd[0] += vd_fb[0];
         // vd[1] += vd_fb[1];
         // vd[2] += vd_fb[2];
@@ -462,7 +463,7 @@ void Core1Task(void * parameter){
                 // phase transition
                 init_phase(
                     Mode::WAIT,
-                    Phase::START,
+                    Phase::WAIT,
                     0
                 );
                 break;
@@ -493,46 +494,57 @@ void Core1Task(void * parameter){
 
         // dummy feedback
         // float delay_duration = 1000.0f / CTRL_STEP;
-        com_pos_fb = {0,0};
+        // com_pos_fb = {0,0};
 
         // arm feedback
         array<float, 3> arm_pos_right = robot->arm_k_solver({global_control_pkt.arm_right[0], global_control_pkt.arm_right[1], global_control_pkt.arm_right[2]});
         array<float, 3> arm_pos_left  = robot->arm_k_solver({global_control_pkt.arm_left[0], global_control_pkt.arm_left[1], global_control_pkt.arm_left[2]});
-        array<float, 2> arm_mass_pos = {arm_pos_right[0] + arm_pos_left[0], arm_pos_right[1] + arm_pos_left[1]};
+        array<float, 2> arm_mass_pos = {arm_pos_right[0] + arm_pos_left[0], -arm_pos_right[1] + arm_pos_left[1]};
 
-        array<float, 2> com_diff = {arm_mass_pos[0] / 6, arm_mass_pos[1] / 6};
+        // Serial.print("arm_pos_right:");
+        // Serial.print(arm_pos_right[0], 4); Serial.print(", "); Serial.print(arm_pos_right[1], 4); Serial.print(", "); Serial.println(arm_pos_right[2], 4);
+        // Serial.print("arm_pos_left:");
+        // Serial.print(arm_pos_left[0], 4); Serial.print(", "); Serial.print(arm_pos_left[1], 4); Serial.print(", "); Serial.println(arm_pos_left[2], 4);
+
+        array<float, 2> com_diff = {arm_mass_pos[0] / 9 - 0.002f, arm_mass_pos[1] / 9};
+
+        // com_pos_fb[0] += com_diff[0];
+        // com_pos_fb[1] += com_diff[1];
+        // Serial.print("com diff: ");
+        // Serial.print(com_diff[0], 4); Serial.print(", "); Serial.println(com_diff[1], 4);
         
         // move robot
         // devide com pos into each leg
-        // array<float, 3> leg_right_com = {
-        //     com_pos[0][0] - com_pos_fb[0] - com_diff[0] * cos(com_pos[0][3]) - com_diff[1] * sin(com_pos[0][3]), 
-        //     com_pos[0][1] - com_pos_fb[1] - com_diff[0] * sin(com_pos[0][3]) - com_diff[1] * cos(com_pos[0][3]), 
-        //     com_pos[0][2]};
-        // array<float, 3> leg_left_com =  {
-        //     com_pos[1][0] - com_pos_fb[0] - com_diff[1] * cos(com_pos[1][3]) - com_diff[0] * sin(com_pos[1][3]), 
-        //     com_pos[1][1] - com_pos_fb[1] - com_diff[1] * sin(com_pos[1][3]) - com_diff[0] * cos(com_pos[1][3]),
-        //     com_pos[1][2]};
         array<float, 3> leg_right_com = {
-            com_pos[0][0] - com_pos_fb[0], 
-            com_pos[0][1] - com_pos_fb[1], 
+            com_pos[0][0] - com_pos_fb[0],
+            com_pos[0][1] - com_pos_fb[1],
             com_pos[0][2]};
         array<float, 3> leg_left_com =  {
-            com_pos[1][0] - com_pos_fb[0], 
+            com_pos[1][0] - com_pos_fb[0],
             com_pos[1][1] - com_pos_fb[1],
             com_pos[1][2]};
+        // array<float, 3> leg_right_com = {
+        //     com_pos[0][0] - com_pos_fb[0], 
+        //     com_pos[0][1] - com_pos_fb[1], 
+        //     com_pos[0][2]};
+        // array<float, 3> leg_left_com =  {
+        //     com_pos[1][0] - com_pos_fb[0], 
+        //     com_pos[1][1] - com_pos_fb[1],
+        //     com_pos[1][2]};
 
-        Serial.println("com_pos:");
-        Serial.print(com_pos[0][0]); Serial.print(", "); Serial.print(com_pos[0][1]); Serial.print(", "); Serial.println(com_pos[0][2]);
+        // Serial.println("com_pos:");
+        // Serial.print(com_pos[0][0]); Serial.print(", "); Serial.print(com_pos[0][1]); Serial.print(", "); Serial.println(com_pos[0][2]);
 
         // send order
-        // robot->move_leg_ik(leg_right_com, com_pos[0][3], 0.0, true);
-        // robot->move_leg_ik(leg_left_com, com_pos[1][3], 0.0, false);
+        robot->move_leg_ik(leg_right_com, com_pos[0][3], 0.0, true);
+        robot->move_leg_ik(leg_left_com, com_pos[1][3], 0.0, false);
 
         /* #########################################################################
         DELAY for NEXT CYCLE
         ##########################################################################*/
         // delay
         vTaskDelay(pdMS_TO_TICKS(delay_duration));
+        // vTaskDelay(pdMS_TO_TICKS(1000.0f / CTRL_STEP));
     }
 }
 

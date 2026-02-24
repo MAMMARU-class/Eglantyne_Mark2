@@ -67,27 +67,74 @@ array<float, 6> Robot::leg_ik_solver_phi_zero(array<float, 3> foot2com, float th
 
 array<float, 3> Robot::arm_k_solver(array<float, 3> arm_angles)
 {
+    float c, s;
+
+    c = cos(arm_angles[0]);
+    s = sin(arm_angles[0]);
+    array<array<float, 3>, 3> R1 = {{
+        {c, 0, -s},
+        {0, 1, 0},
+        {s, 0, c}
+    }};
+
+    c = cos(arm_angles[1]);
+    s = sin(arm_angles[1]);
+    array<array<float, 3>, 3> R2 = {{
+        {1, c, -s},
+        {0, s, c},
+        {0, 0, 1}
+    }};
+
+    c = cos(PI / 4.0f);
+    s = sin(PI / 4.0f);
+    array<array<float, 3>, 3> R3 = {{
+        {c, -s, 0},
+        {s, c, 0},
+        {0, 0, 1}
+    }};
+
+    c = cos(arm_angles[2]);
+    s = sin(arm_angles[2]);
+    array<array<float, 3>, 3> R4 = {{
+        {c, 0, -s},
+        {0, 1, 0},
+        {s, 0, c}
+    }};
+
     float l1 = this->l_arm_upper;
     float l2 = this->l_arm_lower;
-    float theta1 = arm_angles[0];
-    float theta2 = arm_angles[1];
-    float theta4 = arm_angles[2];
-    float theta3 = M_PI / 4.0f; // 45 degrees
 
-    // T1: rotation around Z
-    float c1 = cos(theta1), s1 = sin(theta1);
-    // T2: rotation around Y
-    float c2 = cos(-theta2), s2 = sin(-theta2);
-    // T3: rotation around Z + translation
-    float c3 = cos(theta3), s3 = sin(theta3);
-    // T4: rotation around Z
-    float c4 = cos(theta4), s4 = sin(theta4);
+    array<array<float, 3>, 3> R12 = mul_rot_matrices(R1, R2);
+    array<array<float, 3>, 3> R123 = mul_rot_matrices(R12, R3);
+    array<array<float, 3>, 3> R1234 = mul_rot_matrices(R123, R4);
 
-    // Combined transformation matrix multiplication result
-    // Extract final position from T = T1 @ T2 @ T3 @ T4 @ T5
-    float x = -l1*s3*c1 - l2*(s3*c1*c4 - s1*s4);
-    float y = l1*c3*s2 + l2*(c3*s2*c4 + c2*s4);
-    float z = -l1*c3 - l2*c3*c4;
+    array<float, 3> arm_pos = {
+        -l1 * R12[0][2] - l2 * R1234[0][0],
+        -l1 * R12[1][2] - l2 * R1234[1][0],
+        -l1 * R12[2][2] - l2 * R1234[2][0]
+    };
 
-    return array<float, 3>{x*0.001f, y*0.001f, z*0.001f}; // convert to meters
+    return {arm_pos[0] / 1000.0f, arm_pos[1] / 1000.0f, arm_pos[2] / 1000.0f};
 }
+
+array<array<float, 3>, 3> Robot::mul_rot_matrices(array<array<float, 3>, 3> mat1, array<array<float, 3>, 3> mat2){
+    array<array<float, 3>, 3> result = {0};
+    for (int i=0; i<3; i++){
+        for (int j=0; j<3; j++){
+            for (int k=0; k<3; k++){
+                result[i][j] += mat1[i][k] * mat2[k][j];
+            }
+        }
+    }
+    return result;
+}
+
+array<float, 3> Robot::rot_mat_vector(array<array<float, 3>, 3> T, array<float, 3> vec){
+    array<float, 3> result = {0};
+    for (int i=0; i<3; i++){
+        for (int j=0; j<3; j++){
+            result[i] += T[i][j] * vec[j];
+        }
+    }
+    return {result[0], result[1], result[2]};
+};

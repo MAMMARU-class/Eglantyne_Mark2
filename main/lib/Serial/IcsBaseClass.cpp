@@ -149,14 +149,14 @@ int IcsBaseClass::posDeg100(int pos)
 * @retval -1 範囲外、通信失敗
 **/
 int IcsBaseClass::setPos(byte id, unsigned int pos)
-{
+{ 
   byte txCmd[3];
   byte rxCmd[3];
   unsigned int rePos;
   bool flg;
 
   
-  if ((id != idMax(id)) || ( ! maxMin(MAX_POS, MIN_POS, pos)) ) //範囲外の時
+  if ((id != idMax(id)) || ( ! maxMin(MAX_POS, MIN_POS, pos)) ) //if id or pos is out of range
   {
     return ICS_FALSE;
   }
@@ -165,22 +165,20 @@ int IcsBaseClass::setPos(byte id, unsigned int pos)
   txCmd[1] = ((pos >> 7) & 0x007F);   // POS_H
   txCmd[2] = (pos & 0x007F);          // POS_L
 
-  //送受信
-  	
-  
-  
-  flg = synchronize(txCmd, sizeof txCmd, rxCmd, sizeof rxCmd);
-  if (flg == false)
-  {
-    return ICS_FALSE;
-  }
+  // send and receive
+
+    // Serial.println("flag check");
+    // send and receive
+    flg = synchronize(txCmd, sizeof txCmd, rxCmd, sizeof rxCmd);
+    // if (flg == false)
+    // {
+    //    return ICS_FALSE;
+    // }
 
 		
-  
-  rePos = ((rxCmd[1] << 7) & 0x3F80) + (rxCmd[2] & 0x007F);
+    rePos = ((rxCmd[1] << 7) & 0x3F80) + (rxCmd[2] & 0x007F);
 
-  return rePos;
-
+    return rePos;
 }
 
 

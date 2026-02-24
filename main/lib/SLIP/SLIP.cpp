@@ -121,6 +121,11 @@ array<float, 2> SLIP::foot_pos_pd(array<float, 2> cvn_last,
                                  array<float, 2> pn,
                                  float T_sup)
 {
+    // somehow doesnt work if vd[0] == 0;
+    if (vd[0] == 0.0f){
+        vd[0] = 1e-4f;
+    }
+
     array<float, 2> err;
     err[0] = vd[0] - cvn_last[0];
 

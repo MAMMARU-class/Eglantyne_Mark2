@@ -1,6 +1,6 @@
 #include "lower_body.h"
 
-static array<float, 3> vd = {0.0f, 0.0f, 0.0f};
+static array<float, 3> vd = {0.01f, 0.0f, 0.0f};
 
 // orders
 static Order order;

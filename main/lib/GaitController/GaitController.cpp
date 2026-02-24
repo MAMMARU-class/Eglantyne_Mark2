@@ -174,11 +174,6 @@ void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> 
     this->pn_p1[0] += foot_pos_fb[0];
     this->pn_p1[1] += foot_pos_fb[1];
 
-    Serial.print("pn_p1: ");
-    Serial.print(this->pn_p1[0]);
-    Serial.print(", ");
-    Serial.println(this->pn_p1[1]);
-
     array<float, 2> cpn_last = model.calc_LIP_p(this->T_sup, {-this->pn[0], -this->pn[1]}, this->cvn_start);
     array<float, 2> pn_p1_rot = model.rotate_vec(this->pn_p1, this->body_angle);
     this->p_n2p1 = {

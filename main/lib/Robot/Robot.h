@@ -107,8 +107,7 @@ private:
     RobotLink foot_pitch_left;
     RobotLink foot_roll_left;
 
-    array<array<float, 3>, 3> mul_rot_matrices(array<array<float, 3>, 3> mat1, array<array<float, 3>, 3> mat2);
-    array<float, 3> rot_mat_vector(array<array<float, 3>, 3> T, array<float, 3> vec);
+    array<array<float, 4>, 4> mul_T_matrices(array<array<float, 4>, 4> mat1, array<array<float, 4>, 4> mat2);
 };
 
 #endif

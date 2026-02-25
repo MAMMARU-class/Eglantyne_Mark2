@@ -59,7 +59,10 @@ void setup(){
 
     // sub loop initializations
     connection_init(&Eglantyne);
+    send_msg2controller("Eglantyne initializing...");
     lower_body_control_init(&Eglantyne, &sd);
+    Serial.println("Eglantyne Mark2 ready");
+    send_msg2controller("LOGO");
     neopixelWrite(RGB_BUILTIN, 0, 0, 255);
 
     // esp now and upper body control task (core 0)

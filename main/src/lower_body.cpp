@@ -128,6 +128,27 @@ void Core1Task(void * parameter){
     while(1) {
         sensor.update();
         /* #########################################################################
+        LED HANDLER */
+        array<int,3> RED    = {255, 0,   0  }; // : disconnected or free
+        array<int,3> WHITE  = {255, 255, 255}; // : WAIT
+        array<int,3> BLUE   = {0,   0,   255}; // : WALK
+        array<int,3> GREEN  = {0,   255, 0  }; // : CROUCH
+        array<int,3> YELLOW = {255, 255, 0  }; // : FIGHT
+        /* ###################################################################### */
+        if(!connected || mode == Mode::FREE){
+            neopixelWrite(RGB_BUILTIN, RED[0], RED[1], RED[2]);
+        }else if (mode == Mode::WAIT){
+            neopixelWrite(RGB_BUILTIN, WHITE[0], WHITE[1], WHITE[2]);
+        }else if (mode == Mode::WALK){
+            neopixelWrite(RGB_BUILTIN, BLUE[0], BLUE[1], BLUE[2]);
+        }else if (order == Order::CROUCH){
+            neopixelWrite(RGB_BUILTIN, GREEN[0], GREEN[1], GREEN[2]);
+        }else if (mode == Mode::FIGHT){
+            neopixelWrite(RGB_BUILTIN, YELLOW[0], YELLOW[1], YELLOW[2]);
+        }else{
+            neopixelWrite(RGB_BUILTIN, RED[0], RED[1], RED[2]);
+        }
+        /* #########################################################################
         CONTROLLER HANDLER
         handle controller order. 
         dont change order while first order is not executed.
@@ -171,6 +192,11 @@ void Core1Task(void * parameter){
         // torque off order
         if(global_control_pkt.button_right[0] == 0 && global_control_pkt.button_left[0] == 0){
             order_free = true;
+            init_phase(
+                Mode::FREE,
+                Phase::WAIT,
+                0
+            );
             robot->free_all();
             continue;
         }
@@ -248,6 +274,7 @@ void Core1Task(void * parameter){
                                 (stance_fight.relative_leg_angle - stance.relative_leg_angle) / phase_length;
                             // change mode from TRANSITION to FIGHT
                             mode = Mode::FIGHT;
+                            mode_last = Mode::WALK;
                         }else if (mode_last == Mode::FIGHT){
                             controller.init_param_walk(HEIGHT_WALK);
                             stance.height_diff = HEIGHT_FIGHT - HEIGHT_WALK;
@@ -260,6 +287,7 @@ void Core1Task(void * parameter){
                                 (stance_walk.relative_leg_angle - stance.relative_leg_angle) / phase_length;
                             // change mode from TRANSITION to WALK
                             mode = Mode::WALK;
+                            mode_last = Mode::FIGHT;
                         }
 
                         controller.update_state_variables({0,0,0}, {0,0}, 0);

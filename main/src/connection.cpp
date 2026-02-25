@@ -55,7 +55,6 @@ void onReceive(const uint8_t *mac_addr, const uint8_t *data, int len) {
         clientRegistered = true;
 
         Serial.println("ESP-NOW client registered");
-        neopixelWrite(RGB_BUILTIN, 0, 255, 0);
     }
 
     // size check
@@ -89,8 +88,8 @@ void onReceive(const uint8_t *mac_addr, const uint8_t *data, int len) {
     // when reconnected, move smoothly
     if(!connected){
         Serial.println("ESP-NOW client reconnected");
-        neopixelWrite(RGB_BUILTIN, 0, 0, 255);
         connected = true;
+        send_msg2controller("LOGO");
         // robot->move_arm_t(arm_right, arm_left, 0.6);
     }else{
         //  robot->move_arm_right(arm_right);
@@ -104,7 +103,6 @@ void Core0Task(void * parameter){
     while(1){
         if (clientRegistered && millis() - lastReply > TIMEOUT) {
             Serial.println("timeout");
-            neopixelWrite(RGB_BUILTIN, 255, 0, 0);
             esp_now_del_peer(clientMac);
             clientRegistered = false;
             connected = false;
@@ -116,8 +114,8 @@ void Core0Task(void * parameter){
             esp_now_send(clientMac, (uint8_t *)ping, strlen(ping) + 1);
             lastPing = millis();
         }
-        // Serial.println("0");
-        vTaskDelay(pdMS_TO_TICKS(200));
+
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 

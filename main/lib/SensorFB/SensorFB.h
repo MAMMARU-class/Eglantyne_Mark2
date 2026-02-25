@@ -58,8 +58,10 @@ private:
     float l_pivot2com = 0.07;
 
     // gains
-    float kp_angle_com = 0.6f;
-    float kd_angle_com = 0.014f;
+    float kp_angle_com = 0.4f;
+    float kd_angle_com = 0.01f;
+    // float kp_angle_com = 0.0f;
+    // float kd_angle_com = 0.0f;
 
     float kp_angle_foot = 0.01f;
     float kd_angle_foot = 0.001f;

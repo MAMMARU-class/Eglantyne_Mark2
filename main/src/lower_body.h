@@ -26,6 +26,7 @@ enum class Order: uint8_t {
 
 enum class Mode: uint8_t {
     WAIT,
+    FREE,
     TRANSITION,
     WALK,
     FIGHT

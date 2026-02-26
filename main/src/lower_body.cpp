@@ -1,6 +1,6 @@
 #include "lower_body.h"
 
-static array<float, 3> vd = {0.2f, 0.0f, 0.0f};
+static array<float, 3> vd = {0.001f, 0.0f, 0.0f};
 
 // orders
 static Order order;
@@ -27,6 +27,7 @@ static Mode mode_last = Mode::WALK;
 
 static Phase phase = Phase::WAIT;
 static Phase phase_next;
+static Phase phase_last = Phase::WAIT;
 
 // step counter
 static int phase_length;
@@ -61,17 +62,20 @@ array<float, 3> update_vel(array<float, 3> vd, Order order){
     // }
 
     // Serial.print("vd: "); Serial.print(vd[0], 4); Serial.print(", "); Serial.print(vd[1], 4); Serial.print(", "); Serial.println(vd[2], 4);
-    array<float, 3> vd_max_abs = controller.get_vd_max_abs();
-    vd[0] = global_control_pkt.stick_right[0] * vd_max_abs[0];
-    vd[1] = global_control_pkt.stick_right[1] * vd_max_abs[1];
-    vd[2] = global_control_pkt.stick_left[1] * vd_max_abs[2];
+    // array<float, 3> vd_max_abs = controller.get_vd_max_abs();
+    // vd[0] = global_control_pkt.stick_right[0] * vd_max_abs[0];
+    // vd[1] = global_control_pkt.stick_right[1] * vd_max_abs[1];
+    // vd[2] = global_control_pkt.stick_left[1] * vd_max_abs[2];
     return vd;
 }
 
 void init_phase(Mode next_mode, Phase next_phase, float next_phase_time){
     mode_last = mode;
     mode = next_mode;
+
+    phase_last = phase;
     phase = next_phase;
+
     phase_length = next_phase_time * CTRL_STEP;
     phase_count = 0;
 }
@@ -79,7 +83,7 @@ void init_phase(Mode next_mode, Phase next_phase, float next_phase_time){
 void update_phase(){
     // stop if no movement
     if (controller.p_n2p1_equels_p_n2m1() && 
-        abs(vd[0]) < 0.005f && abs(vd[1]) < 0.005f && abs(vd[2]) < 0.005f){
+        abs(vd[0]) < 0.0005f && abs(vd[1]) < 0.0005f && abs(vd[2]) < 0.0005f){
         phase_next = Phase::END;
     }
     else{
@@ -226,7 +230,7 @@ void Core1Task(void * parameter){
 
         // walk if vd is large enough or in MODE_CHANGE order
         if (mode == Mode::WAIT && 
-            (abs(vd[0]) > 0.005f || abs(vd[1]) > 0.005f || abs(vd[2]) > 0.005f || order == Order::MODE_CHANGE)
+            (abs(vd[0]) > 0.0005f || abs(vd[1]) > 0.0005f || abs(vd[2]) > 0.0005f || order == Order::MODE_CHANGE)
             ){
             init_phase(
                 mode_last,
@@ -510,19 +514,30 @@ void Core1Task(void * parameter){
         ##########################################################################*/
         // attach stance
         com_pos = attach_stance(com_pos, stance);
+        // in START phase, dont make swing leg
+        if (phase == Phase::START || phase_last == Phase::START){
+            float height = max(com_pos[0][2], com_pos[1][2]);
+            com_pos[0][2] = height;
+            com_pos[1][2] = height;
+        }
         // sensor feedback
-        array<float, 2> ideal_acc = {com_pos[2][0], com_pos[2][1]};
         array<float, 2> angle_com_pos_fb = sensor.angle_com_pos_fb();
-        float delay_duration = sensor.delay_duration_fb(ideal_acc, CTRL_STEP);
-
         array<float, 2> com_pos_fb = {
             angle_com_pos_fb[0],
             angle_com_pos_fb[1]
         };
 
+        float delay_duration = 1000.0f / CTRL_STEP;
+        if (phase == Phase::SINGLE){
+            array<float, 2> ideal_acc = {com_pos[2][0], com_pos[2][1]};
+            float Tc = controller.get_Tc();
+            float t_ideal = phase_count / (float)CTRL_STEP + controller.get_T_ds()/2;
+            delay_duration = sensor.delay_duration_fb(controller.get_approx_coeff(), ideal_acc, Tc, t_ideal, CTRL_STEP);
+        }
+
         // dummy feedback
-        // float delay_duration = 1000.0f / CTRL_STEP;
         // com_pos_fb = {0,0};
+        // float delay_duration = 1000.0f / CTRL_STEP;
 
         // arm feedback
         array<float, 3> arm_pos_right = robot->arm_k_solver({global_control_pkt.arm_right[0], global_control_pkt.arm_right[1], global_control_pkt.arm_right[2]});
@@ -564,6 +579,10 @@ void Core1Task(void * parameter){
         // Serial.print(com_pos[0][0]); Serial.print(", "); Serial.print(com_pos[0][1]); Serial.print(", "); Serial.println(com_pos[0][2]);
 
         // send order
+        if (phase == Phase::FALL || phase == Phase::WAKE){
+            // do nothing
+            continue;
+        }
         robot->move_leg_ik(leg_right_com, com_pos[0][3], 0.0, true);
         robot->move_leg_ik(leg_left_com, com_pos[1][3], 0.0, false);
 
@@ -608,13 +627,13 @@ void crouch(Order order, array<array<float, 5>, 3>& com_pos){
 void wake_face_up(){
     Serial.println("Wake up face up");
 
-    sd->play_motion(robot, "/wake_face_up.csv", 0.5);
+    sd->play_motion(robot, "/wake_face_up.csv", 0.35f);
     robot->init_home(1);
 }
 
 void wake_face_down(){
     Serial.println("Wake up face down");
 
-    sd->play_motion(robot, "/wake_face_down.csv", 0.5);
+    sd->play_motion(robot, "/wake_face_down.csv", 0.35f);
     robot->init_home(1);
 }

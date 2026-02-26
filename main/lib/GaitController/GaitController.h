@@ -80,6 +80,9 @@ public:
         );
     };
     array<float, 3> get_vd_max_abs(){ return this->vd_max_abs; }
+    // getters from model
+    float get_Tc(){ return model.get_Tc(); }
+    array<float, 3> get_approx_coeff(){ return model.get_approx_coeff(); }
 
 private:
     // model

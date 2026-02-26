@@ -33,7 +33,7 @@ void Robot::setLink(){
     leg_under_right.setInitialPositions(4190, 1.2833, 0,0);
     leg_under_right.setMotor(serial2, 4, FORWARD);
 
-    foot_pitch_right.setInitialPositions(5720, 0.7058, 0,0);
+    foot_pitch_right.setInitialPositions(5820, 0.7058, 0,0);
     foot_pitch_right.setMotor(serial2, 5, FORWARD);
 
     foot_roll_right.setInitialPositions(7620, 0.0, 0,0);
@@ -49,10 +49,10 @@ void Robot::setLink(){
     leg_upper_left.setInitialPositions(10050, 0.5775, 0,0);
     leg_upper_left.setMotor(serial2, 9, REVERSE);
 
-    leg_under_left.setInitialPositions(4320, 1.2833, 0,0);
+    leg_under_left.setInitialPositions(4420, 1.2833, 0,0);
     leg_under_left.setMotor(serial2, 10, FORWARD);
 
-    foot_pitch_left.setInitialPositions(6100, 0.7058, 0,0);
+    foot_pitch_left.setInitialPositions(6200, 0.7058, 0,0);
     foot_pitch_left.setMotor(serial2, 11, FORWARD);
 
     foot_roll_left.setInitialPositions(7420, 0.0, 0,0);

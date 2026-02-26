@@ -42,6 +42,7 @@ public:
     // LIP calculation
     array<float, 2> calc_LIP_p(float t, array<float, 2> cp0, array<float, 2> cv0);
     array<float, 2> calc_LIP_v(float t, array<float, 2> cp0, array<float, 2> cv0);
+    void calc_approx_coeff(array<float, 2> cp0, array<float, 2> cv0);
 
     // foot pos pd
     array<float, 2> foot_pos_pd(array<float, 2> cvn_last, array<float, 2> cvn_m1_last, array<float, 3> vd, array<float, 2> pn, float T_sup);
@@ -54,11 +55,12 @@ public:
     // z
     array<float, 2>calc_com_z(float t, float T_sup, float ds_ratio);
 
-    // get value
+    // gettera
     float get_z0(){ return this->z0; }
     float get_Tc(){ return this->Tc; }
     float get_foot_dist_y_base(){ return this->foot_dist_y_base; }
     float get_T_sup_base(){ return this->T_sup_base; }
+    array<float, 3> get_approx_coeff(){ return this->approx_coeff; }
 
 private:
     // params
@@ -81,4 +83,7 @@ private:
     float v_mag_max;
 
     array<array<float, 6>, 2> ds_coeff;
+
+    // approximation coeff for y
+    array<float, 3> approx_coeff;
 };

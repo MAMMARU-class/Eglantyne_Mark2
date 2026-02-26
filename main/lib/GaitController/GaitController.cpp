@@ -11,7 +11,7 @@ void GaitController::init_param_walk(float z0){
     this->set_vd_max_abs({0.5f, 0.005f, 0.2f});
     // initialize control parameters
     model.set_z0(z0);
-    model.set_z_flight(0.012f);
+    model.set_z_flight(0.03f);
     model.set_foot_dist_y_base(0.04f);
     model.set_foot_dist_x_max(0.12f);
     model.set_T_sup_base(0.22f);
@@ -19,7 +19,7 @@ void GaitController::init_param_walk(float z0){
     model.set_fb_gain(0.003, 0.0003f, 0.003, 0.0003);
     // model.set_fb_gain(0.00001, 0.000001f, 0.00001, 0.000001);
     model.calculate_initial_params();
-    set_ds_ratio(0.3f);
+    set_ds_ratio(0.15f);
 }
 
 void GaitController::init_pose_walk(){
@@ -149,6 +149,7 @@ void GaitController::init_state_variables()
         cpn_d_0, cvn_d_0, can_d_0,
         cpn_d_T, cvn_d_T, can_d_T
     );
+    model.calc_approx_coeff(cpn_start, cvn_start);
 }
 
 void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> foot_pos_fb, float body_angle_order){
@@ -244,6 +245,7 @@ void GaitController::init_start(){
             cvn_d_T,
             can_d_T
         );
+    model.calc_approx_coeff(cpn_start, cvn_start);
 }
 
 void GaitController::init_end(){
@@ -305,6 +307,7 @@ void GaitController::init_end(){
             cvn_d_T,
             can_d_T
         );
+    model.calc_approx_coeff(cpn_start, cvn_start);
 }
 
 void GaitController::init_single_0(){

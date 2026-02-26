@@ -23,6 +23,11 @@ void Robot::init_home(float t){
         for(int id=0; id<LINK_SIZE; id++){
             motion[id] = current[id] + diff[id]*( (float)(i) ) / (float)(step);
         }
+        Serial.println("move to");
+        for(int id=0; id<LINK_SIZE; id++){
+            Serial.print(motion[id], 4); Serial.print(", ");
+        }
+        Serial.println();
         this->move_all(motion);
         delay(CTRL_CYCLE);
     }
@@ -187,14 +192,12 @@ void Robot::move_safely_fall(
 
 // calculation
 void Robot::move_leg_ik(array<float, 3> foot2com, float theta, float phi, bool is_right){
-    Serial.println("leg ik");
     array<float, 6> angles;
     if(phi == 0.0f){
         angles = this->leg_ik_solver_phi_zero(foot2com, theta, is_right);
     }else{
         angles = {0};
     }
-    Serial.println("ik solved");
 
     if (is_right){ this->move_leg_right(angles);
     }else{ this->move_leg_left(angles); }

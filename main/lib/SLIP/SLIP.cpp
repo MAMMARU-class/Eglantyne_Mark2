@@ -112,6 +112,12 @@ array<float, 2> SLIP::calc_LIP_v(float t, array<float, 2> cp0, array<float, 2> c
     return {vx, vy};
 }
 
+void SLIP::calc_approx_coeff(array<float, 2> cp0, array<float, 2> cv0){
+    this->approx_coeff[0] = 1/2.0f / (Tc*Tc) * cp0[1];
+    this->approx_coeff[1] = 1 / (Tc*Tc) * cv0[1];
+    this->approx_coeff[2] = cp0[1];
+}
+
 /* -----------------------------
  * foot position PD
  * ----------------------------- */

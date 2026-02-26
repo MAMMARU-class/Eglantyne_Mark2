@@ -64,13 +64,16 @@ bool SensorFB::face_up(){
 // feedback functions
 // body inclination feedback
 array<float, 2> SensorFB::angle_com_pos_fb(){
+    float err = -this->euler.y();
+    float derr = err - this->angle_com_err_last;
+    this->angle_com_err_last = err;
     array<float, 2> angle_com_err = {
-        sinf(-this->euler.y() * PI / 180.0f) * this->l_pivot2com,
+        sinf(err * PI / 180.0f) * this->l_pivot2com,
         // sinf( this->euler.z() * PI / 180.0f) * this->l_pivot2com
         0
     };
     array<float, 2> angle_com_derr = {
-        sinf(-this->gyro.y() * PI / 180.0f) * this->l_pivot2com,
+        sinf(derr * PI / 180.0f) * this->l_pivot2com,
         // sinf( this->gyro.z() * PI / 180.0f) * this->l_pivot2com
         0
     };
@@ -119,7 +122,7 @@ array<float, 2> SensorFB::acc_foot_pos_fb(){
     return foot_pos_fb;
 }
 
-float SensorFB::delay_duration_fb(array<float, 2> ideal_acc, int step){
+float SensorFB::delay_duration_fb(array<float, 3> approx_coeff, array<float, 2> ideal_acc, float Tc, float t_ideal, int step){
     // check if com already pass the top
     float ideal_jerk_abs = abs(ideal_acc[1]) - abs(this->ideal_acc_last);
     this->ideal_acc_last = ideal_acc[1];
@@ -127,41 +130,61 @@ float SensorFB::delay_duration_fb(array<float, 2> ideal_acc, int step){
     float jerk_abs = abs(this->acc.z()) - abs(this->acc_last);
     this->acc_last = this->acc.z();
 
-    float fb_mag;
-    if (abs(ideal_jerk_abs) < 0.01){
-        fb_mag = 1;
+    float a = approx_coeff[0];
+    float b = approx_coeff[1];
+    float c = approx_coeff[2];
+    c = a * (b*b)/(4*a*a) - b * b/(2*a) + c;
+
+    int sig;
+    if (jerk_abs > 0){
+        sig = 1;
     }else{
-        fb_mag = jerk_abs / ideal_jerk_abs;
+        sig = -1;
     }
-    if (fb_mag == 0){fb_mag = 1;}
-    float fb_dir = fb_mag / abs(fb_mag);
-    // Serial.println("ideal_acc: " + String(ideal_acc[1], 4));
-    // Serial.println("acc: " + String(this->acc.z(), 4));
-    // Serial.println("fb_mag: " + String(fb_mag, 4));
-    // Serial.println("fb_dir: " + String(fb_dir, 4));
 
-    // calculate error
-    float err = abs(ideal_acc[1]) - abs(this->acc.z());
-    err *= fb_dir;
-    float derr = err - this->acc_err_last;
-    this->acc_err_last = err;
+    float pos_y = acc.z() / (Tc*Tc);
+    float t_now = sqrt((c-pos_y)/a) * sig;
 
-    // feed back coefficient
-    float acc_fb_coeff = (this->kp_acc_delay * err + this->kd_acc_delay * derr);
-    // Serial.print("acc_fb_coeff: "); Serial.println(acc_fb_coeff, 4);
+    float t_err = t_now - t_ideal;
+    float t_derr = t_err - this->t_err_last;
+    this->t_err_last = t_err;
 
-    // normalize into 0-2
-    float acc_fb = 0.95 * (2.0f / PI * atan(acc_fb_coeff) + 1.0f);
-    // Serial.println("acc_fb_coeff: " + String(acc_fb_coeff, 4));
-    // Serial.println("acc_fb: " + String(acc_fb, 4));
-
-    // show error as color
-    show_acc_error(acc_fb);
+    float acc_fb = (kp_acc_delay * t_err + kd_acc_delay * t_derr) + 1.0f;
 
     // return delay duration in ms
-    this->delay_duration = 1000.0f / step * acc_fb;
+    if (t_err > 0){
+        this->delay_duration = 1000.0f / step / acc_fb;
+    }else{
+        this->delay_duration = 1000.0f / step * acc_fb;
+    }
     return this->delay_duration;
-    // return 1000.0f / step;
+
+    // float fb_mag;
+    // if (abs(ideal_jerk_abs) < 0.01){
+    //     fb_mag = 1;
+    // }else{
+    //     fb_mag = jerk_abs / ideal_jerk_abs;
+    // }
+    // if (fb_mag == 0){fb_mag = 1;}
+    // float fb_dir = fb_mag / abs(fb_mag);
+
+    // // calculate error
+    // float err = abs(ideal_acc[1]) - abs(this->acc.z());
+    // err *= fb_dir;
+    // float derr = err - this->acc_err_last;
+    // this->acc_err_last = err;
+
+    // // feed back coefficient
+    // float acc_fb_coeff = (this->kp_acc_delay * err + this->kd_acc_delay * derr);
+    // // Serial.print("acc_fb_coeff: "); Serial.println(acc_fb_coeff, 4);
+
+    // // normalize into 0-2
+    // float acc_fb = 0.95 * (2.0f / PI * atan(acc_fb_coeff) + 1.0f);
+    // // Serial.println("acc_fb_coeff: " + String(acc_fb_coeff, 4));
+    // // Serial.println("acc_fb: " + String(acc_fb, 4));
+
+    // // show error as color
+    // show_acc_error(acc_fb);
 }
 
 void SensorFB::show_acc_error(float err){
@@ -180,7 +203,7 @@ void SensorFB::show_acc_error(float err){
         color[1] = g;
         color[2] = 255 - g;
     }
-    neopixelWrite(RGB_BUILTIN, color[0], color[1], color[2]);
+    // neopixelWrite(RGB_BUILTIN, color[0], color[1], color[2]);
 }
 
 // integrate feedback

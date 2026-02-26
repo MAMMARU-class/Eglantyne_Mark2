@@ -32,7 +32,7 @@ public:
     // acceleration feedback
     array<float, 2> acc_com_pos_fb();
     array<float, 2> acc_foot_pos_fb();
-    float delay_duration_fb(array<float, 2> ideal_acc, int step);
+    float delay_duration_fb(array<float, 3> approx_coeff, array<float, 2> ideal_acc, float Tc, float t_ideal, int step);
     void show_acc_error(float err);
     // integrate feedback
     array<float, 2> foot_pos_fb();
@@ -58,10 +58,10 @@ private:
     float l_pivot2com = 0.07;
 
     // gains
-    float kp_angle_com = 0.4f;
-    float kd_angle_com = 0.01f;
-    // float kp_angle_com = 0.0f;
-    // float kd_angle_com = 0.0f;
+    // float kp_angle_com = 0.5f;
+    // float kd_angle_com = 0.1f;
+    float kp_angle_com = 0.0f;
+    float kd_angle_com = 0.0f;
 
     float kp_angle_foot = 0.01f;
     float kd_angle_foot = 0.001f;
@@ -69,7 +69,7 @@ private:
     float kp_angle_vd = 0.001f;
     float kd_angle_vd = 0.0f;
 
-    float kp_acc_delay = 3.0f;
+    float kp_acc_delay = 0.001f;
     float kd_acc_delay = 0.0f;
 
     float kp_acc_com = 0.01f;
@@ -79,9 +79,11 @@ private:
     float kd_acc_foot = 0.001f;
 
     // feedback state variables
+    float angle_com_err_last = 0.0f;
+
     float ideal_acc_last = 0.0f;
     float acc_last = 0.0f;
-    float acc_err_last = 0.0f;
+    float t_err_last = 0.0f;
 
     float delay_duration = 0.0f;
     float delay_duration_last = 0.0f;

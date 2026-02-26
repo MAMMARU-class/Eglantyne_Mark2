@@ -55,7 +55,11 @@ void setup(){
     Eglantyne.set_leg_home_pose(0.04, HEIGHT_WALK);
     Serial.println("Eglantyne Mark2 prepared");
 
-    Eglantyne.current();
+    array<float, LINK_SIZE> current = Eglantyne.current();
+    Serial.println("Current joint positions:");
+    for(int i=0; i<LINK_SIZE; i++){
+        Serial.print(current[i], 4); Serial.print(", ");
+    }
     delay(10);
     Eglantyne.init_home(1);
 
@@ -181,7 +185,7 @@ void loop(){
             neopixelWrite(RGB_BUILTIN, 0, 0, 255);
 
             Eglantyne.init_home(1);
-            sd.play_motion(&Eglantyne, ("/" + fname).c_str(), 0.5);
+            sd.play_motion(&Eglantyne, ("/" + fname).c_str(), 0.35f);
             Eglantyne.init_home(1);
             delay(3000);
 

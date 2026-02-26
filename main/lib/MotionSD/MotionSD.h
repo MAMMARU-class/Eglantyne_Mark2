@@ -5,6 +5,7 @@
 #include "FS.h"
 #include "SD.h"
 #include "SPI.h"
+#include "CubicSpline.h"
 
 #include "Robot.h"
 

@@ -90,10 +90,10 @@ array<float, 18> MotionSD::read_motion(
 
     file.close();
 
-    Serial.print("data: ");
-    for (const auto &v : result) {
-        Serial.print(v, 3); Serial.print(" ");
-    }
+    // Serial.print("data: ");
+    // for (const auto &v : result) {
+    //     Serial.print(v, 3); Serial.print(" ");
+    // }
     Serial.println();
     return result;
 }
@@ -101,13 +101,59 @@ array<float, 18> MotionSD::read_motion(
 void MotionSD::play_motion(Robot* r, const char* fname, float duration){
     robot = r;
     size_t id = 0;
+    std::vector<array<float, LINK_SIZE>> motions;
+    motions.reserve(100);
+
     while(1){
         array<float, LINK_SIZE> motion = this->read_motion(fname, id);
         if (std::isnan(motion[0])){
             break;
         }
-        robot->move_all_t(motion, duration);
+        motions.push_back(motion);
         id++;
+    }
+
+    if(motions.size() < 2){
+        for (int i=0; i<LINK_SIZE; i++){
+            robot->move(i, motions[0][i], duration);
+        }
+        return;
+    }
+
+    // move to first position
+    robot->move_all_t(motions[0].data(), 0.8);
+
+    size_t N = motions.size();
+    // create time vector
+    std::vector<double> t(N);
+    for(size_t i=0;i<N;i++){
+        t[i] = i * duration;
+    }
+
+    // create splines for each joint
+    std::vector<CubicSpline1D> splines(LINK_SIZE);
+    for(size_t joint=0; joint<LINK_SIZE; joint++){
+        std::vector<double> y(N);
+        for(size_t i=0;i<N;i++){
+            y[i] = motions[i][joint];
+        }
+        splines[joint].build(t, y);
+    }
+
+    // play motion
+    double total_time = (N-1) * duration;
+
+    double dt = 1.0/100.0; // 100Hz
+    for(double tt=0; tt<=total_time; tt+=dt){
+        array<float, LINK_SIZE> target;
+
+        for(size_t joint=0; joint<LINK_SIZE; joint++){
+            target[joint] = 
+                static_cast<float>(splines[joint].eval(tt));
+        }
+        robot->move_all(target.data());
+
+        delay(dt*1000);
     }
 }
 

@@ -20,7 +20,8 @@ public:
     void setLink();
     void init_home(float t);
 
-    // get robot info
+    // set and get robot home
+    void set_leg_home_pose(float leg_dist, float height);
     array<float, LINK_SIZE> home();
 
     // get motor positions (radian)

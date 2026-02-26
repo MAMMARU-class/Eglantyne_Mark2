@@ -21,7 +21,7 @@ void MotionSD::init(){
 }
 
 /* #########################################################################
-READ and WRITE
+WRITE and READ
 ##########################################################################*/
 void MotionSD::write_motion(
     const char* filename,
@@ -98,6 +98,9 @@ array<float, 18> MotionSD::read_motion(
     return result;
 }
 
+/* #########################################################################
+PLAY
+##########################################################################*/
 void MotionSD::play_motion(Robot* r, const char* fname, float duration){
     robot = r;
     size_t id = 0;
@@ -113,15 +116,17 @@ void MotionSD::play_motion(Robot* r, const char* fname, float duration){
         id++;
     }
 
+    if (motions.empty()) {
+        Serial.println("No motion data found.");
+        return;
+    }
     if(motions.size() < 2){
-        for (int i=0; i<LINK_SIZE; i++){
-            robot->move(i, motions[0][i], duration);
-        }
+        robot->move_all_t(motions[0], duration);
         return;
     }
 
     // move to first position
-    robot->move_all_t(motions[0].data(), 0.8);
+    robot->move_all_t(motions[0], 0.8);
 
     size_t N = motions.size();
     // create time vector
@@ -151,7 +156,7 @@ void MotionSD::play_motion(Robot* r, const char* fname, float duration){
             target[joint] = 
                 static_cast<float>(splines[joint].eval(tt));
         }
-        robot->move_all(target.data());
+        robot->move_all(target);
 
         delay(dt*1000);
     }

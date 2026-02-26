@@ -51,6 +51,8 @@ void setup(){
     // init robot
     Eglantyne.setSerial(&krs1, &krs2);
     Eglantyne.setLink();
+    // reinit home
+    Eglantyne.set_leg_home_pose(0.04, HEIGHT_WALK);
     Serial.println("Eglantyne Mark2 prepared");
 
     Eglantyne.current();

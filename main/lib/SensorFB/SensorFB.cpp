@@ -3,7 +3,9 @@
 SensorFB::SensorFB(){}
 
 void SensorFB::init(){
+    Serial.println("Initializing BNO055...");
     Wire.begin(SDA, SCL);
+    Serial.println("Wire initialized");
 
     if (!bno.begin()){
         Serial.print("No BNO055 detected");
@@ -47,7 +49,9 @@ void SensorFB::init_norm(){
 
 // state check
 bool SensorFB::fall(){
-    if(this->euler.y() > -25 && this->euler.y() < 25 && this->euler.z() > -25 && this->euler.z() < 25){
+    float fall_angle = 45.0f;
+    if(this->euler.y() > -fall_angle && this->euler.y() < fall_angle && 
+       this->euler.z() > -fall_angle && this->euler.z() < fall_angle){
         return false;
     }else{
         return true;
@@ -65,8 +69,8 @@ bool SensorFB::face_up(){
 // body inclination feedback
 array<float, 2> SensorFB::angle_com_pos_fb(){
     float err = -this->euler.y();
-    float derr = err - this->angle_com_err_last;
-    this->angle_com_err_last = err;
+    float derr = err - this->angle_err_last;
+    this->angle_err_last = err;
     array<float, 2> angle_com_err = {
         sinf(err * PI / 180.0f) * this->l_pivot2com,
         // sinf( this->euler.z() * PI / 180.0f) * this->l_pivot2com
@@ -88,6 +92,18 @@ array<float, 2> SensorFB::angle_com_pos_fb(){
 
     return angle_com_fb;
     // return {0,0};
+}
+
+float SensorFB::angle_phi_fb(){
+    float err = this->euler.y();
+    float derr = err - this->angle_err_last;
+    this->angle_err_last = err;
+
+    err = err * PI / 180.0f;
+    derr = derr * PI / 180.0f;
+
+    float angle_phi_fb = this->kp_phi_body * err + this->kd_phi_body * derr;
+    return angle_phi_fb;
 }
 
 array<float, 2> SensorFB::angle_foot_pos_fb(){

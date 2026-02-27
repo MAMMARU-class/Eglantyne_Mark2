@@ -14,7 +14,7 @@ STANCE_INFO stance_walk = {
 };
 STANCE_INFO stance_fight = {
     .height_diff = 0.0f,
-    .relative_body_angle = -30.0 * PI / 180.0f,
+    .relative_body_angle = 30.0 * PI / 180.0f,
     .relative_body_pos = 0.0f,
     .relative_leg_angle = -60.0 * PI / 180.0f
 };
@@ -50,6 +50,10 @@ void lower_body_control_init(Robot* r, MotionSD* s){
     sensor.update();
     delay(1000);
     Serial.println("Lower body control initialized");
+
+    // initialize control parameters
+    controller.init_param_walk(HEIGHT_WALK);
+    controller.init_pose();
 }
 
 array<float, 3> update_vel(array<float, 3> vd, Order order){
@@ -93,27 +97,27 @@ void update_phase(){
 
 array<array<float, 5>, 3> attach_stance(array<array<float, 5>, 3> com_pos, STANCE_INFO stance){
     // // height
-    // com_pos[0][2] += stance.height_diff;
-    // com_pos[1][2] += stance.height_diff;
+    com_pos[0][2] += stance.height_diff;
+    com_pos[1][2] += stance.height_diff;
 
-    // // relative body angle
-    // com_pos[0][3] += stance.relative_body_angle;
-    // com_pos[1][3] += stance.relative_body_angle;
+    // relative body angle
+    com_pos[0][3] += stance.relative_body_angle;
+    com_pos[1][3] += stance.relative_body_angle;
 
-    // // left leg angle
-    // com_pos[1][3] += stance.relative_leg_angle;
+    // left leg angle
+    com_pos[1][3] += stance.relative_leg_angle;
 
-    // // adjust rotation to com pos
-    // float px_r = com_pos[0][0]; float py_r = com_pos[0][1];
-    // float theta_r = com_pos[0][3];
-    // float pl_x = com_pos[1][0]; float py_l = com_pos[1][1];
-    // float theta_l = com_pos[1][3];
+    // adjust rotation to com pos
+    float px_r = com_pos[0][0]; float py_r = com_pos[0][1];
+    float theta_r = com_pos[0][3];
+    float pl_x = com_pos[1][0]; float py_l = com_pos[1][1];
+    float theta_l = com_pos[1][3];
 
-    // com_pos[0][0] =  px_r * cos(theta_r) + py_r * sin(theta_r);
-    // com_pos[0][1] = -px_r * sin(theta_r) + py_r * cos(theta_r);
+    com_pos[0][0] =  px_r * cos(theta_r) + py_r * sin(theta_r);
+    com_pos[0][1] = -px_r * sin(theta_r) + py_r * cos(theta_r);
 
-    // com_pos[1][0] =  pl_x * cos(theta_l) + py_l * sin(theta_l);
-    // com_pos[1][1] = -pl_x * sin(theta_l) + py_l * cos(theta_l);
+    com_pos[1][0] =  pl_x * cos(theta_l) + py_l * sin(theta_l);
+    com_pos[1][1] = -pl_x * sin(theta_l) + py_l * cos(theta_l);
 
     return com_pos;
 }
@@ -128,6 +132,7 @@ void Core1Task(void * parameter){
         Serial.println("MotionSD is null");
         while(1);
     }
+    Serial.println("Core1Task started");
 
     while(1) {
         sensor.update();
@@ -236,8 +241,6 @@ void Core1Task(void * parameter){
                     Phase::START,
                     0
                 );
-            }else{
-                continue;
             }
         }
 
@@ -257,15 +260,12 @@ void Core1Task(void * parameter){
         ##########################################################################*/
         // move robot
         // init com_pos
-        array<array<float, 5>, 3> com_pos = {{
-            {0.0,  0.04, HEIGHT_WALK, 0.0, 0.0},
-            {0.0, -0.04, HEIGHT_WALK, 0.0, 0.0},
-            {0.0, 0.0, 0.0, 0.0, 0.0}
-        }};
+        array<array<float, 5>, 3> com_pos = controller.get_default_com_pos();
         // phase switch-case sentences
         switch (phase){
             case Phase::STANCE:{
                 if (phase_count == 0){
+                    Serial.println("phase: STANCE");
                     if (order == Order::MODE_CHANGE){
                         // change calculation parameters except height
                         if (mode_last == Mode::WALK){
@@ -335,10 +335,12 @@ void Core1Task(void * parameter){
                     Serial.println("phase: START");
                     if (order == Order::CROUCH){
                         controller.init_param_walk(HEIGHT_CROUCH);
+                    }else if (mode == Mode::FIGHT){
+                        controller.init_param_fight(HEIGHT_FIGHT);
                     }else{
                         controller.init_param_walk(HEIGHT_WALK);
                     }
-                    controller.init_pose_walk();
+                    controller.init_pose();
                     controller.inverse_pivot();
                     controller.init_start();
                     float T_ds = controller.get_T_sup() * controller.get_ds_ratio() * 0.5f;
@@ -364,9 +366,12 @@ void Core1Task(void * parameter){
                     controller.inverse_pivot();
                     controller.init_end();
                     float T_ds = controller.get_T_sup() * controller.get_ds_ratio() * 0.5f;
-                    phase_length = T_ds * CTRL_STEP;
+                    // phase_length = T_ds * CTRL_STEP;
+                    phase_length = 1;
                 }
-                com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP);
+                // com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP);
+                // Serial.print("com_pos: "); Serial.print(com_pos[0][0], 4); Serial.print(", "); Serial.print(com_pos[0][1], 4); Serial.print(", "); Serial.println(com_pos[0][2], 4);
+                com_pos = controller.get_default_com_pos();
 
                 // phase transition
                 phase_count++;
@@ -484,8 +489,6 @@ void Core1Task(void * parameter){
 
             case Phase::WAKE:{
                 Serial.println("phase: WAKE");
-                // robot->move_link_t(1, 3.14/2.5, 0.8);
-                // robot->move_link_t(4, 3.14/2.5, 0.8);
                 if (sensor.face_up()){
                     wake_face_up();
                 }else{
@@ -503,7 +506,6 @@ void Core1Task(void * parameter){
             }
 
             case Phase::WAIT:{
-                Serial.println("phase: WAIT");
                 break;
             }
         }
@@ -546,18 +548,10 @@ void Core1Task(void * parameter){
         array<float, 3> arm_pos_right = robot->arm_k_solver({global_control_pkt.arm_right[0], global_control_pkt.arm_right[1], global_control_pkt.arm_right[2]});
         array<float, 3> arm_pos_left  = robot->arm_k_solver({global_control_pkt.arm_left[0], global_control_pkt.arm_left[1], global_control_pkt.arm_left[2]});
         array<float, 2> arm_mass_pos = {arm_pos_right[0] + arm_pos_left[0], -arm_pos_right[1] + arm_pos_left[1]};
+        array<float, 2> com_diff = {arm_mass_pos[0] / 12 , arm_mass_pos[1] / 12};
 
-        // Serial.print("arm_pos_right:");
-        // Serial.print(arm_pos_right[0], 4); Serial.print(", "); Serial.print(arm_pos_right[1], 4); Serial.print(", "); Serial.println(arm_pos_right[2], 4);
-        // Serial.print("arm_pos_left:");
-        // Serial.print(arm_pos_left[0], 4); Serial.print(", "); Serial.print(arm_pos_left[1], 4); Serial.print(", "); Serial.println(arm_pos_left[2], 4);
-
-        array<float, 2> com_diff = {arm_mass_pos[0] / 9 - 0.002f, arm_mass_pos[1] / 9};
-
-        // com_pos_fb[0] += com_diff[0];
-        // com_pos_fb[1] += com_diff[1];
-        // Serial.print("com diff: ");
-        // Serial.print(com_diff[0], 4); Serial.print(", "); Serial.println(com_diff[1], 4);
+        com_pos_fb[0] += com_diff[0];
+        com_pos_fb[1] += com_diff[1];
         
         // move robot
         // devide com pos into each leg
@@ -569,25 +563,20 @@ void Core1Task(void * parameter){
             com_pos[1][0] - com_pos_fb[0],
             com_pos[1][1] - com_pos_fb[1],
             com_pos[1][2]};
-        // array<float, 3> leg_right_com = {
-        //     com_pos[0][0] - com_pos_fb[0], 
-        //     com_pos[0][1] - com_pos_fb[1], 
-        //     com_pos[0][2]};
-        // array<float, 3> leg_left_com =  {
-        //     com_pos[1][0] - com_pos_fb[0], 
-        //     com_pos[1][1] - com_pos_fb[1],
-        //     com_pos[1][2]};
 
-        Serial.println("com_pos:");
-        Serial.print(com_pos[0][0]); Serial.print(", "); Serial.print(com_pos[0][1]); Serial.print(", "); Serial.println(com_pos[0][2]);
+        // Serial.println("com_pos:");
+        // Serial.print(com_pos[0][0]); Serial.print(", "); Serial.print(com_pos[0][1]); Serial.print(", "); Serial.println(com_pos[0][2]);
 
         // send order
         if (phase == Phase::FALL || phase == Phase::WAKE){
             // do nothing
             continue;
         }
-        robot->move_leg_ik(leg_right_com, com_pos[0][3], 0.0, true);
-        robot->move_leg_ik(leg_left_com, com_pos[1][3], 0.0, false);
+        float phi_fb = sensor.angle_phi_fb();
+        robot->move_leg_ik(leg_right_com, com_pos[0][3], phi_fb, true);
+        robot->move_leg_ik(leg_left_com, com_pos[1][3] , phi_fb, false);
+        com_x[0] = leg_right_com[0];
+        com_x[1] = leg_left_com[0];
 
         /* #########################################################################
         DELAY for NEXT CYCLE
@@ -628,14 +617,14 @@ void crouch(Order order, array<array<float, 5>, 3>& com_pos){
 }
 
 void wake_face_up(){
-    Serial.println("Wake up face up");
+    Serial.println("Wake face up");
 
     sd->play_motion(robot, "/wake_face_up.csv", 0.35f);
     robot->init_home(1);
 }
 
 void wake_face_down(){
-    Serial.println("Wake up face down");
+    Serial.println("Wake face down");
 
     sd->play_motion(robot, "/wake_face_down.csv", 0.35f);
     robot->init_home(1);

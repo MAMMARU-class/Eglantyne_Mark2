@@ -11,18 +11,34 @@ void GaitController::init_param_walk(float z0){
     this->set_vd_max_abs({0.2f, 0.3f, 0.8f});
     // initialize control parameters
     model.set_z0(z0);
-    model.set_z_flight(0.03f);
-    model.set_foot_dist_y_base(0.04f);
+    model.set_z_flight(0.035f);
+    model.set_foot_dist_y_base(0.05f);
     model.set_foot_dist_x_max(0.12f);
+    // model.set_T_sup_base(0.18f);
     model.set_T_sup_base(0.22f);
     model.set_T_sup_min(0.3f);
-    model.set_fb_gain(0.008, 0.0008f, 0.008, 0.0008);
-    // model.set_fb_gain(0.00001, 0.000001f, 0.00001, 0.000001);
+    model.set_fb_gain(0.01, 0.001f, 0.01f, 0.001f);
     model.calculate_initial_params();
-    set_ds_ratio(0.15f);
+    set_ds_ratio(0.35f);
 }
 
-void GaitController::init_pose_walk(){
+void GaitController::init_param_fight(float z0){
+    // set max order input
+    this->set_vd_max_abs({0.2f, 0.2f, 1.0f});
+    // initialize control parameters
+    model.set_z0(z0);
+    model.set_z_flight(0.01f);
+    model.set_foot_dist_y_base(0.1f);
+    model.set_foot_dist_x_max(0.12f);
+    model.set_T_sup_base(0.2f);
+    model.set_T_sup_min(0.3f);
+    // model.set_fb_gain(0.003, 0.0003f, 0.003, 0.0003);
+    model.set_fb_gain(0.00001, 0.000001f, 0.00001, 0.000001);
+    model.calculate_initial_params();
+    set_ds_ratio(0.2f);
+}
+
+void GaitController::init_pose(){
     // set initial pose
     this->pivot = Pivot::LEFT;
     this->cpn_start = {0.0f, this->pivot_sign(this->pivot) * model.get_foot_dist_y_base()};
@@ -38,22 +54,6 @@ void GaitController::init_pose_walk(){
     this->cvn_start = model.calc_LIP_v(this->T_sup, {-this->pn[0], -this->pn[1]}, this->cvn_m1_start);
 
     this->body_angle = 0.0f;
-}
-
-void GaitController::init_param_fight(float z0){
-    // set max order input
-    this->set_vd_max_abs({0.2f, 0.2f, 1.0f});
-    // initialize control parameters
-    model.set_z0(z0);
-    model.set_z_flight(0.01f);
-    model.set_foot_dist_y_base(0.06f);
-    model.set_foot_dist_x_max(0.12f);
-    model.set_T_sup_base(0.2f);
-    model.set_T_sup_min(0.3f);
-    // model.set_fb_gain(0.003, 0.0003f, 0.003, 0.0003);
-    model.set_fb_gain(0.00001, 0.000001f, 0.00001, 0.000001);
-    model.calculate_initial_params();
-    set_ds_ratio(0.2f);
 }
 
 void GaitController::inverse_pivot(){
@@ -170,6 +170,8 @@ void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> 
     // decide pn_p1
     this->cvn_last = model.calc_LIP_v(this->T_sup, {-this->pn[0], -this->pn[1]}, this->cvn_start);
     this->cvn_last = model.rotate_vec(this->cvn_last, -this->body_angle);
+    Serial.print("T_sup: "); Serial.println(this->T_sup, 4);
+    Serial.print("T_sup_next: "); Serial.println(this->T_sup_next, 4);
     this->pn_p1 = model.foot_pos_pd(this->cvn_last, this->cvn_start, vd, this->pn, this->T_sup_next);
     this->pn_p1[0] += foot_pos_fb[0];
     this->pn_p1[1] += foot_pos_fb[1];
@@ -251,8 +253,7 @@ void GaitController::init_end(){
     array<float,2> cpn_d_0, cvn_d_0, can_d_0;
     array<float,2> cpn_d_T, cvn_d_T, can_d_T;
 
-    // com state at start
-    this->T_sup = model.get_T_sup_base();
+    this->cvn_m1_start = this->cvn_start;
 
     // last sprine at single -> double
     cpn_d_0 =
@@ -279,21 +280,14 @@ void GaitController::init_end(){
 
     can_d_0 = {cpn_d_0[0]/(Tc*Tc), cpn_d_0[1]/(Tc*Tc)};
 
-    // initialize foot positions
-    this->pn = this->pn_p1;
-    this->p_n2m1 = {-this->p_n2p1[0], -this->p_n2p1[1]};
-    this->p_n2m1 = model.rotate_vec(this->p_n2m1, -this->body_angle);
-
     cpn_d_T = {0.0f, model.get_foot_dist_y_base()*this->pivot_sign(this->pivot)};
     cvn_d_T = {0.0f, 0.0f};
     can_d_T = {0.0f, 0.0f};
 
-    this->T_ds = this->T_sup * this->ds_ratio * 0.5f;
-
-    // this->p_n2m1 = {
-    //     -this->p_n2m1[0],
-    //     -this->p_n2m1[1]
-    // };
+    // update T
+    this->T_sup_last = this->T_sup;
+    this->T_sup = this->T_sup_next;
+    this->T_ds = this->T_ds * 0.5f;
 
     Serial.print("cpn_d_0: "); Serial.print(cpn_d_0[0], 4); Serial.print(", "); Serial.println(cpn_d_0[1], 4);
     Serial.print("cpn_d_T: "); Serial.print(cpn_d_T[0], 4); Serial.print(", "); Serial.println(cpn_d_T[1], 4);
@@ -391,5 +385,17 @@ array<array<float, 5>, 3> GaitController::calc_com_traj_double(float t){
         return {com_pivot, com_else, com_acc_5d};
     }else{
         return {com_else, com_pivot, com_acc_5d};
+    }
+}
+
+array<array<float, 5>, 3> GaitController::get_default_com_pos(){
+    float y = model.get_foot_dist_y_base() * this->pivot_sign(this->pivot);
+    array<float, 5> com_pivot = {0, y, model.get_z0(), 0, 0};
+    array<float, 5> com_else = {0, -y, model.get_z0(), 0, 0};
+
+    if(pivot == Pivot::RIGHT){
+        return {com_pivot, com_else, {0.0f, 0.0f, 0.0f, 0.0f, 0.0f}};
+    }else{
+        return {com_else, com_pivot, {0.0f, 0.0f, 0.0f, 0.0f, 0.0f}};
     }
 }

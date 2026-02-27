@@ -31,6 +31,7 @@ MotionSD sd;
 volatile ControlPacket global_control_pkt = {};
 bool order_free = true;
 bool connected = false;
+array<float, 2> com_x = {0.0f, 0.0f};
 
 // motionn register
 bool motion_register_mode = false;
@@ -52,14 +53,10 @@ void setup(){
     Eglantyne.setSerial(&krs1, &krs2);
     Eglantyne.setLink();
     // reinit home
-    Eglantyne.set_leg_home_pose(0.04, HEIGHT_WALK);
+    Eglantyne.set_leg_home_pose(0.05, HEIGHT_WALK);
     Serial.println("Eglantyne Mark2 prepared");
 
     array<float, LINK_SIZE> current = Eglantyne.current();
-    Serial.println("Current joint positions:");
-    for(int i=0; i<LINK_SIZE; i++){
-        Serial.print(current[i], 4); Serial.print(", ");
-    }
     delay(10);
     Eglantyne.move_all(current);
     Eglantyne.init_home(1);

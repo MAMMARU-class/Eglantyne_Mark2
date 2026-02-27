@@ -37,8 +37,8 @@ public:
     void set_body_angle(float body_angle){ this->body_angle = body_angle; }
 
     void init_param_walk(float z0);
-    void init_pose_walk();
     void init_param_fight(float z0);
+    void init_pose();
 
     // pivot
     void inverse_pivot();
@@ -67,6 +67,7 @@ public:
     // calculate trajectory for each steps
     array<array<float, 5>, 3> calc_com_traj_single(float t);
     array<array<float, 5>, 3> calc_com_traj_double(float t);
+    array<array<float, 5>, 3> get_default_com_pos();
 
     // getters
     float get_T_sup(){ return this->T_sup; }
@@ -75,8 +76,8 @@ public:
     bool pivot_right(){ return this->pivot == Pivot::RIGHT; }
     bool p_n2p1_equels_p_n2m1(){
         return (
-            abs(this->p_n2p1[0] - this->p_n2m1[0]) < 1e-4f &&
-            abs(this->p_n2p1[1] - this->p_n2m1[1]) < 1e-4f
+            abs(this->p_n2p1[0] - this->p_n2m1[0]) < 1e-3f &&
+            abs(this->p_n2p1[1] - this->p_n2m1[1]) < 1e-3f
         );
     };
     array<float, 3> get_vd_max_abs(){ return this->vd_max_abs; }

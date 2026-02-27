@@ -26,6 +26,7 @@ public:
     // feedback
     // body inclination feedback
     array<float, 2> angle_com_pos_fb();
+    float angle_phi_fb();
     array<float, 2> angle_foot_pos_fb();
     array<float, 3> vd_fb(array<float, 3> vd);
 
@@ -58,10 +59,11 @@ private:
     float l_pivot2com = 0.07;
 
     // gains
-    // float kp_angle_com = 0.5f;
-    // float kd_angle_com = 0.1f;
-    float kp_angle_com = 0.0f;
-    float kd_angle_com = 0.0f;
+    float kp_angle_com = 0.1f;
+    float kd_angle_com = 0.001f;
+
+    float kp_phi_body = 0.55f;
+    float kd_phi_body = 0.005f;
 
     float kp_angle_foot = 0.01f;
     float kd_angle_foot = 0.001f;
@@ -82,7 +84,7 @@ private:
     float kd_acc_foot = 0.001f;
 
     // feedback state variables
-    float angle_com_err_last = 0.0f;
+    float angle_err_last = 0.0f;
 
     float ideal_acc_last = 0.0f;
     float acc_last = 0.0f;

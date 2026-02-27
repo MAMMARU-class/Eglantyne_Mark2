@@ -8,7 +8,7 @@ CALCULATION PARAMETERS
 ##########################################################################*/
 void GaitController::init_param_walk(float z0){
     // set max order input
-    this->set_vd_max_abs({0.2f, 0.1f, 0.8f});
+    this->set_vd_max_abs({0.2f, 0.3f, 0.8f});
     // initialize control parameters
     model.set_z0(z0);
     model.set_z_flight(0.03f);
@@ -81,7 +81,7 @@ void GaitController::init_state_variables()
 
     this->cvn_m1_start = this->cvn_start;
 
-    // last sprin at single -> double 
+    // last sprine at single -> double 
     cpn_d_0 =
         model.calc_LIP_p(
             this->T_sup * (1.0f - this->ds_ratio * 0.5f),
@@ -112,7 +112,6 @@ void GaitController::init_state_variables()
     
     // update foot positions
     this->pn = this->pn_p1;
-
     this->p_n2m1 = {-this->p_n2p1[0], -this->p_n2p1[1]};
     this->p_n2m1 = model.rotate_vec(this->p_n2m1, -this->body_angle);
 
@@ -240,12 +239,8 @@ void GaitController::init_start(){
 
     model.calc_double_support_coeff(
             this->T_ds,
-            cpn_d_0,
-            cvn_d_0,
-            can_d_0,
-            cpn_d_T,
-            cvn_d_T,
-            can_d_T
+            cpn_d_0, cvn_d_0, can_d_0,
+            cpn_d_T, cvn_d_T, can_d_T
         );
     model.calc_approx_coeff(cpn_start, cvn_start);
 }
@@ -259,12 +254,7 @@ void GaitController::init_end(){
     // com state at start
     this->T_sup = model.get_T_sup_base();
 
-    // initialize foot positions
-    this->pn = this->pn_p1;
-    this->p_n2m1 = {-1*this->p_n2p1[0], -1*this->p_n2p1[1]};
-    this->p_n2m1 = model.rotate_vec(this->p_n2m1, this->body_angle);
-
-    // last sprin at single -> double
+    // last sprine at single -> double
     cpn_d_0 =
         model.calc_LIP_p(
             this->T_sup * (1.0f - this->ds_ratio * 0.5f),
@@ -289,25 +279,29 @@ void GaitController::init_end(){
 
     can_d_0 = {cpn_d_0[0]/(Tc*Tc), cpn_d_0[1]/(Tc*Tc)};
 
+    // initialize foot positions
+    this->pn = this->pn_p1;
+    this->p_n2m1 = {-this->p_n2p1[0], -this->p_n2p1[1]};
+    this->p_n2m1 = model.rotate_vec(this->p_n2m1, -this->body_angle);
+
     cpn_d_T = {0.0f, model.get_foot_dist_y_base()*this->pivot_sign(this->pivot)};
     cvn_d_T = {0.0f, 0.0f};
     can_d_T = {0.0f, 0.0f};
 
     this->T_ds = this->T_sup * this->ds_ratio * 0.5f;
 
-    this->p_n2m1 = {
-        -this->p_n2m1[0],
-        -this->p_n2m1[1]
-    };
+    // this->p_n2m1 = {
+    //     -this->p_n2m1[0],
+    //     -this->p_n2m1[1]
+    // };
+
+    Serial.print("cpn_d_0: "); Serial.print(cpn_d_0[0], 4); Serial.print(", "); Serial.println(cpn_d_0[1], 4);
+    Serial.print("cpn_d_T: "); Serial.print(cpn_d_T[0], 4); Serial.print(", "); Serial.println(cpn_d_T[1], 4);
 
     model.calc_double_support_coeff(
             this->T_ds,
-            cpn_d_0,
-            cvn_d_0,
-            can_d_0,
-            cpn_d_T,
-            cvn_d_T,
-            can_d_T
+            cpn_d_0, cvn_d_0, can_d_0,
+            cpn_d_T, cvn_d_T, can_d_T
         );
     model.calc_approx_coeff(cpn_start, cvn_start);
 }

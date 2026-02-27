@@ -61,7 +61,7 @@ array<float, 3> update_vel(array<float, 3> vd, Order order){
     //     return vd;
     // }
 
-    Serial.print("vd: "); Serial.print(vd[0], 4); Serial.print(", "); Serial.print(vd[1], 4); Serial.print(", "); Serial.println(vd[2], 4);
+    // Serial.print("vd: "); Serial.print(vd[0], 4); Serial.print(", "); Serial.print(vd[1], 4); Serial.print(", "); Serial.println(vd[2], 4);
     array<float, 3> vd_max_abs = controller.get_vd_max_abs();
     vd[0] = global_control_pkt.stick_right[0] * vd_max_abs[0];
     vd[1] = global_control_pkt.stick_right[1] * vd_max_abs[1];
@@ -83,7 +83,7 @@ void init_phase(Mode next_mode, Phase next_phase, float next_phase_time){
 void update_phase(){
     // stop if no movement
     if (controller.p_n2p1_equels_p_n2m1() && 
-        abs(vd[0]) < 0.0005f && abs(vd[1]) < 0.0005f && abs(vd[2]) < 0.0005f){
+        abs(vd[0]) < VD_MIN && abs(vd[1]) < VD_MIN && abs(vd[2]) < VD_MIN){
         phase_next = Phase::END;
     }
     else{
@@ -229,14 +229,16 @@ void Core1Task(void * parameter){
         // vd[2] += vd_fb[2];
 
         // walk if vd is large enough or in MODE_CHANGE order
-        if (mode == Mode::WAIT && 
-            (abs(vd[0]) > 0.0005f || abs(vd[1]) > 0.0005f || abs(vd[2]) > 0.0005f || order == Order::MODE_CHANGE)
-            ){
-            init_phase(
-                mode_last,
-                Phase::START,
-                0
-            );
+        if (mode == Mode::WAIT){
+            if (abs(vd[0]) > VD_MIN || abs(vd[1]) > VD_MIN || abs(vd[2]) > VD_MIN || order == Order::MODE_CHANGE){
+                init_phase(
+                    mode_last,
+                    Phase::START,
+                    0
+                );
+            }else{
+                continue;
+            }
         }
 
         /* #########################################################################
@@ -375,7 +377,7 @@ void Core1Task(void * parameter){
                     }
                     init_phase(
                         Mode::WAIT,
-                        Phase::START,
+                        Phase::WAIT,
                         0
                     );
                 }
@@ -501,6 +503,7 @@ void Core1Task(void * parameter){
             }
 
             case Phase::WAIT:{
+                Serial.println("phase: WAIT");
                 break;
             }
         }
@@ -575,8 +578,8 @@ void Core1Task(void * parameter){
         //     com_pos[1][1] - com_pos_fb[1],
         //     com_pos[1][2]};
 
-        // Serial.println("com_pos:");
-        // Serial.print(com_pos[0][0]); Serial.print(", "); Serial.print(com_pos[0][1]); Serial.print(", "); Serial.println(com_pos[0][2]);
+        Serial.println("com_pos:");
+        Serial.print(com_pos[0][0]); Serial.print(", "); Serial.print(com_pos[0][1]); Serial.print(", "); Serial.println(com_pos[0][2]);
 
         // send order
         if (phase == Phase::FALL || phase == Phase::WAKE){

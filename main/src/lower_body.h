@@ -10,6 +10,8 @@
 
 #define CTRL_STEP 100 //Hz
 
+#define VD_MIN 0.01f
+
 enum class Order: uint8_t {
     NONE,
 

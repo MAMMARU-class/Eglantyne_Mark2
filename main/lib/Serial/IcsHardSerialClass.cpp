@@ -145,20 +145,20 @@ bool IcsHardSerialClass::synchronize(byte *txBuf, byte txLen, byte *rxBuf, byte 
 		return false;
 	}
 
-	// icsHardSerial->flush(); //待つ
+	icsHardSerial->flush(); //待つ
 	enHigh(); //送信切替
 	icsHardSerial->write(txBuf, txLen);
 	icsHardSerial->flush();   //待つ
 
 	enLow();  //受信切替
 
-	// while (icsHardSerial->available() > 0) //受信バッファを消す
-	// {
-	// 	// buff = icsSerial->read();	//空読み
-	// 	icsHardSerial->read();		//空読み
-	// }
+	while (icsHardSerial->available() > 0) //受信バッファを消す
+	{
+		// buff = icsSerial->read();	//空読み
+		icsHardSerial->read();		//空読み
+	}
 
-	// enLow();  //受信切替
+	enLow();  //受信切替
 
 
 	rxSize = icsHardSerial->readBytes(rxBuf, rxLen);

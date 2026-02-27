@@ -62,7 +62,7 @@ void setup(){
     }
     delay(10);
     Eglantyne.move_all(current);
-    // Eglantyne.init_home(1);
+    Eglantyne.init_home(1);
 
     // sub loop initializations
     connection_init(&Eglantyne);

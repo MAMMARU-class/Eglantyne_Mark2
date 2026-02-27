@@ -9,6 +9,7 @@ void Robot::setSerial(IcsHardSerialClass* serial1, IcsHardSerialClass* serial2){
 }
 
 void Robot::init_home(float t){
+    delay(10);
     array<float, LINK_SIZE> current = this->current();
     this->move_all(current);
     array<float, LINK_SIZE> home = this->home();
@@ -79,7 +80,9 @@ void Robot::move_all(array<float, LINK_SIZE> motion){
 }
 
 void Robot::move_all_t(array<float, LINK_SIZE> goal, float t){
-    array<float, LINK_SIZE> current = this->current();;
+    delay(10);
+    array<float, LINK_SIZE> current = this->current();
+    this->move_all(current);
 
     array<float, LINK_SIZE> diff;
     for(int id=0; id<LINK_SIZE; id++){

@@ -61,7 +61,8 @@ void setup(){
         Serial.print(current[i], 4); Serial.print(", ");
     }
     delay(10);
-    Eglantyne.init_home(1);
+    Eglantyne.move_all(current);
+    // Eglantyne.init_home(1);
 
     // sub loop initializations
     connection_init(&Eglantyne);

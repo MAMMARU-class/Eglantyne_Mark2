@@ -69,8 +69,11 @@ private:
     float kp_angle_vd = 0.001f;
     float kd_angle_vd = 0.0f;
 
-    float kp_acc_delay = 0.001f;
+    // float kp_acc_delay = 0.04f;
+    // float kd_acc_delay = 0.0f;
+    float kp_acc_delay = 0.2f;
     float kd_acc_delay = 0.0f;
+
 
     float kp_acc_com = 0.01f;
     float kd_acc_com = 0.001f;
@@ -83,7 +86,8 @@ private:
 
     float ideal_acc_last = 0.0f;
     float acc_last = 0.0f;
-    float t_err_last = 0.0f;
+    // float t_err_last = 0.0f;
+    float acc_err_last = 0.0f;
 
     float delay_duration = 0.0f;
     float delay_duration_last = 0.0f;

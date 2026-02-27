@@ -1,6 +1,6 @@
 #include "lower_body.h"
 
-static array<float, 3> vd = {0.001f, 0.0f, 0.0f};
+static array<float, 3> vd = {0.0f, 0.0f, 0.0f};
 
 // orders
 static Order order;
@@ -61,11 +61,11 @@ array<float, 3> update_vel(array<float, 3> vd, Order order){
     //     return vd;
     // }
 
-    // Serial.print("vd: "); Serial.print(vd[0], 4); Serial.print(", "); Serial.print(vd[1], 4); Serial.print(", "); Serial.println(vd[2], 4);
-    // array<float, 3> vd_max_abs = controller.get_vd_max_abs();
-    // vd[0] = global_control_pkt.stick_right[0] * vd_max_abs[0];
-    // vd[1] = global_control_pkt.stick_right[1] * vd_max_abs[1];
-    // vd[2] = global_control_pkt.stick_left[1] * vd_max_abs[2];
+    Serial.print("vd: "); Serial.print(vd[0], 4); Serial.print(", "); Serial.print(vd[1], 4); Serial.print(", "); Serial.println(vd[2], 4);
+    array<float, 3> vd_max_abs = controller.get_vd_max_abs();
+    vd[0] = global_control_pkt.stick_right[0] * vd_max_abs[0];
+    vd[1] = global_control_pkt.stick_right[1] * vd_max_abs[1];
+    vd[2] = global_control_pkt.stick_left[1] * vd_max_abs[2];
     return vd;
 }
 
@@ -346,7 +346,6 @@ void Core1Task(void * parameter){
                 
                 // phase transition
                 phase_count++;
-                Serial.println(phase_length);
                 if (phase_count == phase_length){
                     init_phase(
                         mode,
@@ -512,6 +511,7 @@ void Core1Task(void * parameter){
         - sensor feedback
         - motion feedback
         ##########################################################################*/
+        float delay_duration = 1000.0f / CTRL_STEP;
         // attach stance
         com_pos = attach_stance(com_pos, stance);
         // in START phase, dont make swing leg
@@ -519,6 +519,7 @@ void Core1Task(void * parameter){
             float height = max(com_pos[0][2], com_pos[1][2]);
             com_pos[0][2] = height;
             com_pos[1][2] = height;
+            delay_duration *= 2;
         }
         // sensor feedback
         array<float, 2> angle_com_pos_fb = sensor.angle_com_pos_fb();
@@ -527,7 +528,6 @@ void Core1Task(void * parameter){
             angle_com_pos_fb[1]
         };
 
-        float delay_duration = 1000.0f / CTRL_STEP;
         if (phase == Phase::SINGLE){
             array<float, 2> ideal_acc = {com_pos[2][0], com_pos[2][1]};
             float Tc = controller.get_Tc();

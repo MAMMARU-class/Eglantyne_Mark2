@@ -10,6 +10,7 @@ void Robot::setSerial(IcsHardSerialClass* serial1, IcsHardSerialClass* serial2){
 
 void Robot::init_home(float t){
     array<float, LINK_SIZE> current = this->current();
+    this->move_all(current);
     array<float, LINK_SIZE> home = this->home();
 
     array<float, LINK_SIZE> diff;
@@ -23,13 +24,13 @@ void Robot::init_home(float t){
         for(int id=0; id<LINK_SIZE; id++){
             motion[id] = current[id] + diff[id]*( (float)(i) ) / (float)(step);
         }
-        Serial.println("move to");
-        for(int id=0; id<LINK_SIZE; id++){
-            Serial.print(motion[id], 4); Serial.print(", ");
-        }
-        Serial.println();
-        this->move_all(motion);
+        // Serial.println("move to");
+        // for(int id=0; id<LINK_SIZE; id++){
+        //     Serial.print(motion[id], 4); Serial.print(", ");
+        // }
+        // Serial.println();
         delay(CTRL_CYCLE);
+        this->move_all(motion);
     }
 }
 

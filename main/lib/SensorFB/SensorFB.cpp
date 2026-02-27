@@ -130,61 +130,76 @@ float SensorFB::delay_duration_fb(array<float, 3> approx_coeff, array<float, 2> 
     float jerk_abs = abs(this->acc.z()) - abs(this->acc_last);
     this->acc_last = this->acc.z();
 
-    float a = approx_coeff[0];
-    float b = approx_coeff[1];
-    float c = approx_coeff[2];
-    c = a * (b*b)/(4*a*a) - b * b/(2*a) + c;
+    // float a = approx_coeff[0];
+    // float b = approx_coeff[1];
+    // float c = approx_coeff[2];
+    // c = a * (b*b)/(4*a*a) - b * b/(2*a) + c;
+    // float t_mid = -b/(2*a);
+    // t_ideal = t_ideal - t_mid;
 
-    int sig;
-    if (jerk_abs > 0){
-        sig = 1;
-    }else{
-        sig = -1;
-    }
-
-    float pos_y = acc.z() / (Tc*Tc);
-    float t_now = sqrt((c-pos_y)/a) * sig;
-
-    float t_err = t_now - t_ideal;
-    float t_derr = t_err - this->t_err_last;
-    this->t_err_last = t_err;
-
-    float acc_fb = (kp_acc_delay * t_err + kd_acc_delay * t_derr) + 1.0f;
-
-    // return delay duration in ms
-    if (t_err > 0){
-        this->delay_duration = 1000.0f / step / acc_fb;
-    }else{
-        this->delay_duration = 1000.0f / step * acc_fb;
-    }
-    return this->delay_duration;
-
-    // float fb_mag;
-    // if (abs(ideal_jerk_abs) < 0.01){
-    //     fb_mag = 1;
+    // int sig;
+    // if (jerk_abs > 0){
+    //     sig = 1;
     // }else{
-    //     fb_mag = jerk_abs / ideal_jerk_abs;
+    //     sig = -1;
     // }
-    // if (fb_mag == 0){fb_mag = 1;}
-    // float fb_dir = fb_mag / abs(fb_mag);
 
-    // // calculate error
-    // float err = abs(ideal_acc[1]) - abs(this->acc.z());
-    // err *= fb_dir;
-    // float derr = err - this->acc_err_last;
-    // this->acc_err_last = err;
+    // float pos_y = acc.z() / (Tc*Tc);
+    // float t_now;
+    // if ((pos_y - c)/a > 0){
+    //     t_now = sqrt((pos_y - c)/a) * sig;
+    // }else{
+    //     t_now = t_ideal;
+    // }
 
-    // // feed back coefficient
-    // float acc_fb_coeff = (this->kp_acc_delay * err + this->kd_acc_delay * derr);
-    // // Serial.print("acc_fb_coeff: "); Serial.println(acc_fb_coeff, 4);
+    // float t_err = t_now - t_ideal;
+    // float t_derr = t_err - this->t_err_last;
+    // this->t_err_last = t_err;
+    // // Serial.print("t_err: "); Serial.print(t_err, 4); Serial.print(", t_derr: "); Serial.println(t_derr, 4);
 
-    // // normalize into 0-2
-    // float acc_fb = 0.95 * (2.0f / PI * atan(acc_fb_coeff) + 1.0f);
-    // // Serial.println("acc_fb_coeff: " + String(acc_fb_coeff, 4));
-    // // Serial.println("acc_fb: " + String(acc_fb, 4));
+    // float acc_fb;
+    // // Serial.print("acc_fb: "); Serial.println(acc_fb, 4);
 
-    // // show error as color
-    // show_acc_error(acc_fb);
+    // // return delay duration in ms
+    // if (t_err > 0){
+    //     acc_fb = abs(kp_acc_delay * t_err + kd_acc_delay * t_derr) + 1.0f;
+    //     this->delay_duration = 1000.0f / step / acc_fb;
+    // }else{
+    //     acc_fb = abs(kp_acc_delay * t_err + kd_acc_delay * t_derr) + 1.0f;
+    //     this->delay_duration = 1000.0f / step * acc_fb;
+    // }
+    // Serial.print("delay_duration: "); Serial.println(this->delay_duration, 4);
+    // return this->delay_duration;
+
+    float fb_mag;
+    if (abs(ideal_jerk_abs) < 0.01){
+        fb_mag = 1;
+    }else{
+        fb_mag = jerk_abs / ideal_jerk_abs;
+    }
+    if (fb_mag == 0){fb_mag = 1;}
+    float fb_dir = fb_mag / abs(fb_mag);
+
+    // calculate error
+    float err = abs(ideal_acc[1]) - abs(this->acc.z());
+    err *= fb_dir;
+    float derr = err - this->acc_err_last;
+    this->acc_err_last = err;
+
+    // feed back coefficient
+    float acc_fb_coeff = (this->kp_acc_delay * err + this->kd_acc_delay * derr);
+    // Serial.print("acc_fb_coeff: "); Serial.println(acc_fb_coeff, 4);
+
+    // normalize into 0-2
+    float acc_fb = 0.95 * (2.0f / PI * atan(acc_fb_coeff) + 1.0f);
+    // Serial.println("acc_fb_coeff: " + String(acc_fb_coeff, 4));
+    // Serial.println("acc_fb: " + String(acc_fb, 4));
+
+    // show error as color
+    show_acc_error(acc_fb);
+
+    this->delay_duration = 1000.0f / step * acc_fb;
+    return this->delay_duration;
 }
 
 void SensorFB::show_acc_error(float err){

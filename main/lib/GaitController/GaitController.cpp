@@ -8,7 +8,7 @@ CALCULATION PARAMETERS
 ##########################################################################*/
 void GaitController::init_param_walk(float z0){
     // set max order input
-    this->set_vd_max_abs({0.5f, 0.005f, 0.2f});
+    this->set_vd_max_abs({0.2f, 0.1f, 0.8f});
     // initialize control parameters
     model.set_z0(z0);
     model.set_z_flight(0.03f);
@@ -16,7 +16,7 @@ void GaitController::init_param_walk(float z0){
     model.set_foot_dist_x_max(0.12f);
     model.set_T_sup_base(0.22f);
     model.set_T_sup_min(0.3f);
-    model.set_fb_gain(0.003, 0.0003f, 0.003, 0.0003);
+    model.set_fb_gain(0.008, 0.0008f, 0.008, 0.0008);
     // model.set_fb_gain(0.00001, 0.000001f, 0.00001, 0.000001);
     model.calculate_initial_params();
     set_ds_ratio(0.15f);
@@ -219,6 +219,8 @@ void GaitController::init_start(){
             {-this->pn[0], -this->pn[1]},
             this->cvn_start
         );
+    // move further to start walking.
+    cpn_d_T = {cpn_d_T[0]/2, cpn_d_T[1]/2};
     cvn_d_T =
         model.calc_LIP_v(
             this->T_sup * this->ds_ratio * 0.5f,

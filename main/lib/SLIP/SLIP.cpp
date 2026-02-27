@@ -137,7 +137,7 @@ array<float, 2> SLIP::foot_pos_pd(array<float, 2> cvn_last,
 
     float basic_foot_y = foot_dist_y_base * pn[1] / std::abs(pn[1]);
     float vd_y_sum = -1 * calc_basic_unpassing_com_vel(basic_foot_y, T_sup) + vd[1];
-    err[1] = vd_y_sum - cvn_last[1];
+    err[1] = vd_y_sum + cvn_last[1];
 
     array<float, 2> derr;
     derr[0] = -cvn_last[0] + cvn_m1_last[0];

@@ -135,8 +135,8 @@ array<float, 2> SLIP::foot_pos_pd(array<float, 2> cvn_last,
     array<float, 2> err;
     err[0] = vd[0] - cvn_last[0];
 
-    float basic_foot_y = foot_dist_y_base * -pn[1] / std::abs(pn[1]);
-    float vd_y_sum = calc_basic_unpassing_com_vel(-basic_foot_y, T_sup) + vd[1];
+    float basic_foot_y = foot_dist_y_base * pn[1] / std::abs(pn[1]);
+    float vd_y_sum = -1 * calc_basic_unpassing_com_vel(basic_foot_y, T_sup) + vd[1];
     err[1] = vd_y_sum - cvn_last[1];
 
     array<float, 2> derr;
@@ -148,7 +148,7 @@ array<float, 2> SLIP::foot_pos_pd(array<float, 2> cvn_last,
     p_base[1] = calc_basic_unpassing_foot_pos(cvn_last[1], T_sup);
 
     float px = p_base[0] - kxp * err[0] - kxd * derr[0];
-    float py = p_base[1] - ( kyp * err[1] + kyd * derr[1]) * p_base[1] / std::abs(p_base[1]);
+    float py = p_base[1] - kyp * err[1] - kyd * derr[1];
 
     return {px, py};
 }

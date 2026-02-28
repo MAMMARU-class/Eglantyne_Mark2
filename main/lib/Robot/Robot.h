@@ -19,6 +19,7 @@ public:
     void setSerial(IcsHardSerialClass* serial1, IcsHardSerialClass* serial2);
     void setLink();
     void init_home(float t);
+    void init_home_arm(float t);
 
     // set and get robot home
     void set_leg_home_pose(float leg_dist, float height);

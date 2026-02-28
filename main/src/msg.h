@@ -12,9 +12,13 @@ typedef struct __attribute__((packed)) {
     float   arm_left[3];
 } ControlPacket;
 
+// controller peripheral variables
 extern bool connected;
 extern bool order_free;
-extern std::array<float, 2> com_x;
 extern volatile ControlPacket global_control_pkt;
+// feedback variables
+extern std::array<float, 2> com_x;
+array<float, 3> arm_right_angles;
+array<float, 3> arm_left_angles;
 
 #endif

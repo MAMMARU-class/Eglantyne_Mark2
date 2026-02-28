@@ -3,8 +3,8 @@
 uint8_t clientMac[6];
 bool clientRegistered = false;
 
-const unsigned long PING_INTERVAL = 1000;
-const unsigned long TIMEOUT       = 3000;
+const unsigned long PING_INTERVAL = 500;
+const unsigned long TIMEOUT       = 2000;
 
 unsigned long lastPing  = 0;
 unsigned long lastReply = 0;
@@ -90,12 +90,11 @@ void onReceive(const uint8_t *mac_addr, const uint8_t *data, int len) {
         Serial.println("ESP-NOW client reconnected");
         connected = true;
         send_msg2controller("LOGO");
-        robot->move_arm_t(arm_right, arm_left, 0.4f);
+        robot->move_arm_t(arm_right, arm_left, 0.6f);
     }else{
          robot->move_arm_right(arm_right);
          robot->move_arm_left(arm_left);
     }
-    // Serial.println("controller");
 }
 
 // connection handling
@@ -106,6 +105,8 @@ void Core0Task(void * parameter){
             esp_now_del_peer(clientMac);
             clientRegistered = false;
             connected = false;
+            robot->init_home_arm(0.6);
+            robot->free_upper();
         }
 
         // send ping
@@ -115,7 +116,7 @@ void Core0Task(void * parameter){
             lastPing = millis();
         }
 
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
 

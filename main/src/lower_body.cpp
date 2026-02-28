@@ -32,6 +32,7 @@ static Phase phase_last = Phase::WAIT;
 // step counter
 static int phase_length;
 static int phase_count;
+static int update_rate = UPDATE_RATE;
 
 // other classees
 static Robot* robot;
@@ -84,7 +85,7 @@ void init_phase(Mode next_mode, Phase next_phase, float next_phase_time){
     phase_last = phase;
     phase = next_phase;
 
-    phase_length = next_phase_time * CTRL_STEP;
+    phase_length = next_phase_time * CTRL_STEP * UPDATE_RATE;
     phase_count = 0;
 }
 
@@ -113,15 +114,15 @@ array<array<float, 5>, 3> attach_stance(array<array<float, 5>, 3> com_pos, STANC
 
     // adjust rotation to com pos
     float px_r = com_pos[0][0]; float py_r = com_pos[0][1];
-    float theta_r = com_pos[0][3];
+    float theta_r = stance.relative_body_angle;
     float pl_x = com_pos[1][0]; float py_l = com_pos[1][1];
-    float theta_l = com_pos[1][3];
+    float theta_l = stance.relative_body_angle + stance.relative_leg_angle;
 
-    com_pos[0][0] =  px_r * cos(theta_r) + py_r * sin(theta_r);
-    com_pos[0][1] = -px_r * sin(theta_r) + py_r * cos(theta_r);
+    com_pos[0][0] =  px_r * cos(theta_r) - py_r * sin(theta_r);
+    com_pos[0][1] =  px_r * sin(theta_r) + py_r * cos(theta_r);
 
-    com_pos[1][0] =  pl_x * cos(theta_l) + py_l * sin(theta_l);
-    com_pos[1][1] = -pl_x * sin(theta_l) + py_l * cos(theta_l);
+    com_pos[1][0] =  pl_x * cos(theta_l) - py_l * sin(theta_l);
+    com_pos[1][1] =  pl_x * sin(theta_l) + py_l * cos(theta_l);
 
     return com_pos;
 }
@@ -315,15 +316,15 @@ void Core1Task(void * parameter){
                     }
                 }
 
-                com_pos = controller.calc_com_traj_single(phase_count / (float)CTRL_STEP);
+                com_pos = controller.calc_com_traj_single(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE);
                 stance.height_diff += stance_diff.height_diff;
                 stance.relative_body_angle += stance_diff.relative_body_angle;
                 stance.relative_body_pos += stance_diff.relative_body_pos;
                 stance.relative_leg_angle += stance_diff.relative_leg_angle;
 
                 // phase transition
-                phase_count++;
-                if (phase_count == phase_length){
+                phase_count += update_rate;
+                if (phase_count >= phase_length){
                     stance_diff = stance_walk;
                     init_phase(
                         mode,
@@ -348,13 +349,13 @@ void Core1Task(void * parameter){
                     controller.inverse_pivot();
                     controller.init_start();
                     float T_ds = controller.get_T_sup() * controller.get_ds_ratio() * 0.5f;
-                    phase_length = T_ds * CTRL_STEP;
+                    phase_length = T_ds * CTRL_STEP * UPDATE_RATE;
                 }
-                com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP);
+                com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE);
                 
                 // phase transition
-                phase_count++;
-                if (phase_count == phase_length){
+                phase_count += update_rate;
+                if (phase_count >= phase_length){
                     init_phase(
                         mode,
                         Phase::SINGLE, 
@@ -370,16 +371,16 @@ void Core1Task(void * parameter){
                     controller.inverse_pivot();
                     controller.init_end();
                     float T_ds = controller.get_T_sup() * controller.get_ds_ratio() * 0.5f;
-                    // phase_length = T_ds * CTRL_STEP;
+                    // phase_length = T_ds * CTRL_STEP * UPDATE_RATE;
                     phase_length = 1;
                 }
-                // com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP);
+                // com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE);
                 // Serial.print("com_pos: "); Serial.print(com_pos[0][0], 4); Serial.print(", "); Serial.print(com_pos[0][1], 4); Serial.print(", "); Serial.println(com_pos[0][2], 4);
                 com_pos = controller.get_default_com_pos();
 
                 // phase transition
-                phase_count++;
-                if (phase_count == phase_length){
+                phase_count += update_rate;
+                if (phase_count >= phase_length){
                     // CROUCH or UNCROUCH according to order
                     if (order == Order::CROUCH || order == Order::UNCROUCH){
                         crouch(order, com_pos);
@@ -425,11 +426,11 @@ void Core1Task(void * parameter){
                     controller.init_single_half();
                     update_phase();
                 }
-                com_pos = controller.calc_com_traj_single(phase_count / (float)CTRL_STEP);
+                com_pos = controller.calc_com_traj_single(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE);
 
                 // phase transition
-                phase_count++;
-                if (phase_count == phase_length){
+                phase_count += update_rate;
+                if (phase_count >= phase_length){
                     init_phase(
                         mode,
                         phase_next,
@@ -445,11 +446,11 @@ void Core1Task(void * parameter){
                     controller.inverse_pivot();
                     controller.init_state_variables();
                 }
-                com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP);
+                com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE);
                 
                 // phase transition
-                phase_count++;
-                if (phase_count == phase_length){
+                phase_count += update_rate;
+                if (phase_count >= phase_length){
                     init_phase(
                         mode,
                         Phase::SINGLE, 
@@ -528,20 +529,23 @@ void Core1Task(void * parameter){
             float height = max(com_pos[0][2], com_pos[1][2]);
             com_pos[0][2] = height;
             com_pos[1][2] = height;
-            delay_duration *= 2;
         }
         // sensor feedback
+        // angle feedback
         array<float, 2> angle_com_pos_fb = sensor.angle_com_pos_fb();
         array<float, 2> com_pos_fb = {
             angle_com_pos_fb[0],
             angle_com_pos_fb[1]
         };
 
+        // update_rate feedback
+        array<float, 2> ideal_acc = {com_pos[2][0], com_pos[2][1]};
+        float Tc = controller.get_Tc();
+        float t_ideal = phase_count / (float)CTRL_STEP / (float)UPDATE_RATE + controller.get_T_ds()/2;
         if (phase == Phase::SINGLE){
-            array<float, 2> ideal_acc = {com_pos[2][0], com_pos[2][1]};
-            float Tc = controller.get_Tc();
-            float t_ideal = phase_count / (float)CTRL_STEP + controller.get_T_ds()/2;
-            delay_duration = sensor.delay_duration_fb(controller.get_approx_coeff(), ideal_acc, Tc, t_ideal, CTRL_STEP);
+            update_rate = sensor.update_rate_fb_SINGLE(controller.get_approx_coeff(), ideal_acc, Tc, t_ideal, UPDATE_RATE);
+        }else{
+            update_rate = sensor.update_rate_fb_DOUBLE(ideal_acc, UPDATE_RATE);
         }
 
         // dummy feedback
@@ -586,8 +590,8 @@ void Core1Task(void * parameter){
         DELAY for NEXT CYCLE
         ##########################################################################*/
         // delay
-        vTaskDelay(pdMS_TO_TICKS(delay_duration));
-        // vTaskDelay(pdMS_TO_TICKS(1000.0f / CTRL_STEP));
+        // vTaskDelay(pdMS_TO_TICKS(delay_duration));
+        vTaskDelay(pdMS_TO_TICKS(1000.0f / CTRL_STEP));
     }
 }
 

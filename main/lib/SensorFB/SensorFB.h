@@ -7,6 +7,8 @@
 #define SDA 5
 #define SCL 4
 
+#define UPDATE_RATE 100
+
 using std::array;
 
 class SensorFB{
@@ -33,7 +35,8 @@ public:
     // acceleration feedback
     array<float, 2> acc_com_pos_fb();
     array<float, 2> acc_foot_pos_fb();
-    float delay_duration_fb(array<float, 3> approx_coeff, array<float, 2> ideal_acc, float Tc, float t_ideal, int step);
+    int update_rate_fb_SINGLE(array<float, 3> approx_coeff, array<float, 2> ideal_acc, float Tc, float t_ideal, int update_rate);
+    int update_rate_fb_DOUBLE(array<float, 2> ideal_acc, int update_rate);
     void show_acc_error(float err);
     // integrate feedback
     array<float, 2> foot_pos_fb();
@@ -76,6 +79,10 @@ private:
     float kp_acc_delay = 0.2f;
     float kd_acc_delay = 0.0f;
 
+    float kp_update_rate_SINGLE = 0.0f;
+    float kd_update_rate_SINGLE = 0.0f;
+    float kp_update_rate_DOUBLE = 0.0f;
+    float kd_update_rate_DOUBLE = 0.0f;
 
     float kp_acc_com = 0.01f;
     float kd_acc_com = 0.001f;
@@ -88,7 +95,7 @@ private:
 
     float ideal_acc_last = 0.0f;
     float acc_last = 0.0f;
-    // float t_err_last = 0.0f;
+    float t_err_last = 0.0f;
     float acc_err_last = 0.0f;
 
     float delay_duration = 0.0f;

@@ -28,10 +28,14 @@ Robot Eglantyne;
 MotionSD sd;
 
 // glbal variables
-volatile ControlPacket global_control_pkt = {};
+// controller peripheral variables
 bool order_free = true;
 bool connected = false;
+volatile ControlPacket global_control_pkt = {};
+// feedback variables
 array<float, 2> com_x = {0.0f, 0.0f};
+array<float, 3> arm_right_angles;
+array<float, 3> arm_left_angles;
 
 // motionn register
 bool motion_register_mode = false;

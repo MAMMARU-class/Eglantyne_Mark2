@@ -49,7 +49,7 @@ void SensorFB::init_norm(){
 
 // state check
 bool SensorFB::fall(){
-    float fall_angle = 45.0f;
+    float fall_angle = 30.0f;
     if(this->euler.y() > -fall_angle && this->euler.y() < fall_angle && 
        this->euler.z() > -fall_angle && this->euler.z() < fall_angle){
         return false;
@@ -138,54 +138,69 @@ array<float, 2> SensorFB::acc_foot_pos_fb(){
     return foot_pos_fb;
 }
 
-float SensorFB::delay_duration_fb(array<float, 3> approx_coeff, array<float, 2> ideal_acc, float Tc, float t_ideal, int step){
+int SensorFB::update_rate_fb_SINGLE(array<float, 3> approx_coeff, array<float, 2> ideal_acc, float Tc, float t_ideal, int update_rate){
+    // update last ideal_acc
+    this->ideal_acc_last = ideal_acc[1];
+    this->acc_last = this->acc.z();
+    
+    float jerk_abs = abs(this->acc.z()) - abs(this->acc_last);
+
+    // approximated trajectory: a*t^2 + b*t + c
+    float a = approx_coeff[0];
+    float b = approx_coeff[1];
+    float c = approx_coeff[2];
+    c = a * (b*b)/(4*a*a) - b * b/(2*a) + c;
+    float t_mid = -b/(2*a);
+    t_ideal = t_ideal - t_mid;
+
+    int sig;
+    if (jerk_abs > 0){
+        sig = 1;
+    }else{
+        sig = -1;
+    }
+
+    float pos_y = acc.z() / (Tc*Tc);
+    float t_now;
+    if ((pos_y - c)/a > 0){
+        t_now = sqrt((pos_y - c)/a) * sig;
+    }else{
+        t_now = t_ideal;
+    }
+
+    float t_err = t_now - t_ideal;
+    float t_derr = t_err - this->t_err_last;
+    this->t_err_last = t_err;
+
+    float acc_fb = abs(this->kp_update_rate_SINGLE * t_err + this->kd_update_rate_SINGLE * t_derr) + 1.0f;
+    // Serial.print("acc_fb: "); Serial.println(acc_fb, 4);
+
+    // return update rate
+    float update_rate_fb;
+    if (t_err > 0){
+        // delay. fastern phase velocity.
+        update_rate_fb = update_rate * acc_fb;
+    }else{
+        // advance. slower phase velocity.
+        update_rate_fb = update_rate / acc_fb;
+    }
+
+    // cast to int, and handle 0
+    int update_rate_fb_int = (int)update_rate_fb;
+    if (update_rate_fb_int == 0){
+        update_rate_fb_int = 1;
+    }
+    Serial.print("update_rate_fb: "); Serial.println(update_rate_fb, 4);
+    return update_rate_fb_int;
+}
+
+int SensorFB::update_rate_fb_DOUBLE(array<float, 2> ideal_acc, int update_rate){
     // check if com already pass the top
     float ideal_jerk_abs = abs(ideal_acc[1]) - abs(this->ideal_acc_last);
     this->ideal_acc_last = ideal_acc[1];
     
     float jerk_abs = abs(this->acc.z()) - abs(this->acc_last);
     this->acc_last = this->acc.z();
-
-    // float a = approx_coeff[0];
-    // float b = approx_coeff[1];
-    // float c = approx_coeff[2];
-    // c = a * (b*b)/(4*a*a) - b * b/(2*a) + c;
-    // float t_mid = -b/(2*a);
-    // t_ideal = t_ideal - t_mid;
-
-    // int sig;
-    // if (jerk_abs > 0){
-    //     sig = 1;
-    // }else{
-    //     sig = -1;
-    // }
-
-    // float pos_y = acc.z() / (Tc*Tc);
-    // float t_now;
-    // if ((pos_y - c)/a > 0){
-    //     t_now = sqrt((pos_y - c)/a) * sig;
-    // }else{
-    //     t_now = t_ideal;
-    // }
-
-    // float t_err = t_now - t_ideal;
-    // float t_derr = t_err - this->t_err_last;
-    // this->t_err_last = t_err;
-    // // Serial.print("t_err: "); Serial.print(t_err, 4); Serial.print(", t_derr: "); Serial.println(t_derr, 4);
-
-    // float acc_fb;
-    // // Serial.print("acc_fb: "); Serial.println(acc_fb, 4);
-
-    // // return delay duration in ms
-    // if (t_err > 0){
-    //     acc_fb = abs(kp_acc_delay * t_err + kd_acc_delay * t_derr) + 1.0f;
-    //     this->delay_duration = 1000.0f / step / acc_fb;
-    // }else{
-    //     acc_fb = abs(kp_acc_delay * t_err + kd_acc_delay * t_derr) + 1.0f;
-    //     this->delay_duration = 1000.0f / step * acc_fb;
-    // }
-    // Serial.print("delay_duration: "); Serial.println(this->delay_duration, 4);
-    // return this->delay_duration;
 
     float fb_mag;
     if (abs(ideal_jerk_abs) < 0.01){
@@ -214,8 +229,15 @@ float SensorFB::delay_duration_fb(array<float, 3> approx_coeff, array<float, 2> 
     // show error as color
     show_acc_error(acc_fb);
 
-    this->delay_duration = 1000.0f / step * acc_fb;
-    return this->delay_duration;
+    float update_rate_fb = update_rate / acc_fb;
+
+    // cast to int, and handle 0
+    int update_rate_fb_int = (int)update_rate_fb;
+    if (update_rate_fb_int == 0){
+        update_rate_fb_int = 1;
+    }
+    Serial.print("update_rate_fb: "); Serial.println(update_rate_fb, 4);
+    return update_rate_fb_int;
 }
 
 void SensorFB::show_acc_error(float err){

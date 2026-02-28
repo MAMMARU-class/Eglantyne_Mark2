@@ -35,11 +35,11 @@ enum class Mode: uint8_t {
 };
 
 enum class Phase: uint8_t {
+    STANCE,
     START,
     END,
     SINGLE,
     DOUBLE,
-    STANCE,
     FLIGHT,
     FALL,
     WAKE,
@@ -63,7 +63,6 @@ array<array<float, 5>, 3> attach_stance(array<array<float, 5>, 3> com_pos, STANC
 
 void Core1Task(void * parameter);
 
-void stance(Mode mode);
 void crouch(Order order, array<array<float, 5>, 3>& com_pos);
 void wake_face_up();
 void wake_face_down();

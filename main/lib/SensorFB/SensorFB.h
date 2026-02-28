@@ -65,8 +65,8 @@ private:
     float kp_angle_com = 0.1f;
     float kd_angle_com = 0.001f;
 
-    float kp_phi_body = 0.55f;
-    float kd_phi_body = 0.005f;
+    float kp_phi_body = 0.65f;
+    float kd_phi_body = 0.01f;
 
     float kp_angle_foot = 0.01f;
     float kd_angle_foot = 0.001f;

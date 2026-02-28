@@ -141,9 +141,9 @@ array<float, 2> SensorFB::acc_foot_pos_fb(){
 int SensorFB::update_rate_fb_SINGLE(array<float, 3> approx_coeff, array<float, 2> ideal_acc, float Tc, float t_ideal, int update_rate){
     // update last ideal_acc
     this->ideal_acc_last = ideal_acc[1];
-    this->acc_last = this->acc.z();
+    this->acc_last = this->acc.y();
     
-    float jerk_abs = abs(this->acc.z()) - abs(this->acc_last);
+    float jerk_abs = abs(this->acc.y()) - abs(this->acc_last);
 
     // approximated trajectory: a*t^2 + b*t + c
     float a = approx_coeff[0];
@@ -190,7 +190,7 @@ int SensorFB::update_rate_fb_SINGLE(array<float, 3> approx_coeff, array<float, 2
     if (update_rate_fb_int == 0){
         update_rate_fb_int = 1;
     }
-    Serial.print("update_rate_fb: "); Serial.println(update_rate_fb, 4);
+    // Serial.print("update_rate_fb: "); Serial.println(update_rate_fb, 4);
     return update_rate_fb_int;
 }
 
@@ -199,8 +199,8 @@ int SensorFB::update_rate_fb_DOUBLE(array<float, 2> ideal_acc, int update_rate){
     float ideal_jerk_abs = abs(ideal_acc[1]) - abs(this->ideal_acc_last);
     this->ideal_acc_last = ideal_acc[1];
     
-    float jerk_abs = abs(this->acc.z()) - abs(this->acc_last);
-    this->acc_last = this->acc.z();
+    float jerk_abs = abs(this->acc.y()) - abs(this->acc_last);
+    this->acc_last = this->acc.y();
 
     float fb_mag;
     if (abs(ideal_jerk_abs) < 0.01){
@@ -212,7 +212,7 @@ int SensorFB::update_rate_fb_DOUBLE(array<float, 2> ideal_acc, int update_rate){
     float fb_dir = fb_mag / abs(fb_mag);
 
     // calculate error
-    float err = abs(ideal_acc[1]) - abs(this->acc.z());
+    float err = abs(ideal_acc[1]) - abs(this->acc.y());
     err *= fb_dir;
     float derr = err - this->acc_err_last;
     this->acc_err_last = err;
@@ -236,7 +236,7 @@ int SensorFB::update_rate_fb_DOUBLE(array<float, 2> ideal_acc, int update_rate){
     if (update_rate_fb_int == 0){
         update_rate_fb_int = 1;
     }
-    Serial.print("update_rate_fb: "); Serial.println(update_rate_fb, 4);
+    // Serial.print("update_rate_fb: "); Serial.println(update_rate_fb, 4);
     return update_rate_fb_int;
 }
 

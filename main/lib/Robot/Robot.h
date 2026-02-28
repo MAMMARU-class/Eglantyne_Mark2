@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include "RobotLink.h"
+#include "msg.h"
 
 #define CTRL_CYCLE 10 // ms
 // #define LINK_SIZE 1 // for board test

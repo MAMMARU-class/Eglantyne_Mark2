@@ -518,18 +518,18 @@ void Core1Task(void * parameter){
         /* #########################################################################
         FEEDBACK
         - attach stance
-        - sensor feedback
-        - motion feedback
+        - sensor feedback (angle)
+        - sensor feedback (update rate)
+        - START exception
+        - arm position feedback
         ##########################################################################*/
-        float delay_duration = 1000.0f / CTRL_STEP;
-        // attach stance
-        com_pos = attach_stance(com_pos, stance);
-        // in START phase, dont make swing leg
-        if (phase == Phase::START || phase_last == Phase::START){
-            float height = max(com_pos[0][2], com_pos[1][2]);
-            com_pos[0][2] = height;
-            com_pos[1][2] = height;
+        if (phase == Phase::FALL || phase == Phase::WAKE){
+            // do nothing
+            continue;
         }
+        // attach stance
+        // com_pos = attach_stance(com_pos, stance);
+
         // sensor feedback
         // angle feedback
         array<float, 2> angle_com_pos_fb = sensor.angle_com_pos_fb();
@@ -548,9 +548,13 @@ void Core1Task(void * parameter){
             update_rate = sensor.update_rate_fb_DOUBLE(ideal_acc, UPDATE_RATE);
         }
 
-        // dummy feedback
-        // com_pos_fb = {0,0};
-        // float delay_duration = 1000.0f / CTRL_STEP;
+        // at START and phase one after, dont make swing leg, and move slowly
+        if (phase == Phase::START || phase_last == Phase::START){
+            float height = max(com_pos[0][2], com_pos[1][2]);
+            com_pos[0][2] = height;
+            com_pos[1][2] = height;
+            update_rate = (int)(UPDATE_RATE / 2);
+        }
 
         // arm position feedback
         array<float, 3> arm_right_pos = robot->arm_k_solver({arm_right_angles[0], arm_right_angles[1], arm_right_angles[2]});
@@ -560,7 +564,16 @@ void Core1Task(void * parameter){
 
         com_pos_fb[0] += com_diff[0];
         com_pos_fb[1] += com_diff[1];
+
+        // dummy feedback
+        // com_pos_fb = {0,0};
+        // update_rate = UPDATE_RATE;
         
+        /* #########################################################################
+        EXECUTION
+        - move robot
+        - delay
+        ##########################################################################*/
         // move robot
         // devide com pos into each leg
         array<float, 3> leg_right_com = {
@@ -572,15 +585,12 @@ void Core1Task(void * parameter){
             com_pos[1][1] - com_pos_fb[1],
             com_pos[1][2]};
 
-        // Serial.println("com_pos:");
-        // Serial.print(com_pos[0][0]); Serial.print(", "); Serial.print(com_pos[0][1]); Serial.print(", "); Serial.println(com_pos[0][2]);
+        // print com position for debag
+        Serial.println("com_pos:");
+        Serial.print(com_pos[0][0]); Serial.print(", "); Serial.print(com_pos[0][1]); Serial.print(", "); Serial.println(com_pos[0][2]);
 
         // send order
-        if (phase == Phase::FALL || phase == Phase::WAKE){
-            // do nothing
-            continue;
-        }
-        float phi_fb = sensor.angle_phi_fb();
+        float phi_fb = sensor.angle_phi_fb(); // simple phi feedback
         robot->move_leg_ik(leg_right_com, com_pos[0][3], phi_fb, true);
         robot->move_leg_ik(leg_left_com, com_pos[1][3] , phi_fb, false);
         com_x[0] = leg_right_com[0];
@@ -595,15 +605,12 @@ void Core1Task(void * parameter){
     }
 }
 
-void stance(Mode mode){}
-
 void crouch(Order order, array<array<float, 5>, 3>& com_pos){
     // similar movement as FALL
     array<float, 3> current_order_right = {com_pos[0][0], com_pos[0][1], com_pos[0][2]};
     array<float, 3> current_order_left =  {com_pos[1][0], com_pos[1][1], com_pos[1][2]};
     float current_theta_right = com_pos[0][3];
     float current_theta_left =  com_pos[1][3];
-
 
     float height;
     if (order == Order::CROUCH){

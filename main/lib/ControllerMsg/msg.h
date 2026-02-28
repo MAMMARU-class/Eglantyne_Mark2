@@ -18,7 +18,7 @@ extern bool order_free;
 extern volatile ControlPacket global_control_pkt;
 // feedback variables
 extern std::array<float, 2> com_x;
-array<float, 3> arm_right_angles;
-array<float, 3> arm_left_angles;
+extern std::array<float, 3> arm_right_angles;
+extern std::array<float, 3> arm_left_angles;
 
 #endif

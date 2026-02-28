@@ -552,10 +552,10 @@ void Core1Task(void * parameter){
         // com_pos_fb = {0,0};
         // float delay_duration = 1000.0f / CTRL_STEP;
 
-        // arm feedback
-        array<float, 3> arm_pos_right = robot->arm_k_solver({global_control_pkt.arm_right[0], global_control_pkt.arm_right[1], global_control_pkt.arm_right[2]});
-        array<float, 3> arm_pos_left  = robot->arm_k_solver({global_control_pkt.arm_left[0], global_control_pkt.arm_left[1], global_control_pkt.arm_left[2]});
-        array<float, 2> arm_mass_pos = {arm_pos_right[0] + arm_pos_left[0], -arm_pos_right[1] + arm_pos_left[1]};
+        // arm position feedback
+        array<float, 3> arm_right_pos = robot->arm_k_solver({arm_right_angles[0], arm_right_angles[1], arm_right_angles[2]});
+        array<float, 3> arm_left_pos  = robot->arm_k_solver({arm_left_angles[0], arm_left_angles[1], arm_left_angles[2]});
+        array<float, 2> arm_mass_pos = {arm_right_pos[0] + arm_left_pos[0], -arm_right_pos[1] + arm_left_pos[1]};
         array<float, 2> com_diff = {arm_mass_pos[0] / 12 , arm_mass_pos[1] / 12};
 
         com_pos_fb[0] += com_diff[0];
@@ -595,6 +595,8 @@ void Core1Task(void * parameter){
     }
 }
 
+void stance(Mode mode){}
+
 void crouch(Order order, array<array<float, 5>, 3>& com_pos){
     // similar movement as FALL
     array<float, 3> current_order_right = {com_pos[0][0], com_pos[0][1], com_pos[0][2]};
@@ -602,7 +604,7 @@ void crouch(Order order, array<array<float, 5>, 3>& com_pos){
     float current_theta_right = com_pos[0][3];
     float current_theta_left =  com_pos[1][3];
 
-    
+
     float height;
     if (order == Order::CROUCH){
         Serial.println("Crouch");

@@ -74,7 +74,7 @@ private:
     float l_roll_com = l_com_z + l_base_roll;
 
     float l_foot_z = 37.5;
-    float l_foot_x = 17.0;
+    float l_foot_x = 8.0;
 
     float l_arm_upper = 82.84;
     float l_arm_lower = 55;

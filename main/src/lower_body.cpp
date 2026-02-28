@@ -65,6 +65,10 @@ array<float, 3> update_vel(array<float, 3> vd, Order order){
     //     return vd;
     // }
 
+    if (!connected){
+        vd = {0.0f, 0.0f, 0.0f};
+        return vd;
+    }
     // Serial.print("vd: "); Serial.print(vd[0], 4); Serial.print(", "); Serial.print(vd[1], 4); Serial.print(", "); Serial.println(vd[2], 4);
     array<float, 3> vd_max_abs = controller.get_vd_max_abs();
     vd[0] = global_control_pkt.stick_right[0] * vd_max_abs[0];

@@ -602,6 +602,7 @@ void crouch(Order order, array<array<float, 5>, 3>& com_pos){
     float current_theta_right = com_pos[0][3];
     float current_theta_left =  com_pos[1][3];
 
+    
     float height;
     if (order == Order::CROUCH){
         Serial.println("Crouch");

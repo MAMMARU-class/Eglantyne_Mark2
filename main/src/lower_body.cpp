@@ -33,6 +33,7 @@ static Phase phase_last = Phase::WAIT;
 static int phase_length;
 static int phase_count;
 static int update_rate = UPDATE_RATE;
+bool single_calculated = true;
 
 // other classees
 static Robot* robot;
@@ -263,9 +264,10 @@ void Core1Task(void * parameter){
         - WAKE     : WAKE the robot up. Next phase is START. and change the mode to WAIT.
         - WAIT     : Do nothing.
         ##########################################################################*/
-        // move robot
         // init com_pos
         array<array<float, 5>, 3> com_pos = controller.get_default_com_pos();
+        // save t_ideal before phase_count updated (for update_rate feedback)
+        float t_ideal = phase_count / (float)CTRL_STEP / (float)UPDATE_RATE + controller.get_T_ds()/2;
         // phase switch-case sentences
         switch (phase){
             case Phase::STANCE:{
@@ -276,26 +278,26 @@ void Core1Task(void * parameter){
                         if (mode_last == Mode::WALK){
                             controller.init_param_fight(HEIGHT_FIGHT);
                             stance.height_diff = HEIGHT_WALK - HEIGHT_FIGHT;
-                            stance_diff.height_diff = (HEIGHT_FIGHT - HEIGHT_WALK) / phase_length;
+                            stance_diff.height_diff = (HEIGHT_FIGHT - HEIGHT_WALK) / phase_length * UPDATE_RATE;
                             stance_diff.relative_body_angle = 
-                                (stance_fight.relative_body_angle - stance.relative_body_angle) / phase_length;
+                                (stance_fight.relative_body_angle - stance.relative_body_angle) / phase_length * UPDATE_RATE;
                             stance_diff.relative_body_pos = 
-                                (stance_fight.relative_body_pos - stance.relative_body_pos) / phase_length;
+                                (stance_fight.relative_body_pos - stance.relative_body_pos) / phase_length * UPDATE_RATE;
                             stance_diff.relative_leg_angle = 
-                                (stance_fight.relative_leg_angle - stance.relative_leg_angle) / phase_length;
+                                (stance_fight.relative_leg_angle - stance.relative_leg_angle) / phase_length * UPDATE_RATE;
                             // change mode from TRANSITION to FIGHT
                             mode = Mode::FIGHT;
                             mode_last = Mode::WALK;
                         }else if (mode_last == Mode::FIGHT){
                             controller.init_param_walk(HEIGHT_WALK);
                             stance.height_diff = HEIGHT_FIGHT - HEIGHT_WALK;
-                            stance_diff.height_diff = (HEIGHT_WALK - HEIGHT_FIGHT) / phase_length;
+                            stance_diff.height_diff = (HEIGHT_WALK - HEIGHT_FIGHT) / phase_length * UPDATE_RATE;
                             stance_diff.relative_body_angle = 
-                                (stance_walk.relative_body_angle - stance.relative_body_angle) / phase_length;
+                                (stance_walk.relative_body_angle - stance.relative_body_angle) / phase_length * UPDATE_RATE;
                             stance_diff.relative_body_pos = 
-                                (stance_walk.relative_body_pos - stance.relative_body_pos) / phase_length;
+                                (stance_walk.relative_body_pos - stance.relative_body_pos) / phase_length * UPDATE_RATE;
                             stance_diff.relative_leg_angle = 
-                                (stance_walk.relative_leg_angle - stance.relative_leg_angle) / phase_length;
+                                (stance_walk.relative_leg_angle - stance.relative_leg_angle) / phase_length * UPDATE_RATE;
                             // change mode from TRANSITION to WALK
                             mode = Mode::WALK;
                             mode_last = Mode::FIGHT;
@@ -398,8 +400,10 @@ void Core1Task(void * parameter){
                 if (phase_count == 0){
                     Serial.println("phase: SINGLE");
                     controller.init_single_0();
+                    single_calculated = false;
                 }
-                if (phase_count == int(phase_length/2)){
+                if (!single_calculated && phase_count >= int(phase_length/2)){
+                    single_calculated = true;
                     // change phase to STANCE if order is mode_change
                     if (order == Order::MODE_CHANGE && controller.pivot_right()){
                         init_phase(
@@ -481,6 +485,7 @@ void Core1Task(void * parameter){
                     0.06f,
                     0.2f
                 );
+                robot->free_all();
                 delay(600);
 
                 // phase transition
@@ -528,7 +533,7 @@ void Core1Task(void * parameter){
             continue;
         }
         // attach stance
-        // com_pos = attach_stance(com_pos, stance);
+        com_pos = attach_stance(com_pos, stance);
 
         // sensor feedback
         // angle feedback
@@ -541,9 +546,16 @@ void Core1Task(void * parameter){
         // update_rate feedback
         array<float, 2> ideal_acc = {com_pos[2][0], com_pos[2][1]};
         float Tc = controller.get_Tc();
-        float t_ideal = phase_count / (float)CTRL_STEP / (float)UPDATE_RATE + controller.get_T_ds()/2;
         if (phase == Phase::SINGLE){
-            update_rate = sensor.update_rate_fb_SINGLE(controller.get_approx_coeff(), ideal_acc, Tc, t_ideal, UPDATE_RATE);
+            // com calculation check
+            float com_y_pos;
+            if(controller.is_pivot_right()){
+                com_y_pos = com_pos[0][1];
+            }else{
+                com_y_pos = com_pos[1][1];
+            }
+
+            update_rate = sensor.update_rate_fb_SINGLE(controller.get_approx_coeff(), ideal_acc, Tc, t_ideal, UPDATE_RATE, com_y_pos);
         }else{
             update_rate = sensor.update_rate_fb_DOUBLE(ideal_acc, UPDATE_RATE);
         }
@@ -586,8 +598,8 @@ void Core1Task(void * parameter){
             com_pos[1][2]};
 
         // print com position for debag
-        Serial.println("com_pos:");
-        Serial.print(com_pos[0][0]); Serial.print(", "); Serial.print(com_pos[0][1]); Serial.print(", "); Serial.println(com_pos[0][2]);
+        // Serial.println("com_pos:");
+        // Serial.print(com_pos[0][0]); Serial.print(", "); Serial.print(com_pos[0][1]); Serial.print(", "); Serial.println(com_pos[0][2]);
 
         // send order
         float phi_fb = sensor.angle_phi_fb(); // simple phi feedback

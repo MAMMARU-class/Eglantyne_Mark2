@@ -113,10 +113,17 @@ array<float, 2> SLIP::calc_LIP_v(float t, array<float, 2> cp0, array<float, 2> c
     return {vx, vy};
 }
 
-void SLIP::calc_approx_coeff(array<float, 2> cp0, array<float, 2> cv0){
-    this->approx_coeff[0] = 1/2.0f / (Tc*Tc) * cp0[1];
-    this->approx_coeff[1] = 1 / (Tc*Tc) * cv0[1];
-    this->approx_coeff[2] = cp0[1];
+void SLIP::calc_approx_coeff(array<float, 2> cp0, array<float, 2> cv0, float T_sup){
+    float C0 = std::cosh(T_sup / (Tc * 2));
+    float S0 = std::sinh(T_sup / (Tc * 2));
+    
+    float A = cp0[1] * C0 + Tc * cv0[1] * S0;
+    float B = cp0[1] / Tc * S0 + cv0[1] * C0;
+    float C = A / (2 * Tc*Tc);
+
+    this->approx_coeff[0] = C;
+    this->approx_coeff[1] = B - 2 * C * T_sup/2;
+    this->approx_coeff[2] = A - B * T_sup/2 + C * (T_sup/2) * (T_sup/2);
 }
 
 /* -----------------------------

@@ -35,7 +35,7 @@ public:
     // acceleration feedback
     array<float, 2> acc_com_pos_fb();
     array<float, 2> acc_foot_pos_fb();
-    int update_rate_fb_SINGLE(array<float, 3> approx_coeff, array<float, 2> ideal_acc, float Tc, float t_ideal, int update_rate);
+    int update_rate_fb_SINGLE(array<float, 3> approx_coeff, array<float, 2> ideal_acc, float Tc, float t_ideal, int update_rate, float com_pos);
     int update_rate_fb_DOUBLE(array<float, 2> ideal_acc, int update_rate);
     void show_acc_error(float err);
     // integrate feedback
@@ -65,7 +65,7 @@ private:
     float kp_angle_com = 0.1f;
     float kd_angle_com = 0.001f;
 
-    float kp_phi_body = 0.65f;
+    float kp_phi_body = 0.55f;
     float kd_phi_body = 0.01f;
 
     float kp_angle_foot = 0.01f;
@@ -79,16 +79,16 @@ private:
     float kp_acc_delay = 0.2f;
     float kd_acc_delay = 0.0f;
 
-    float kp_update_rate_SINGLE = 0.0f;
-    float kd_update_rate_SINGLE = 0.0f;
+    float kp_update_rate_SINGLE = 5.0f;
+    float kd_update_rate_SINGLE = 0.5f;
     float kp_update_rate_DOUBLE = 0.0f;
     float kd_update_rate_DOUBLE = 0.0f;
 
-    float kp_acc_com = 0.01f;
-    float kd_acc_com = 0.001f;
+    float kp_acc_com = 0.0f;
+    float kd_acc_com = 0.0f;
     
-    float kp_acc_foot = 0.01f;
-    float kd_acc_foot = 0.001f;
+    float kp_acc_foot = 0.0f;
+    float kd_acc_foot = 0.0f;
 
     // feedback state variables
     float angle_err_last = 0.0f;

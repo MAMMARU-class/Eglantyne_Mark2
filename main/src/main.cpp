@@ -57,7 +57,7 @@ void setup(){
     Eglantyne.setSerial(&krs1, &krs2);
     Eglantyne.setLink();
     // reinit home
-    Eglantyne.set_leg_home_pose(0.05, HEIGHT_WALK);
+    Eglantyne.set_leg_home_pose(0.045, HEIGHT_WALK);
     Serial.println("Eglantyne Mark2 prepared");
 
     array<float, LINK_SIZE> current = Eglantyne.current();

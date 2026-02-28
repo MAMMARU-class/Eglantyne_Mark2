@@ -2,7 +2,7 @@
 #include <cmath>
 #include "SLIP.h"
 
-#define HEIGHT_WALK 0.145f
+#define HEIGHT_WALK 0.135f
 #define HEIGHT_FIGHT 0.135f
 #define HEIGHT_CROUCH 0.08f
 
@@ -84,6 +84,10 @@ public:
     // getters from model
     float get_Tc(){ return model.get_Tc(); }
     array<float, 3> get_approx_coeff(){ return model.get_approx_coeff(); }
+    bool is_pivot_right(){ 
+        if (pivot == Pivot::RIGHT){ return true; 
+        }else{ return false; }
+    }
 
 private:
     // model

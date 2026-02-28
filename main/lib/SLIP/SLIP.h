@@ -42,7 +42,7 @@ public:
     // LIP calculation
     array<float, 2> calc_LIP_p(float t, array<float, 2> cp0, array<float, 2> cv0);
     array<float, 2> calc_LIP_v(float t, array<float, 2> cp0, array<float, 2> cv0);
-    void calc_approx_coeff(array<float, 2> cp0, array<float, 2> cv0);
+    void calc_approx_coeff(array<float, 2> cp0, array<float, 2> cv0, float T_sup);
 
     // foot pos pd
     array<float, 2> foot_pos_pd(array<float, 2> cvn_last, array<float, 2> cvn_m1_last, array<float, 3> vd, array<float, 2> pn, float T_sup);

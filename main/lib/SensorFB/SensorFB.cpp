@@ -138,35 +138,37 @@ array<float, 2> SensorFB::acc_foot_pos_fb(){
     return foot_pos_fb;
 }
 
-int SensorFB::update_rate_fb_SINGLE(array<float, 3> approx_coeff, array<float, 2> ideal_acc, float Tc, float t_ideal, int update_rate){
+int SensorFB::update_rate_fb_SINGLE(array<float, 3> approx_coeff, array<float, 2> ideal_acc, float Tc, float t_ideal, int update_rate, float com_pos){
     // update last ideal_acc
+    float acc = this->acc.y();
     this->ideal_acc_last = ideal_acc[1];
-    this->acc_last = this->acc.y();
+    this->acc_last = acc;
     
-    float jerk_abs = abs(this->acc.y()) - abs(this->acc_last);
+    float jerk_abs = abs(acc) - abs(this->acc_last);
 
     // approximated trajectory: a*t^2 + b*t + c
     float a = approx_coeff[0];
     float b = approx_coeff[1];
     float c = approx_coeff[2];
-    c = a * (b*b)/(4*a*a) - b * b/(2*a) + c;
+    float c_dash = a * (b*b)/(4*a*a) - b * b/(2*a) + c;
     float t_mid = -b/(2*a);
     t_ideal = t_ideal - t_mid;
 
     int sig;
     if (jerk_abs > 0){
-        sig = 1;
-    }else{
         sig = -1;
+    }else{
+        sig = 1;
     }
 
-    float pos_y = acc.z() / (Tc*Tc);
-    float t_now;
-    if ((pos_y - c)/a > 0){
-        t_now = sqrt((pos_y - c)/a) * sig;
-    }else{
-        t_now = t_ideal;
+    float pos_y = acc * (Tc*Tc);
+    if(c_dash > 0 && pos_y < c_dash){
+        pos_y = c_dash;
+    }else if (c_dash < 0 && pos_y > c_dash){
+        pos_y = c_dash;
     }
+    float t_now;
+    t_now = sqrt((pos_y - c_dash)/a) * sig;
 
     float t_err = t_now - t_ideal;
     float t_derr = t_err - this->t_err_last;
@@ -190,17 +192,26 @@ int SensorFB::update_rate_fb_SINGLE(array<float, 3> approx_coeff, array<float, 2
     if (update_rate_fb_int == 0){
         update_rate_fb_int = 1;
     }
-    // Serial.print("update_rate_fb: "); Serial.println(update_rate_fb, 4);
+    Serial.println();
+    // Serial.print("a: "); Serial.print(a, 4); Serial.print(", b: "); Serial.print(b, 4); Serial.print(", c: "); Serial.println(c, 4);
+    // Serial.print("acc_ideal: "); Serial.print(ideal_acc[1], 4); Serial.print(", acc: "); Serial.println(acc, 4);
+    // Serial.print("ideal y: "); Serial.print(com_pos, 4); Serial.print(", calculated y: "); Serial.println(a * t_ideal * t_ideal + c_dash, 4);
+    // Serial.print(", pos_y: "); Serial.println(pos_y, 4);
+    // Serial.print("t_ideal: "); Serial.print(t_ideal, 4); Serial.print(", calculated t: "); Serial.println(sqrt((com_pos - c_dash)/a) * sig, 4);
+    // Serial.print("t_now: "); Serial.println(sqrt((pos_y - c_dash)/a) * sig, 4);
+    // Serial.print("t_err: "); Serial.println(t_err, 4);
+    Serial.print("update_rate_fb: "); Serial.println(update_rate_fb, 4);
     return update_rate_fb_int;
 }
 
 int SensorFB::update_rate_fb_DOUBLE(array<float, 2> ideal_acc, int update_rate){
+    float acc = this->acc.y();
     // check if com already pass the top
     float ideal_jerk_abs = abs(ideal_acc[1]) - abs(this->ideal_acc_last);
     this->ideal_acc_last = ideal_acc[1];
     
-    float jerk_abs = abs(this->acc.y()) - abs(this->acc_last);
-    this->acc_last = this->acc.y();
+    float jerk_abs = abs(acc) - abs(this->acc_last);
+    this->acc_last = acc;
 
     float fb_mag;
     if (abs(ideal_jerk_abs) < 0.01){

@@ -168,13 +168,6 @@ void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> 
     this->pn_p1[0] += foot_pos_fb[0];
     this->pn_p1[1] += foot_pos_fb[1];
 
-    array<float, 2> cpn_last = model.calc_LIP_p(this->T_sup, {-this->pn[0], -this->pn[1]}, this->cvn_start);
-    array<float, 2> pn_p1_rot = model.rotate_vec(this->pn_p1, this->body_angle);
-    this->p_n2p1 = {
-        cpn_last[0]+pn_p1_rot[0],
-        cpn_last[1]+pn_p1_rot[1]
-    };
-
     // calculate T_ds
     this->T_ds = this->T_sup * this->ds_ratio;
 }
@@ -288,7 +281,7 @@ void GaitController::init_end(){
         );
 }
 
-void GaitController::init_single_0(){
+void GaitController::init_single(){
     // calculate model approximation coefficients
     model.calc_approx_coeff({-this->pn[0], -this->pn[1]}, this->cvn_start, this->T_sup);
 
@@ -309,7 +302,20 @@ void GaitController::init_single_0(){
     float pivot_com_diff_y = pivot_com_half[1] - this->single_start_com[1];
     swing_com_half = {0.0f, swing_com_0[1] + pivot_com_diff_y};
 }
-void GaitController::init_single_half(){
+
+void GaitController::calc_swing_last(){
+    // update cvn_last
+    this->cvn_last = model.calc_LIP_v(this->T_sup, {-this->pn[0], -this->pn[1]}, this->cvn_start);
+    this->cvn_last = model.rotate_vec(this->cvn_last, -this->body_angle);
+    // update p_n2p1
+    array<float, 2> cpn_last = model.calc_LIP_p(this->T_sup, {-this->pn[0], -this->pn[1]}, this->cvn_start);
+    array<float, 2> pn_p1_rot = model.rotate_vec(this->pn_p1, this->body_angle);
+    this->p_n2p1 = {
+        cpn_last[0]+pn_p1_rot[0],
+        cpn_last[1]+pn_p1_rot[1]
+    };
+
+    // calculate com at the end of single support
     array<float, 2> single_last_com = this->model.calc_LIP_p(
         this->T_sup*(1.0f - this->ds_ratio*0.5f),
         {-this->pn[0], -this->pn[1]},
@@ -340,6 +346,7 @@ array<array<float, 5>, 3> GaitController::calc_com_traj_single(float t){
         swing_com = {swing_com[0]/(T_ss*0.5f), swing_com[1]/(T_ss*0.5f)};
         this->swing_leg_angle = this->body_angle * (T_ss*0.5f - t) / (T_ss*0.5f);
     }else{
+        this->calc_swing_last();
         swing_com[0] = this->swing_com_half[0] * (T_ss - t) + this->swing_com_last[0] * (t - T_ss*0.5f);
         swing_com[1] = this->swing_com_half[1] * (T_ss - t) + this->swing_com_last[1] * (t - T_ss*0.5f);
         swing_com = {swing_com[0]/(T_ss - T_ss*0.5f), swing_com[1]/(T_ss - T_ss*0.5f)};

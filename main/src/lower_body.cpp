@@ -399,7 +399,7 @@ void Core1Task(void * parameter){
             case Phase::SINGLE:{
                 if (phase_count == 0){
                     Serial.println("phase: SINGLE");
-                    controller.init_single_0();
+                    controller.init_single();
                     single_calculated = false;
                 }
                 if (!single_calculated && phase_count >= int(phase_length/2)){
@@ -427,7 +427,6 @@ void Core1Task(void * parameter){
                     array<float, 2> foot_pos_fb = {0,0};
                     // update state variables in gait controller
                     controller.update_state_variables(vd, foot_pos_fb, 0);
-                    controller.init_single_half();
                     update_phase();
                 }
                 com_pos = controller.calc_com_traj_single(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE);

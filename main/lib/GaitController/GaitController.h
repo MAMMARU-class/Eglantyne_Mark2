@@ -57,8 +57,8 @@ public:
     // update gait trajectory param
     void init_start();
     void init_end();
-    void init_single_0();
-    void init_single_half();
+    void init_single();
+    void calc_swing_last();
     void init_double();
 
     /* #########################

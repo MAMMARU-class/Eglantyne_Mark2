@@ -46,18 +46,6 @@ array<float, 3> SLIP::normalize_vel(array<float, 3> v){
     return out;
 }
 
-float SLIP::calc_T_sup(float v_mag){
-    return T_sup_base;
-    // if (v_mag == 0.0f){
-    //     return 0.0f;
-    // } else if (v_mag < v_mag_boarder){
-    //     return T_sup_base;
-    // } else {
-    //     return T_sup_base
-    //          - T_sup_min * ((v_mag - v_mag_boarder) / (v_mag_max - v_mag_boarder));
-    // }
-}
-
 /* -----------------------------
  * rotation
  * ----------------------------- */

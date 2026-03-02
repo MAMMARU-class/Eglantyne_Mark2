@@ -116,10 +116,6 @@ void GaitController::init_state_variables()
     this->p_n2m1 = {-this->p_n2p1[0], -this->p_n2p1[1]};
     this->p_n2m1 = model.rotate_vec(this->p_n2m1, -this->body_angle);
 
-    // update T
-    this->T_sup_last = this->T_sup;
-    this->T_sup = this->T_sup_next;
-
     // rotate and convert cn_d_0
     cpn_d_0 = model.rotate_vec(cpn_d_0, -this->body_angle);
     cpn_d_0 = {cpn_d_0[0]-this->pn[0], cpn_d_0[1]-this->pn[1]};
@@ -154,8 +150,6 @@ void GaitController::init_state_variables()
 void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> foot_pos_fb, float body_angle_order){
     // normalize control input
     vd = model.normalize_vel(vd);
-    float v_mag = sqrt(vd[0]*vd[0] + vd[1]*vd[1]);
-    this->T_sup_next = model.calc_T_sup(v_mag);
 
     // decide angle
     array<float, 2> angle_limits = model.calc_rot_angle_limit(this->cvn_start);
@@ -170,7 +164,7 @@ void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> 
     // decide pn_p1
     this->cvn_last = model.calc_LIP_v(this->T_sup, {-this->pn[0], -this->pn[1]}, this->cvn_start);
     this->cvn_last = model.rotate_vec(this->cvn_last, -this->body_angle);
-    this->pn_p1 = model.foot_pos_pd(this->cvn_last, this->cvn_start, vd, this->pn, this->T_sup_next);
+    this->pn_p1 = model.foot_pos_pd(this->cvn_last, this->cvn_start, vd, this->pn, this->T_sup);
     this->pn_p1[0] += foot_pos_fb[0];
     this->pn_p1[1] += foot_pos_fb[1];
 
@@ -182,7 +176,7 @@ void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> 
     };
 
     // calculate T_ds
-    this->T_ds = (this->T_sup_next + this->T_sup) / 2 * this->ds_ratio;
+    this->T_ds = this->T_sup * this->ds_ratio;
 }
 
 /* #########################################################################
@@ -282,8 +276,6 @@ void GaitController::init_end(){
     can_d_T = {0.0f, 0.0f};
 
     // update T
-    this->T_sup_last = this->T_sup;
-    this->T_sup = this->T_sup_next;
     this->T_ds = this->T_ds * 0.5f;
 
     Serial.print("cpn_d_0: "); Serial.print(cpn_d_0[0], 4); Serial.print(", "); Serial.println(cpn_d_0[1], 4);

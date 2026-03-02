@@ -33,7 +33,6 @@ public:
 
     // order normalization
     array<float, 3> normalize_vel(array<float, 3> v);
-    float calc_T_sup(float v_mag);
 
     // rotation
     array<float, 2> calc_rot_angle_limit(array<float, 2> cvn_last);

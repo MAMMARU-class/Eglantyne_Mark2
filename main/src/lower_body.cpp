@@ -304,7 +304,6 @@ void Core1Task(void * parameter){
                         }
 
                         controller.update_state_variables({0,0,0}, {0,0}, 0);
-                        controller.init_single_half();
                         order = Order::NONE;
 
                     }else if(order == Order::ROTATE){
@@ -313,7 +312,6 @@ void Core1Task(void * parameter){
                             body_angle_order = -0.1f;
                         }
                         controller.update_state_variables({0,0,0}, {0,0}, body_angle_order);
-                        controller.init_single_half();
                         order = Order::NONE;
                     }
                 }

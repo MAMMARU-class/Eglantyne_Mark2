@@ -39,8 +39,8 @@ public:
     array<float, 2> rotate_vec(array<float, 2> vec, float angle);
 
     // LIP calculation
-    array<float, 2> calc_LIP_p(float t, array<float, 2> cp0, array<float, 2> cv0);
-    array<float, 2> calc_LIP_v(float t, array<float, 2> cp0, array<float, 2> cv0);
+    array<float, 2> calc_LIP_p(float tx, float ty, array<float, 2> cp0, array<float, 2> cv0);
+    array<float, 2> calc_LIP_v(float tx, float ty, array<float, 2> cp0, array<float, 2> cv0);
     void calc_approx_coeff(array<float, 2> cp0, array<float, 2> cv0, float T_sup);
 
     // foot pos pd

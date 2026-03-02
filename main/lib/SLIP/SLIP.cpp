@@ -89,15 +89,15 @@ array<float, 2> SLIP::rotate_vec(array<float, 2> vec, float angle){
 /* -----------------------------
  * LIP calculation
  * ----------------------------- */
-array<float, 2> SLIP::calc_LIP_p(float t, array<float, 2> cp0, array<float, 2> cv0){
-    float x = cp0[0] * std::cosh(t / Tc) + Tc * cv0[0] * std::sinh(t / Tc);
-    float y = cp0[1] * std::cosh(t / Tc) + Tc * cv0[1] * std::sinh(t / Tc);
+array<float, 2> SLIP::calc_LIP_p(float tx, float ty, array<float, 2> cp0, array<float, 2> cv0){
+    float x = cp0[0] * std::cosh(tx / Tc) + Tc * cv0[0] * std::sinh(tx / Tc);
+    float y = cp0[1] * std::cosh(ty / Tc) + Tc * cv0[1] * std::sinh(ty / Tc);
     return {x, y};
 }
 
-array<float, 2> SLIP::calc_LIP_v(float t, array<float, 2> cp0, array<float, 2> cv0){
-    float vx = cp0[0] / Tc * std::sinh(t / Tc) + cv0[0] * std::cosh(t / Tc);
-    float vy = cp0[1] / Tc * std::sinh(t / Tc) + cv0[1] * std::cosh(t / Tc);
+array<float, 2> SLIP::calc_LIP_v(float tx, float ty, array<float, 2> cp0, array<float, 2> cv0){
+    float vx = cp0[0] / Tc * std::sinh(tx / Tc) + cv0[0] * std::cosh(tx / Tc);
+    float vy = cp0[1] / Tc * std::sinh(ty / Tc) + cv0[1] * std::cosh(ty / Tc);
     return {vx, vy};
 }
 

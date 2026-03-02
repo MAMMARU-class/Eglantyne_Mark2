@@ -52,7 +52,11 @@ void GaitController::init_pose(){
     this->T_sup_last = 0.0f;
 
     this->cvn_m1_start = {0.0f, model.calc_basic_unpassing_com_vel(-this->pn[1], this->T_sup)};
-    this->cvn_start = model.calc_LIP_v(this->T_sup, {-this->pn[0], -this->pn[1]}, this->cvn_m1_start);
+    this->cvn_start = model.calc_LIP_v(
+        this->T_sup, 
+        this->T_sup,
+        {-this->pn[0], -this->pn[1]}, 
+        this->cvn_m1_start);
 
     this->body_angle = 0.0f;
 }
@@ -86,6 +90,7 @@ void GaitController::init_state_variables()
     cpn_d_0 =
         model.calc_LIP_p(
             this->T_sup * (1.0f - this->ds_ratio * 0.5f),
+            this->T_sup * (1.0f - this->ds_ratio * 0.5f),
             {-this->pn[0], -this->pn[1]},
             this->cvn_start
         );
@@ -93,13 +98,15 @@ void GaitController::init_state_variables()
     array<float,2> cpn_last =
         model.calc_LIP_p(
             this->T_sup,
+            this->T_sup,
             {-this->pn[0], -this->pn[1]},
             this->cvn_start
         );
     cpn_d_0 = {cpn_d_0[0]-cpn_last[0], cpn_d_0[1]-cpn_last[1]};
 
     cvn_d_0 =
-        model.calc_LIP_v(
+    model.calc_LIP_v(
+            this->T_sup * (1.0f - this->ds_ratio * 0.5f),
             this->T_sup * (1.0f - this->ds_ratio * 0.5f),
             {-this->pn[0], -this->pn[1]},
             this->cvn_start
@@ -126,12 +133,14 @@ void GaitController::init_state_variables()
     cpn_d_T =
         model.calc_LIP_p(
             this->T_sup * this->ds_ratio * 0.5f,
+            this->T_sup * this->ds_ratio * 0.5f,
             {-this->pn[0], -this->pn[1]},
             this->cvn_start
         );
 
     cvn_d_T =
         model.calc_LIP_v(
+            this->T_sup * this->ds_ratio * 0.5f,
             this->T_sup * this->ds_ratio * 0.5f,
             {-this->pn[0], -this->pn[1]},
             this->cvn_start
@@ -162,7 +171,11 @@ void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> 
     this->body_angle = rotation + body_angle_order;
 
     // decide pn_p1
-    this->cvn_last = model.calc_LIP_v(this->T_sup, {-this->pn[0], -this->pn[1]}, this->cvn_start);
+    this->cvn_last = model.calc_LIP_v(
+        this->T_sup, 
+        this->T_sup,
+        {-this->pn[0], -this->pn[1]}, 
+        this->cvn_start);
     this->cvn_last = model.rotate_vec(this->cvn_last, -this->body_angle);
     this->pn_p1 = model.foot_pos_pd(this->cvn_last, this->cvn_start, vd, this->pn, this->T_sup);
     this->pn_p1[0] += foot_pos_fb[0];
@@ -202,6 +215,7 @@ void GaitController::init_start(){
     cpn_d_T =
         model.calc_LIP_p(
             this->T_sup * this->ds_ratio * 0.5f,
+            this->T_sup * this->ds_ratio * 0.5f,
             {-this->pn[0], -this->pn[1]},
             this->cvn_start
         );
@@ -209,6 +223,7 @@ void GaitController::init_start(){
     cpn_d_T = {cpn_d_T[0]/2, cpn_d_T[1]/2};
     cvn_d_T =
         model.calc_LIP_v(
+            this->T_sup * this->ds_ratio * 0.5f,
             this->T_sup * this->ds_ratio * 0.5f,
             {-this->pn[0], -this->pn[1]},
             this->cvn_start
@@ -243,12 +258,14 @@ void GaitController::init_end(){
     cpn_d_0 =
         model.calc_LIP_p(
             this->T_sup * (1.0f - this->ds_ratio * 0.5f),
+            this->T_sup * (1.0f - this->ds_ratio * 0.5f),
             {-this->pn[0], -this->pn[1]},
             this->cvn_start
         );
 
     array<float,2> cpn_last =
         model.calc_LIP_p(
+            this->T_sup,
             this->T_sup,
             {-this->pn[0], -this->pn[1]},
             this->cvn_start
@@ -257,6 +274,7 @@ void GaitController::init_end(){
 
     cvn_d_0 =
         model.calc_LIP_v(
+            this->T_sup * (1.0f - this->ds_ratio * 0.5f),
             this->T_sup * (1.0f - this->ds_ratio * 0.5f),
             {-this->pn[0], -this->pn[1]},
             this->cvn_start
@@ -289,6 +307,7 @@ void GaitController::init_single(){
     this->swing_leg_angle = this->body_angle;
     this->single_start_com = this->model.calc_LIP_p(
         this->T_sup*this->ds_ratio*0.5f,
+        this->T_sup*this->ds_ratio*0.5f,
         {-this->pn[0], -this->pn[1]},
         this->cvn_start
     );
@@ -298,17 +317,29 @@ void GaitController::init_single(){
     };
     swing_com_0 = model.rotate_vec(swing_com_0, this->body_angle);
 
-    array<float, 2> pivot_com_half = model.calc_LIP_p(T_sup*0.5f, {-pn[0], -pn[1]}, this->cvn_start);
+    array<float, 2> pivot_com_half = model.calc_LIP_p(
+        T_sup*0.5f,
+        T_sup*0.5f,
+        {-pn[0], -pn[1]}, 
+        this->cvn_start);
     float pivot_com_diff_y = pivot_com_half[1] - this->single_start_com[1];
     swing_com_half = {0.0f, swing_com_0[1] + pivot_com_diff_y};
 }
 
 void GaitController::calc_swing_last(){
     // update cvn_last
-    this->cvn_last = model.calc_LIP_v(this->T_sup, {-this->pn[0], -this->pn[1]}, this->cvn_start);
+    this->cvn_last = model.calc_LIP_v(
+        this->T_sup, 
+        this->T_sup,
+        {-this->pn[0], -this->pn[1]}, 
+        this->cvn_start);
     this->cvn_last = model.rotate_vec(this->cvn_last, -this->body_angle);
     // update p_n2p1
-    array<float, 2> cpn_last = model.calc_LIP_p(this->T_sup, {-this->pn[0], -this->pn[1]}, this->cvn_start);
+    array<float, 2> cpn_last = model.calc_LIP_p(
+        this->T_sup, 
+        this->T_sup,
+        {-this->pn[0], -this->pn[1]}, 
+        this->cvn_start);
     array<float, 2> pn_p1_rot = model.rotate_vec(this->pn_p1, this->body_angle);
     this->p_n2p1 = {
         cpn_last[0]+pn_p1_rot[0],
@@ -317,6 +348,7 @@ void GaitController::calc_swing_last(){
 
     // calculate com at the end of single support
     array<float, 2> single_last_com = this->model.calc_LIP_p(
+        this->T_sup*(1.0f - this->ds_ratio*0.5f),
         this->T_sup*(1.0f - this->ds_ratio*0.5f),
         {-this->pn[0], -this->pn[1]},
         this->cvn_start
@@ -336,7 +368,12 @@ calculate trajectory for each steps
 array<array<float, 5>, 3> GaitController::calc_com_traj_single(float t){
     float T_ss = this->T_sup * (1.0f - this->ds_ratio);
 
-    array<float, 2> com = model.calc_LIP_p(t + this->T_sup*this->ds_ratio/2, {-this->pn[0], -this->pn[1]}, this->cvn_start);
+    array<float, 2> com = model.calc_LIP_p(
+        t + this->T_sup*this->ds_ratio/2,
+        t + this->T_sup*this->ds_ratio/2,
+        {-this->pn[0], -this->pn[1]}, 
+        this->cvn_start);
+    
     array<float, 2> com_z = model.calc_com_z(t, this->T_sup, this->ds_ratio);
     array<float, 2> swing_com;
 

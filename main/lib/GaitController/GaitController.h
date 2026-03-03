@@ -47,6 +47,10 @@ public:
     // update state variables
     void init_state_variables(bool zero_start = false, bool zero_end = false);
     void update_state_variables(array<float, 3> vd);
+    void feedback_x0_vx0(array<float, 2> x0_vx0_fb){
+        this->pn[0] += x0_vx0_fb[0];
+        this->cvn_start[0] += x0_vx0_fb[1];
+    }
     void update_T_sup_x(float increment){
         this->T_sup_x += increment;
     }
@@ -83,6 +87,9 @@ public:
     bool is_pivot_right(){ 
         if (pivot == Pivot::RIGHT){ return true; 
         }else{ return false; }
+    }
+    array<float, 2> get_x0_vx0(){
+        return {-this->pn[0], this->cvn_start[0]};
     }
 
 private:

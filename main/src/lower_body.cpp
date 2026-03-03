@@ -261,7 +261,8 @@ void Core1Task(void * parameter){
         // init com_pos
         array<array<float, 5>, 3> com_pos = controller.get_default_com_pos();
         // save t_ideal before phase_count updated (for update_rate feedback)
-        float t_ideal = phase_count / (float)CTRL_STEP / (float)UPDATE_RATE_BASE + controller.get_T_ds()/2;
+        float t_ideal = phase_count   / (float)CTRL_STEP / (float)UPDATE_RATE_BASE + controller.get_T_ds()/2;
+        float tx      = phase_count_x / (float)CTRL_STEP / (float)UPDATE_RATE_BASE + controller.get_T_ds()/2;
         // phase switch-case sentences
         switch (phase){
             case Phase::STANCE:{
@@ -501,6 +502,7 @@ void Core1Task(void * parameter){
         - attach stance
         - sensor feedback (angle)
         - sensor feedback (update rate)
+        - sensor feedback (x0 and vx0)
         - START exception
         - arm position feedback
         ##########################################################################*/
@@ -520,7 +522,7 @@ void Core1Task(void * parameter){
         };
 
         // update_rate feedback
-        array<float, 2> ideal_acc = {com_pos[2][0], com_pos[2][1]};
+        array<float, 2> acc_ideal = {com_pos[2][0], com_pos[2][1]};
         float Tc = controller.get_Tc();
         if (phase == Phase::SINGLE){
             // com calculation check
@@ -531,10 +533,14 @@ void Core1Task(void * parameter){
                 com_y_pos = com_pos[1][1];
             }
 
-            update_rate = sensor.update_rate_fb(controller.get_approx_coeff_y(), ideal_acc, Tc, t_ideal, UPDATE_RATE_BASE, com_y_pos);
+            update_rate = sensor.update_rate_fb(
+                t_ideal, acc_ideal,
+                controller.get_approx_coeff_y(), Tc, UPDATE_RATE_BASE,
+                com_y_pos);
         }else{
             update_rate = UPDATE_RATE_BASE;
         }
+        controller.update_T_sup_x(1/CTRL_STEP * (UPDATE_RATE_BASE - update_rate)/UPDATE_RATE_BASE);
 
         // at START and phase one after, dont make swing leg, and move slowly
         if (phase == Phase::START || phase_last == Phase::START){
@@ -543,13 +549,22 @@ void Core1Task(void * parameter){
             com_pos[1][2] = height;
             update_rate = (int)(UPDATE_RATE_BASE / 2);
         }
-        controller.update_T_sup_x(1/CTRL_STEP * (UPDATE_RATE_BASE - update_rate)/UPDATE_RATE_BASE);
+
+        // x0 and vx0 feedback
+        if (phase == Phase::SINGLE){
+            array<float, 2> x0_vx0 = controller.get_x0_vx0();
+            array<float, 2> x0_vx0_fb = sensor.x0_vx0_fb(
+                tx,
+                x0_vx0[0], x0_vx0[1],
+                Tc, CTRL_STEP);
+            controller.feedback_x0_vx0(x0_vx0_fb);
+        }
 
         // arm position feedback
         array<float, 3> arm_right_pos = robot->arm_k_solver({arm_right_angles[0], arm_right_angles[1], arm_right_angles[2]});
         array<float, 3> arm_left_pos  = robot->arm_k_solver({arm_left_angles[0], arm_left_angles[1], arm_left_angles[2]});
-        array<float, 2> arm_mass_pos = {arm_right_pos[0] + arm_left_pos[0], -arm_right_pos[1] + arm_left_pos[1]};
-        array<float, 2> com_diff = {arm_mass_pos[0] / 12 , arm_mass_pos[1] / 12};
+        array<float, 2> arm_mass_pos  = {arm_right_pos[0] + arm_left_pos[0], -arm_right_pos[1] + arm_left_pos[1]};
+        array<float, 2> com_diff      = {arm_mass_pos[0] / 12 , arm_mass_pos[1] / 12};
 
         com_pos_fb[0] += com_diff[0];
         com_pos_fb[1] += com_diff[1];

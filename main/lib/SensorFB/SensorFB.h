@@ -28,8 +28,11 @@ public:
     array<float, 3> vd_fb(array<float, 3> vd);
 
     // acceleration feedback
-    int update_rate_fb(array<float, 3> approx_coeff, array<float, 2> ideal_acc, float Tc, float t_ideal, int update_rate, float com_pos);
-    array<float, 2> pn_dot_pn_fb();
+    int update_rate_fb(
+        float t_ideal, array<float, 2> acc_ideal,
+        array<float, 3> approx_coeff, float Tc, int update_rate,
+        float com_pos);
+    array<float, 2> x0_vx0_fb(float tx, float x0, float vx0, float Tc, int control_step);
 
 private:
     // bno
@@ -55,8 +58,12 @@ private:
     float kp_update_rate = 5.0f;
     float kd_update_rate = 0.5f;
 
+    float kp_x0_vx0 = 0.1f;
+    float a_pos = 1.0f;
+    float a_vel = 0.5f;
+
     // feedback state variables
     // update rate feedback
-    float ideal_acc_last = 0.0f;
+    float acc_ideal_last = 0.0f;
     float t_err_last = 0.0f;
 };

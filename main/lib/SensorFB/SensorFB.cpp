@@ -107,11 +107,15 @@ array<float, 3> SensorFB::vd_fb(array<float, 3> vd){
 }
 
 // acceleration feedback
-int SensorFB::update_rate_fb(array<float, 3> approx_coeff, array<float, 2> ideal_acc, float Tc, float t_ideal, int update_rate, float com_pos){
-    // update last ideal_acc
+int SensorFB::update_rate_fb(
+    float t_ideal, array<float, 2> acc_ideal,
+    array<float, 3> approx_coeff, float Tc, int update_rate, 
+    float com_pos)
+{
+    // update last acc_ideal
     float acc = this->acc.y();
     float acc_last = this->acc_last.y();
-    this->ideal_acc_last = ideal_acc[1];
+    this->acc_ideal_last = acc_ideal[1];
     
     float jerk_abs = abs(acc) - abs(acc_last);
 
@@ -166,7 +170,7 @@ int SensorFB::update_rate_fb(array<float, 3> approx_coeff, array<float, 2> ideal
     }
     Serial.println();
     // Serial.print("a: "); Serial.print(a, 4); Serial.print(", b: "); Serial.print(b, 4); Serial.print(", c: "); Serial.println(c, 4);
-    // Serial.print("acc_ideal: "); Serial.print(ideal_acc[1], 4); Serial.print(", acc: "); Serial.println(acc, 4);
+    // Serial.print("acc_ideal: "); Serial.print(acc_ideal[1], 4); Serial.print(", acc: "); Serial.println(acc, 4);
     // Serial.print("ideal y: "); Serial.print(com_pos, 4); Serial.print(", calculated y: "); Serial.println(a * t_ideal * t_ideal + c_dash, 4);
     // Serial.print(", pos_y: "); Serial.println(pos_y, 4);
     // Serial.print("t_ideal: "); Serial.print(t_ideal, 4); Serial.print(", calculated t: "); Serial.println(sqrt((com_pos - c_dash)/a) * sig, 4);
@@ -176,5 +180,39 @@ int SensorFB::update_rate_fb(array<float, 3> approx_coeff, array<float, 2> ideal
     return update_rate_fb_int;
 }
 
-array<float, 2> SensorFB::pn_dot_pn_fb(){
+array<float, 2> SensorFB::x0_vx0_fb(
+    float tx, 
+    float x0, float vx0, 
+    float Tc, int control_step)
+{
+    // get acceleration, estimate position and velocity
+    float acc      = this->acc.x();
+    float acc_last = this->acc_last.x();
+
+    float pos_x      = acc      * (Tc*Tc);
+    float pos_x_last = acc_last * (Tc*Tc);
+    float vel_x = (pos_x - pos_x_last) / (1.0f / control_step);
+
+    // single phase start calculation / estimation
+    float Ct = cosh(tx/Tc);
+    float St = sinh(tx/Tc);
+
+    float Ct_sq_St_sq = Ct * Ct - St * St;
+    float denom = tx * Ct_sq_St_sq;
+    
+    // ideal values at t1
+    float x_t1_ideal  = x0 * Ct + Tc * vx0 * St;
+    float vx_t1_ideal = (tx / Tc) * (x0 * St + Tc * vx0 * Ct);
+    
+    // feedback calculations
+    float x0_fb_pos  =  x0 - (tx * Ct * pos_x     - Tc * St * vx_t1_ideal) / denom;
+    float vx0_fb_pos = vx0 - (-tx/Tc * St * pos_x + Ct * vx_t1_ideal)      / denom;
+    
+    float x0_fb_vel  =  x0 - (tx * Ct * x_t1_ideal     - Tc * St * vel_x)  / denom;
+    float vx0_fb_vel = vx0 - (-tx/Tc * St * x_t1_ideal + Ct * vel_x)       / denom;
+
+    float x0_fb  = this->kp_x0_vx0 * (this->a_pos * x0_fb_pos  + this->a_vel * x0_fb_vel);
+    float vx0_fb = this->kp_x0_vx0 * (this->a_pos * vx0_fb_pos + this->a_vel * vx0_fb_vel);
+
+    return {x0_fb, vx0_fb};
 }

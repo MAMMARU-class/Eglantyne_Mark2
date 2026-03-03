@@ -9,6 +9,7 @@
 #include "pinassign.h"
 
 #define CTRL_STEP 100 //Hz
+#define UPDATE_RATE_BASE 100 // step
 
 #define VD_MIN 0.01f
 

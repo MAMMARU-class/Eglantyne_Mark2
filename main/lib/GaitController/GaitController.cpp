@@ -21,6 +21,9 @@ void GaitController::init_param_walk(float z0){
     model.set_fb_gain(0.01, 0.001f, 0.01f, 0.001f);
     model.calculate_initial_params();
     set_ds_ratio(0.35f);
+
+    this->T_sup = model.get_T_sup_base();
+    this->T_ds = this->T_sup * this->ds_ratio;
 }
 
 void GaitController::init_param_fight(float z0){
@@ -37,6 +40,9 @@ void GaitController::init_param_fight(float z0){
     model.set_fb_gain(0.00001, 0.000001f, 0.00001, 0.000001);
     model.calculate_initial_params();
     set_ds_ratio(0.2f);
+
+    this->T_sup = model.get_T_sup_base();
+    this->T_ds = this->T_sup * this->ds_ratio;
 }
 
 void GaitController::init_pose(){
@@ -49,7 +55,6 @@ void GaitController::init_pose(){
     this->p_n2p1 = {0.0f, -2 * this->pivot_sign(this->pivot) * model.get_foot_dist_y_base()};
 
     this->T_sup = model.get_T_sup_base();
-    this->T_sup_last = 0.0f;
 
     this->cvn_m1_start = {0.0f, model.calc_basic_unpassing_com_vel(-this->pn[1], this->T_sup)};
     this->cvn_start = model.calc_LIP_v(
@@ -79,6 +84,10 @@ STATE VARIABLES
 ##########################################################################*/
 void GaitController::init_state_variables()
 {
+    // initialize T_sup_x
+    this->T_sup_x = this->T_sup;
+
+    // calculate cn_d_0 and cn_d_T for double support sprine
     float Tc = model.get_Tc();
 
     array<float,2> cpn_d_0, cvn_d_0, can_d_0;
@@ -171,18 +180,16 @@ void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> 
     this->body_angle = rotation + body_angle_order;
 
     // decide pn_p1
-    this->cvn_last = model.calc_LIP_v(
+    array<float, 2> cvn_last_local = model.calc_LIP_v(
         this->T_sup, 
         this->T_sup,
         {-this->pn[0], -this->pn[1]}, 
-        this->cvn_start);
-    this->cvn_last = model.rotate_vec(this->cvn_last, -this->body_angle);
-    this->pn_p1 = model.foot_pos_pd(this->cvn_last, this->cvn_start, vd, this->pn, this->T_sup);
+        this->cvn_start
+    );
+    this->cvn_last = model.rotate_vec(cvn_last_local, -this->body_angle);
+    this->pn_p1 = model.foot_pos_pd(cvn_last_local, this->cvn_start, vd, this->pn, this->T_sup);
     this->pn_p1[0] += foot_pos_fb[0];
     this->pn_p1[1] += foot_pos_fb[1];
-
-    // calculate T_ds
-    this->T_ds = this->T_sup * this->ds_ratio;
 }
 
 /* #########################################################################
@@ -365,29 +372,33 @@ void GaitController::calc_swing_last(){
 TRAJECTORY CALCULATION
 calculate trajectory for each steps
 ##########################################################################*/
-array<array<float, 5>, 3> GaitController::calc_com_traj_single(float t){
+array<array<float, 5>, 3> GaitController::calc_com_traj_single(float tx, float ty){
     float T_ss = this->T_sup * (1.0f - this->ds_ratio);
 
+    // calculate com position for each t
     array<float, 2> com = model.calc_LIP_p(
-        t + this->T_sup*this->ds_ratio/2,
-        t + this->T_sup*this->ds_ratio/2,
+        tx + this->T_sup*this->ds_ratio/2,
+        ty + this->T_sup*this->ds_ratio/2,
         {-this->pn[0], -this->pn[1]}, 
-        this->cvn_start);
+        this->cvn_start
+    );
     
-    array<float, 2> com_z = model.calc_com_z(t, this->T_sup, this->ds_ratio);
+    // calculate com z based on ty for stable walking
+    array<float, 2> com_z = model.calc_com_z(ty, this->T_sup, this->ds_ratio);
     array<float, 2> swing_com;
 
-    if (t < T_ss/2){
-        swing_com[0] = this->swing_com_0[0] * (T_ss*0.5f - t) + this->swing_com_half[0] * t;
-        swing_com[1] = this->swing_com_0[1] * (T_ss*0.5f - t) + this->swing_com_half[1] * t;
+    // calculate swing foot trajectory based on ty to synchronize with side way fractuation
+    if (ty < T_ss/2){
+        swing_com[0] = this->swing_com_0[0] * (T_ss*0.5f - ty) + this->swing_com_half[0] * ty;
+        swing_com[1] = this->swing_com_0[1] * (T_ss*0.5f - ty) + this->swing_com_half[1] * ty;
         swing_com = {swing_com[0]/(T_ss*0.5f), swing_com[1]/(T_ss*0.5f)};
-        this->swing_leg_angle = this->body_angle * (T_ss*0.5f - t) / (T_ss*0.5f);
+        this->swing_leg_angle = this->body_angle * (T_ss*0.5f - ty) / (T_ss*0.5f);
     }else{
         this->calc_swing_last();
-        swing_com[0] = this->swing_com_half[0] * (T_ss - t) + this->swing_com_last[0] * (t - T_ss*0.5f);
-        swing_com[1] = this->swing_com_half[1] * (T_ss - t) + this->swing_com_last[1] * (t - T_ss*0.5f);
+        swing_com[0] = this->swing_com_half[0] * (T_ss - ty) + this->swing_com_last[0] * (ty - T_ss*0.5f);
+        swing_com[1] = this->swing_com_half[1] * (T_ss - ty) + this->swing_com_last[1] * (ty - T_ss*0.5f);
         swing_com = {swing_com[0]/(T_ss - T_ss*0.5f), swing_com[1]/(T_ss - T_ss*0.5f)};
-        this->pivot_leg_angle = this->body_angle * (t - T_ss*0.5f) / (T_ss - T_ss*0.5f);
+        this->pivot_leg_angle = this->body_angle * (ty - T_ss*0.5f) / (T_ss - T_ss*0.5f);
     }
     array<float, 5> com_pivot = {com[0], com[1], com_z[0], this->pivot_leg_angle, 0};
     array<float, 5> com_else = {swing_com[0], swing_com[1], com_z[1], this->swing_leg_angle, 0};

@@ -30,8 +30,6 @@ public:
     void set_p_n2p1(array<float, 2> p_n2p1){ this->p_n2p1 = p_n2p1; }
     void set_p_n2m1(array<float, 2> p_n2m1){ this->p_n2m1 = p_n2m1; }
     void set_T_sup(float T_sup){ this->T_sup = T_sup; }
-    void set_T_sup_next(float T_sup_next){ this->T_sup_next = T_sup_next; }
-    void set_T_sup_last(float T_sup_last){ this->T_sup_last = T_sup_last; }
     void set_T_ds(float T_ds){ this->T_ds = T_ds; }
     void set_ds_ratio(float ds_ratio){ this->ds_ratio = ds_ratio; }
     void set_body_angle(float body_angle){ this->body_angle = body_angle; }
@@ -50,6 +48,9 @@ public:
     // update state variables
     void init_state_variables();
     void update_state_variables(array<float, 3> vd, array<float, 2> foot_pos_fb, float body_angle_order);
+    void update_T_sup_x(float increment){
+        this->T_sup_x += increment;
+    }
 
     /* #########################
     INITIALIZE PHASE PARAMETERS
@@ -65,7 +66,7 @@ public:
     TRAJECTORY CALCULATION
     ##########################*/
     // calculate trajectory for each steps
-    array<array<float, 5>, 3> calc_com_traj_single(float t);
+    array<array<float, 5>, 3> calc_com_traj_single(float tx, float ty);
     array<array<float, 5>, 3> calc_com_traj_double(float t);
     array<array<float, 5>, 3> get_default_com_pos();
 
@@ -113,8 +114,7 @@ private:
 
     // phase time
     float T_sup;
-    float T_sup_next;
-    float T_sup_last;
+    float T_sup_x;
 
     // double support calculation
     float T_ds;

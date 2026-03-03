@@ -7,16 +7,16 @@ static Order order;
 
 // stances
 STANCE_INFO stance_walk = {
-    .height_diff = 0.0f,
+    .height_diff         = 0.0f,
     .relative_body_angle = 0.0f,
-    .relative_body_pos = 0.0f,
-    .relative_leg_angle = 0.0f
+    .relative_body_pos   = 0.0f,
+    .relative_leg_angle  = 0.0f
 };
 STANCE_INFO stance_fight = {
-    .height_diff = 0.0f,
+    .height_diff         = 0.0f,
     .relative_body_angle = 30.0 * PI / 180.0f,
-    .relative_body_pos = 0.0f,
-    .relative_leg_angle = -60.0 * PI / 180.0f
+    .relative_body_pos   = 0.0f,
+    .relative_leg_angle  = -60.0 * PI / 180.0f
 };
 STANCE_INFO stance = stance_walk;
 STANCE_INFO stance_diff = stance_walk;
@@ -32,7 +32,8 @@ static Phase phase_last = Phase::WAIT;
 // step counter
 static int phase_length;
 static int phase_count;
-static int update_rate = UPDATE_RATE;
+static int phase_count_x;
+static int update_rate = UPDATE_RATE_BASE;
 bool single_calculated = true;
 
 // other classees
@@ -86,7 +87,9 @@ void init_phase(Mode next_mode, Phase next_phase, float next_phase_time){
     phase_last = phase;
     phase = next_phase;
 
-    phase_length = next_phase_time * CTRL_STEP * UPDATE_RATE;
+    phase_length = next_phase_time * CTRL_STEP * UPDATE_RATE_BASE;
+
+    phase_count_x = 0;
     phase_count = 0;
 }
 
@@ -267,7 +270,7 @@ void Core1Task(void * parameter){
         // init com_pos
         array<array<float, 5>, 3> com_pos = controller.get_default_com_pos();
         // save t_ideal before phase_count updated (for update_rate feedback)
-        float t_ideal = phase_count / (float)CTRL_STEP / (float)UPDATE_RATE + controller.get_T_ds()/2;
+        float t_ideal = phase_count / (float)CTRL_STEP / (float)UPDATE_RATE_BASE + controller.get_T_ds()/2;
         // phase switch-case sentences
         switch (phase){
             case Phase::STANCE:{
@@ -278,26 +281,26 @@ void Core1Task(void * parameter){
                         if (mode_last == Mode::WALK){
                             controller.init_param_fight(HEIGHT_FIGHT);
                             stance.height_diff = HEIGHT_WALK - HEIGHT_FIGHT;
-                            stance_diff.height_diff = (HEIGHT_FIGHT - HEIGHT_WALK) / phase_length * UPDATE_RATE;
+                            stance_diff.height_diff = (HEIGHT_FIGHT - HEIGHT_WALK) / phase_length * UPDATE_RATE_BASE;
                             stance_diff.relative_body_angle = 
-                                (stance_fight.relative_body_angle - stance.relative_body_angle) / phase_length * UPDATE_RATE;
+                                (stance_fight.relative_body_angle - stance.relative_body_angle) / phase_length * UPDATE_RATE_BASE;
                             stance_diff.relative_body_pos = 
-                                (stance_fight.relative_body_pos - stance.relative_body_pos) / phase_length * UPDATE_RATE;
+                                (stance_fight.relative_body_pos - stance.relative_body_pos) / phase_length * UPDATE_RATE_BASE;
                             stance_diff.relative_leg_angle = 
-                                (stance_fight.relative_leg_angle - stance.relative_leg_angle) / phase_length * UPDATE_RATE;
+                                (stance_fight.relative_leg_angle - stance.relative_leg_angle) / phase_length * UPDATE_RATE_BASE;
                             // change mode from TRANSITION to FIGHT
                             mode = Mode::FIGHT;
                             mode_last = Mode::WALK;
                         }else if (mode_last == Mode::FIGHT){
                             controller.init_param_walk(HEIGHT_WALK);
                             stance.height_diff = HEIGHT_FIGHT - HEIGHT_WALK;
-                            stance_diff.height_diff = (HEIGHT_WALK - HEIGHT_FIGHT) / phase_length * UPDATE_RATE;
+                            stance_diff.height_diff = (HEIGHT_WALK - HEIGHT_FIGHT) / phase_length * UPDATE_RATE_BASE;
                             stance_diff.relative_body_angle = 
-                                (stance_walk.relative_body_angle - stance.relative_body_angle) / phase_length * UPDATE_RATE;
+                                (stance_walk.relative_body_angle - stance.relative_body_angle) / phase_length * UPDATE_RATE_BASE;
                             stance_diff.relative_body_pos = 
-                                (stance_walk.relative_body_pos - stance.relative_body_pos) / phase_length * UPDATE_RATE;
+                                (stance_walk.relative_body_pos - stance.relative_body_pos) / phase_length * UPDATE_RATE_BASE;
                             stance_diff.relative_leg_angle = 
-                                (stance_walk.relative_leg_angle - stance.relative_leg_angle) / phase_length * UPDATE_RATE;
+                                (stance_walk.relative_leg_angle - stance.relative_leg_angle) / phase_length * UPDATE_RATE_BASE;
                             // change mode from TRANSITION to WALK
                             mode = Mode::WALK;
                             mode_last = Mode::FIGHT;
@@ -316,13 +319,17 @@ void Core1Task(void * parameter){
                     }
                 }
 
-                com_pos = controller.calc_com_traj_single(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE);
-                stance.height_diff += stance_diff.height_diff;
+                com_pos = controller.calc_com_traj_single(
+                    phase_count_x / (float)CTRL_STEP / (float)UPDATE_RATE_BASE,
+                    phase_count   / (float)CTRL_STEP / (float)UPDATE_RATE_BASE
+                );
+                stance.height_diff         += stance_diff.height_diff;
                 stance.relative_body_angle += stance_diff.relative_body_angle;
-                stance.relative_body_pos += stance_diff.relative_body_pos;
-                stance.relative_leg_angle += stance_diff.relative_leg_angle;
+                stance.relative_body_pos   += stance_diff.relative_body_pos;
+                stance.relative_leg_angle  += stance_diff.relative_leg_angle;
 
                 // phase transition
+                phase_count_x += UPDATE_RATE_BASE;
                 phase_count += update_rate;
                 if (phase_count >= phase_length){
                     stance_diff = stance_walk;
@@ -349,9 +356,9 @@ void Core1Task(void * parameter){
                     controller.inverse_pivot();
                     controller.init_start();
                     float T_ds = controller.get_T_sup() * controller.get_ds_ratio() * 0.5f;
-                    phase_length = T_ds * CTRL_STEP * UPDATE_RATE;
+                    phase_length = T_ds * CTRL_STEP * UPDATE_RATE_BASE;
                 }
-                com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE);
+                com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE_BASE);
                 
                 // phase transition
                 phase_count += update_rate;
@@ -371,10 +378,10 @@ void Core1Task(void * parameter){
                     controller.inverse_pivot();
                     controller.init_end();
                     float T_ds = controller.get_T_sup() * controller.get_ds_ratio() * 0.5f;
-                    // phase_length = T_ds * CTRL_STEP * UPDATE_RATE;
+                    // phase_length = T_ds * CTRL_STEP * UPDATE_RATE_BASE;
                     phase_length = 1;
                 }
-                // com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE);
+                // com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE_BASE);
                 // Serial.print("com_pos: "); Serial.print(com_pos[0][0], 4); Serial.print(", "); Serial.print(com_pos[0][1], 4); Serial.print(", "); Serial.println(com_pos[0][2], 4);
                 com_pos = controller.get_default_com_pos();
 
@@ -427,9 +434,13 @@ void Core1Task(void * parameter){
                     controller.update_state_variables(vd, foot_pos_fb, 0);
                     update_phase();
                 }
-                com_pos = controller.calc_com_traj_single(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE);
+                com_pos = controller.calc_com_traj_single(
+                    phase_count_x / (float)CTRL_STEP / (float)UPDATE_RATE_BASE,
+                    phase_count   / (float)CTRL_STEP / (float)UPDATE_RATE_BASE
+                );
 
                 // phase transition
+                phase_count_x += UPDATE_RATE_BASE;
                 phase_count += update_rate;
                 if (phase_count >= phase_length){
                     init_phase(
@@ -447,7 +458,7 @@ void Core1Task(void * parameter){
                     controller.inverse_pivot();
                     controller.init_state_variables();
                 }
-                com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE);
+                com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE_BASE);
                 
                 // phase transition
                 phase_count += update_rate;
@@ -552,9 +563,9 @@ void Core1Task(void * parameter){
                 com_y_pos = com_pos[1][1];
             }
 
-            update_rate = sensor.update_rate_fb_SINGLE(controller.get_approx_coeff(), ideal_acc, Tc, t_ideal, UPDATE_RATE, com_y_pos);
+            update_rate = sensor.update_rate_fb_SINGLE(controller.get_approx_coeff(), ideal_acc, Tc, t_ideal, UPDATE_RATE_BASE, com_y_pos);
         }else{
-            update_rate = sensor.update_rate_fb_DOUBLE(ideal_acc, UPDATE_RATE);
+            update_rate = sensor.update_rate_fb_DOUBLE(ideal_acc, UPDATE_RATE_BASE);
         }
 
         // at START and phase one after, dont make swing leg, and move slowly
@@ -562,8 +573,9 @@ void Core1Task(void * parameter){
             float height = max(com_pos[0][2], com_pos[1][2]);
             com_pos[0][2] = height;
             com_pos[1][2] = height;
-            update_rate = (int)(UPDATE_RATE / 2);
+            update_rate = (int)(UPDATE_RATE_BASE / 2);
         }
+        controller.update_T_sup_x(1/CTRL_STEP * (UPDATE_RATE_BASE - update_rate)/UPDATE_RATE_BASE);
 
         // arm position feedback
         array<float, 3> arm_right_pos = robot->arm_k_solver({arm_right_angles[0], arm_right_angles[1], arm_right_angles[2]});
@@ -576,7 +588,7 @@ void Core1Task(void * parameter){
 
         // dummy feedback
         // com_pos_fb = {0,0};
-        // update_rate = UPDATE_RATE;
+        // update_rate = UPDATE_RATE_BASE;
         
         /* #########################################################################
         EXECUTION

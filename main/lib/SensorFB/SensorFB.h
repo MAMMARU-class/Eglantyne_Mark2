@@ -7,8 +7,6 @@
 #define SDA 5
 #define SCL 4
 
-#define UPDATE_RATE 100
-
 using std::array;
 
 class SensorFB{

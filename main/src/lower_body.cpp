@@ -108,17 +108,20 @@ array<array<float, 5>, 3> attach_stance(array<array<float, 5>, 3> com_pos, STANC
     // left leg angle
     com_pos[1][3] += stance.relative_leg_angle;
 
-    // adjust rotation to com pos
-    float px_r = com_pos[0][0]; float py_r = com_pos[0][1];
-    float theta_r = stance.relative_body_angle;
-    float px_l = com_pos[1][0]; float py_l = com_pos[1][1];
-    float theta_l = stance.relative_body_angle + stance.relative_leg_angle;
+    // rotate
+    array<float, 2> p_r = controller.rotate_vec(
+        {com_pos[0][0], com_pos[0][1]},
+        stance.relative_body_angle
+    );
+    array<float, 2> p_l = controller.rotate_vec(
+        {com_pos[1][0], com_pos[1][1]},
+        stance.relative_body_angle + stance.relative_leg_angle
+    );
+    com_pos[0][0] =  p_r[0];
+    com_pos[0][1] =  p_r[1];
 
-    com_pos[0][0] =  px_r * cos(theta_r) - py_r * sin(theta_r);
-    com_pos[0][1] =  px_r * sin(theta_r) + py_r * cos(theta_r);
-
-    com_pos[1][0] =  px_l * cos(theta_l) - py_l * sin(theta_l);
-    com_pos[1][1] =  px_l * sin(theta_l) + py_l * cos(theta_l);
+    com_pos[1][0] =  p_l[0];
+    com_pos[1][1] =  p_l[1];
 
     return com_pos;
 }
@@ -536,7 +539,8 @@ void Core1Task(void * parameter){
             update_rate = sensor.update_rate_fb(
                 t_ideal, acc_ideal,
                 controller.get_approx_coeff_y(), Tc, UPDATE_RATE_BASE,
-                com_y_pos);
+                com_y_pos
+            );
         }else{
             update_rate = UPDATE_RATE_BASE;
         }
@@ -581,13 +585,17 @@ void Core1Task(void * parameter){
         ##########################################################################*/
         // move robot
         // devide com pos into each leg
+        array<float, 2> fb_r = controller.rotate_vec(
+            {com_pos_fb[0], com_pos_fb[1]}, com_pos[0][3]);
+        array<float, 2> fb_l = controller.rotate_vec(
+            {com_pos_fb[0], com_pos_fb[1]}, com_pos[1][3]);
         array<float, 3> leg_right_com = {
-            com_pos[0][0] - com_pos_fb[0],
-            com_pos[0][1] - com_pos_fb[1],
+            com_pos[0][0] - fb_r[0],
+            com_pos[0][1] - fb_r[1],
             com_pos[0][2]};
         array<float, 3> leg_left_com =  {
-            com_pos[1][0] - com_pos_fb[0],
-            com_pos[1][1] - com_pos_fb[1],
+            com_pos[1][0] - fb_l[0],
+            com_pos[1][1] - fb_l[1],
             com_pos[1][2]};
 
         // print com position for debag
@@ -598,8 +606,12 @@ void Core1Task(void * parameter){
         float phi_fb = sensor.angle_phi_fb(); // simple phi feedback
         robot->move_leg_ik(leg_right_com, com_pos[0][3], phi_fb, true);
         robot->move_leg_ik(leg_left_com, com_pos[1][3] , phi_fb, false);
-        com_x[0] = leg_right_com[0];
-        com_x[1] = leg_left_com[0];
+        
+        // arm_pos_fb
+        array<float, 2> com_r = controller.rotate_vec({leg_right_com[0], leg_right_com[1]}, -com_pos[0][3]);
+        array<float, 2> com_l = controller.rotate_vec({leg_left_com[0],  leg_left_com[1]},  -com_pos[1][3]);
+        com_x[0] = com_r[0];
+        com_x[1] = com_l[0];
 
         /* #########################################################################
         DELAY for NEXT CYCLE

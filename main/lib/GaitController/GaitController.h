@@ -91,6 +91,9 @@ public:
     array<float, 2> get_x0_vx0(){
         return {-this->pn[0], this->cvn_start[0]};
     }
+    array<float, 2> rotate_vec(const array<float, 2>& vec, float angle){
+        return model.rotate_vec(vec, angle);
+    }
 
 private:
     // model

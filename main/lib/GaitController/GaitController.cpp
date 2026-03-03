@@ -99,7 +99,7 @@ void GaitController::init_state_variables(bool zero_start, bool zero_end)
         cpn_d_0 = {-this->pn[0], -this->pn[1]};
         cvn_d_0 = {0.0f, 0.0f};
         can_d_0 = {0.0f, 0.0f};
-        T_ds = this->T_ds/2;
+        this->T_ds = this->T_ds/2;
     }else{
         cpn_d_0 =
             model.calc_LIP_p(
@@ -178,7 +178,7 @@ void GaitController::init_state_variables(bool zero_start, bool zero_end)
     );
 }
 
-void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> foot_pos_fb, float body_angle_order){
+void GaitController::update_state_variables(array<float, 3> vd){
     // normalize control input
     vd = model.normalize_vel(vd);
 
@@ -190,7 +190,7 @@ void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> 
     } else {
         rotation = angle_limits[1] * abs(rotation);
     }
-    this->body_angle = rotation + body_angle_order;
+    this->body_angle = rotation;
 
     // decide pn_p1
     array<float, 2> cvn_last_local = model.calc_LIP_v(
@@ -200,9 +200,12 @@ void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> 
         this->cvn_start
     );
     this->cvn_last = model.rotate_vec(cvn_last_local, -this->body_angle);
-    this->pn_p1 = model.foot_pos_pd(cvn_last_local, this->cvn_start, vd, this->pn, this->T_sup_x, this->T_sup);
-    this->pn_p1[0] += foot_pos_fb[0];
-    this->pn_p1[1] += foot_pos_fb[1];
+    this->pn_p1 = model.foot_pos_pd(
+        cvn_last_local, this->cvn_start, 
+        vd, 
+        this->pn, 
+        this->T_sup_x, this->T_sup
+    );
 }
 
 /* #########################################################################
@@ -210,6 +213,8 @@ CALCULATION of SWING LEG
 calculate start / half / last position of swing leg
 ##########################################################################*/
 void GaitController::init_single(){
+    // reinitialize T_ds
+    this->T_ds = this->T_sup * this->ds_ratio;
     // calculate model approximation coefficients
     model.calc_approx_coeff_y(-this->pn[1], this->cvn_start[1], this->T_sup);
 

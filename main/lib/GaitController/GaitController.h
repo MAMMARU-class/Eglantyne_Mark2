@@ -46,7 +46,7 @@ public:
     ##########################*/
     // update state variables
     void init_state_variables(bool zero_start = false, bool zero_end = false);
-    void update_state_variables(array<float, 3> vd, array<float, 2> foot_pos_fb, float body_angle_order);
+    void update_state_variables(array<float, 3> vd);
     void update_T_sup_x(float increment){
         this->T_sup_x += increment;
     }

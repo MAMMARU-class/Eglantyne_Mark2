@@ -44,6 +44,7 @@ bool SensorFB::fall(){
         return true;
     }
 }
+
 bool SensorFB::face_up(){
     if(-this->euler.y()<0){
         return true;
@@ -60,7 +61,7 @@ array<float, 2> SensorFB::angle_com_pos_fb(){
     float err_last = -this->euler_last.y();
     float derr = err - err_last;
 
-    // ocnvert angle to com position
+    // convert angle to com position
     array<float, 2> angle_com_err = {
         sinf(err * PI / 180.0f) * this->l_pivot2com,
         // sinf( this->euler.z() * PI / 180.0f) * this->l_pivot2com
@@ -89,7 +90,7 @@ float SensorFB::angle_phi_fb(){
     float err_last = -this->euler_last.y();
     float derr = err - err_last;
 
-    err = err * PI / 180.0f;
+    err  = err  * PI / 180.0f;
     derr = derr * PI / 180.0f;
 
     float angle_phi_fb = this->kp_phi_body * err + this->kd_phi_body * derr;
@@ -98,8 +99,8 @@ float SensorFB::angle_phi_fb(){
 
 array<float, 3> SensorFB::vd_fb(array<float, 3> vd){
     array<float, 3> vd_fb = {
-        kp_angle_vd * float(-this->euler.y()) + kd_angle_vd * float(-this->gyro.y()),
-        kp_angle_vd * float( this->euler.z()) + kd_angle_vd * float( this->gyro.z()),
+        kp_angle_vd * float(-this->euler.y()) + kd_angle_vd * float(-this->euler.y()),
+        kp_angle_vd * float( this->euler.z()) + kd_angle_vd * float( this->euler.z()),
         0
     };
     return vd_fb;

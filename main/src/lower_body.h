@@ -18,7 +18,6 @@ enum class Order: uint8_t {
 
     // basic orders
     MODE_CHANGE,
-    ROTATE,
 
     // orders while WALK mode
     CROUCH,
@@ -28,11 +27,15 @@ enum class Order: uint8_t {
 };
 
 enum class Mode: uint8_t {
+    // exceptional states
     WAIT,
     FREE,
     TRANSITION,
+
+    // normal states
     WALK,
-    FIGHT
+    FIGHT,
+    CROUCH
 };
 
 enum class Phase: uint8_t {

@@ -34,34 +34,29 @@ public:
 private:
     // bno
     Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
+    imu::Vector<3> euler_last;
     imu::Vector<3> euler;
-    imu::Vector<3> gyro;
+    imu::Vector<3> acc_last;
     imu::Vector<3> acc;
 
     // body param
     float l_pivot2com = 0.07;
 
     // gains
-    float kp_angle_com = 0.1f;
-    float kd_angle_com = 0.001f;
+    float kp_angle_com   = 0.1f;
+    float kd_angle_com   = 0.001f;
 
-    float kp_phi_body = 0.55f;
-    float kd_phi_body = 0.01f;
+    float kp_phi_body    = 0.55f;
+    float kd_phi_body    = 0.01f;
 
-    float kp_angle_vd = 0.001f;
-    float kd_angle_vd = 0.0f;
+    float kp_angle_vd    = 0.001f;
+    float kd_angle_vd    = 0.0f;
 
-    float kp_update_rate_SINGLE = 5.0f;
-    float kd_update_rate_SINGLE = 0.5f;
+    float kp_update_rate = 5.0f;
+    float kd_update_rate = 0.5f;
 
     // feedback state variables
-    float angle_err_last = 0.0f;
-
+    // update rate feedback
     float ideal_acc_last = 0.0f;
-    float acc_last = 0.0f;
     float t_err_last = 0.0f;
-    float acc_err_last = 0.0f;
-
-    float delay_duration = 0.0f;
-    float delay_duration_last = 0.0f;
 };

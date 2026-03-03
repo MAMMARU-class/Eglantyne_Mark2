@@ -18,16 +18,20 @@ void SensorFB::init(){
     delay(100);
     bno.setExtCrystalUse(true);
 
+    delay(500);
+    this->euler_last = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+    this->acc_last   = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+    update();
     Serial.println("BNO055 initialized");
 }
 
 void SensorFB::update(){
     // current pose
-    this->euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-    // gyro
-    this->gyro = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
+    this->euler_last = this->euler;
+    this->euler      = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
     // acceleration
-    this-> acc = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+    this->acc_last   = this->acc;
+    this-> acc       = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
 }
 
 // state check
@@ -51,9 +55,12 @@ bool SensorFB::face_up(){
 // feedback functions
 // body inclination feedback
 array<float, 2> SensorFB::angle_com_pos_fb(){
+    // calculate angle error
     float err = -this->euler.y();
-    float derr = err - this->angle_err_last;
-    this->angle_err_last = err;
+    float err_last = -this->euler_last.y();
+    float derr = err - err_last;
+
+    // ocnvert angle to com position
     array<float, 2> angle_com_err = {
         sinf(err * PI / 180.0f) * this->l_pivot2com,
         // sinf( this->euler.z() * PI / 180.0f) * this->l_pivot2com
@@ -65,9 +72,7 @@ array<float, 2> SensorFB::angle_com_pos_fb(){
         0
     };
 
-    // Serial.print("angle_com_err: "); Serial.print(angle_com_err[0], 4); Serial.print(", "); Serial.println(angle_com_err[1], 4);
-
-    // feed back output
+    // feedback output
     array<float, 2> angle_com_fb = {
         this->kp_angle_com * angle_com_err[0] + this->kd_angle_com * angle_com_derr[0],
         this->kp_angle_com * angle_com_err[1] + this->kd_angle_com * angle_com_derr[1]
@@ -79,9 +84,10 @@ array<float, 2> SensorFB::angle_com_pos_fb(){
 
 float SensorFB::angle_phi_fb(){
     // rotate body base roll angle accordance with body angle.
-    float err = this->euler.y();
-    float derr = err - this->angle_err_last;
-    this->angle_err_last = err;
+    // calculate angle error
+    float err = -this->euler.y();
+    float err_last = -this->euler_last.y();
+    float derr = err - err_last;
 
     err = err * PI / 180.0f;
     derr = derr * PI / 180.0f;
@@ -103,10 +109,10 @@ array<float, 3> SensorFB::vd_fb(array<float, 3> vd){
 int SensorFB::update_rate_fb(array<float, 3> approx_coeff, array<float, 2> ideal_acc, float Tc, float t_ideal, int update_rate, float com_pos){
     // update last ideal_acc
     float acc = this->acc.y();
+    float acc_last = this->acc_last.y();
     this->ideal_acc_last = ideal_acc[1];
-    this->acc_last = acc;
     
-    float jerk_abs = abs(acc) - abs(this->acc_last);
+    float jerk_abs = abs(acc) - abs(acc_last);
 
     // approximated trajectory: y = a*t^2 + b*t + c
     float a = approx_coeff[0];
@@ -117,6 +123,7 @@ int SensorFB::update_rate_fb(array<float, 3> approx_coeff, array<float, 2> ideal
     float t_mid = -b/(2*a);
     t_ideal = t_ideal - t_mid;
 
+    // time signiture
     int sig;
     if (jerk_abs > 0){
         sig = -1;
@@ -138,7 +145,7 @@ int SensorFB::update_rate_fb(array<float, 3> approx_coeff, array<float, 2> ideal
     float t_derr = t_err - this->t_err_last;
     this->t_err_last = t_err;
 
-    float acc_fb = abs(this->kp_update_rate_SINGLE * t_err + this->kd_update_rate_SINGLE * t_derr) + 1.0f;
+    float acc_fb = abs(this->kp_update_rate * t_err + this->kd_update_rate * t_derr) + 1.0f;
     // Serial.print("acc_fb: "); Serial.println(acc_fb, 4);
 
     // return update rate
@@ -166,4 +173,7 @@ int SensorFB::update_rate_fb(array<float, 3> approx_coeff, array<float, 2> ideal
     // Serial.print("t_err: "); Serial.println(t_err, 4);
     // Serial.print("update_rate_fb: "); Serial.println(update_rate_fb, 4);
     return update_rate_fb_int;
+}
+
+array<float, 2> SensorFB::pn_dot_pn_fb(){
 }

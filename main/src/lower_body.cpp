@@ -552,11 +552,12 @@ void Core1Task(void * parameter){
 
         // x0 and vx0 feedback
         if (phase == Phase::SINGLE){
-            array<float, 2> x0_vx0 = controller.get_x0_vx0();
+            array<float, 2> x0_vx0    = controller.get_x0_vx0();
             array<float, 2> x0_vx0_fb = sensor.x0_vx0_fb(
                 tx,
                 x0_vx0[0], x0_vx0[1],
-                Tc, CTRL_STEP);
+                Tc, CTRL_STEP
+            );
             controller.feedback_x0_vx0(x0_vx0_fb);
         }
 

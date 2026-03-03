@@ -198,7 +198,7 @@ array<float, 2> SensorFB::x0_vx0_fb(
     float St = sinh(tx/Tc);
 
     float Ct_sq_St_sq = Ct * Ct - St * St;
-    float denom = tx * Ct_sq_St_sq;
+    float denom       = tx * Ct_sq_St_sq;
     
     // ideal values at t1
     float x_t1_ideal  = x0 * Ct + Tc * vx0 * St;

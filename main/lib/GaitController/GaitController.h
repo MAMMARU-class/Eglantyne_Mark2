@@ -46,7 +46,7 @@ public:
     STATE VARIABLES
     ##########################*/
     // update state variables
-    void init_state_variables();
+    void init_state_variables(bool zero_start = false, bool zero_end = false);
     void update_state_variables(array<float, 3> vd, array<float, 2> foot_pos_fb, float body_angle_order);
     void update_T_sup_x(float increment){
         this->T_sup_x += increment;
@@ -56,8 +56,6 @@ public:
     INITIALIZE PHASE PARAMETERS
     ##########################*/
     // update gait trajectory param
-    void init_start();
-    void init_end();
     void init_single();
     void calc_swing_last();
     void init_double();

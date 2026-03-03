@@ -44,7 +44,7 @@ public:
     void calc_approx_coeff(array<float, 2> cp0, array<float, 2> cv0, float T_sup);
 
     // foot pos pd
-    array<float, 2> foot_pos_pd(array<float, 2> cvn_last, array<float, 2> cvn_m1_last, array<float, 3> vd, array<float, 2> pn, float T_sup);
+    array<float, 2> foot_pos_pd(array<float, 2> cvn_last, array<float, 2> cvn_m1_last, array<float, 3> vd, array<float, 2> pn, float T_sup_x, float T_sup);
 
     // double support spline
     void calc_double_support_coeff(float T_ds, array<float, 2> cpn_d_0, array<float, 2> cvn_d_0, array<float, 2> can_d_0, array<float, 2> cpn_d_T, array<float, 2> cvn_d_T, array<float, 2> can_d_T);

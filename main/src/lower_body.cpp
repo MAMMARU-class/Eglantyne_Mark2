@@ -354,7 +354,7 @@ void Core1Task(void * parameter){
                     }
                     controller.init_pose();
                     controller.inverse_pivot();
-                    controller.init_start();
+                    controller.init_state_variables(true, false);
                     float T_ds = controller.get_T_sup() * controller.get_ds_ratio() * 0.5f;
                     phase_length = T_ds * CTRL_STEP * UPDATE_RATE_BASE;
                 }
@@ -376,8 +376,8 @@ void Core1Task(void * parameter){
                 if (phase_count == 0){
                     Serial.println("phase: END");
                     controller.inverse_pivot();
-                    controller.init_end();
-                    float T_ds = controller.get_T_sup() * controller.get_ds_ratio() * 0.5f;
+                    controller.init_state_variables(false, true);
+                    float T_ds = controller.get_T_ds()/2;
                     // phase_length = T_ds * CTRL_STEP * UPDATE_RATE_BASE;
                     phase_length = 1;
                 }
@@ -456,7 +456,7 @@ void Core1Task(void * parameter){
                 if (phase_count == 0){
                     Serial.println("phase: DOUBLE");
                     controller.inverse_pivot();
-                    controller.init_state_variables();
+                    controller.init_state_variables(false, false);
                 }
                 com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE_BASE);
                 

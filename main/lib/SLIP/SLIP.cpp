@@ -121,7 +121,7 @@ array<float, 2> SLIP::foot_pos_pd(array<float, 2> cvn_last,
                                  array<float, 2> cvn_m1_last,
                                  array<float, 3> vd,
                                  array<float, 2> pn,
-                                 float T_sup)
+                                 float T_sup_x, float T_sup)
 {
     // somehow doesnt work if vd[0] == 0;
     if (vd[0] == 0.0f){
@@ -140,7 +140,7 @@ array<float, 2> SLIP::foot_pos_pd(array<float, 2> cvn_last,
     derr[1] = -cvn_last[1] - cvn_m1_last[1];
 
     array<float, 2> p_base;
-    p_base[0] = calc_basic_passing_foot_pos(cvn_last[0], T_sup);
+    p_base[0] = calc_basic_passing_foot_pos(cvn_last[0], T_sup_x);
     p_base[1] = calc_basic_unpassing_foot_pos(cvn_last[1], T_sup);
 
     float px = p_base[0] - kxp * err[0] - kxd * derr[0];

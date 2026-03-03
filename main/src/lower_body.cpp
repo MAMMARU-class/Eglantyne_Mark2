@@ -563,9 +563,9 @@ void Core1Task(void * parameter){
                 com_y_pos = com_pos[1][1];
             }
 
-            update_rate = sensor.update_rate_fb_SINGLE(controller.get_approx_coeff(), ideal_acc, Tc, t_ideal, UPDATE_RATE_BASE, com_y_pos);
+            update_rate = sensor.update_rate_fb(controller.get_approx_coeff_y(), ideal_acc, Tc, t_ideal, UPDATE_RATE_BASE, com_y_pos);
         }else{
-            update_rate = sensor.update_rate_fb_DOUBLE(ideal_acc, UPDATE_RATE_BASE);
+            update_rate = UPDATE_RATE_BASE;
         }
 
         // at START and phase one after, dont make swing leg, and move slowly

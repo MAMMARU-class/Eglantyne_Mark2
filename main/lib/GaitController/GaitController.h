@@ -23,7 +23,6 @@ public:
     void set_vd_max_abs(array<float, 3> vd_max_abs){ this->vd_max_abs = vd_max_abs; }
     void set_cpn_start(array<float, 2> cpn){ this->cpn_start = cpn; }
     void set_cvn_start(array<float, 2> cvn){ this->cvn_start = cvn; }
-    void set_cvn_m1_start(array<float, 2> cvn_m1){ this->cvn_m1_start = cvn_m1; }
     void set_cvn_last(array<float, 2> cvn){ this->cvn_last = cvn; }
     void set_pn(array<float, 2> pn){ this->pn = pn; }
     void set_pn_p1(array<float, 2> pn_p1){ this->pn_p1 = pn_p1; }
@@ -53,12 +52,10 @@ public:
     }
 
     /* #########################
-    INITIALIZE PHASE PARAMETERS
+    CALCULATION of SWING LEG
     ##########################*/
-    // update gait trajectory param
     void init_single();
     void calc_swing_last();
-    void init_double();
 
     /* #########################
     TRAJECTORY CALCULATION
@@ -82,7 +79,7 @@ public:
     array<float, 3> get_vd_max_abs(){ return this->vd_max_abs; }
     // getters from model
     float get_Tc(){ return model.get_Tc(); }
-    array<float, 3> get_approx_coeff(){ return model.get_approx_coeff(); }
+    array<float, 3> get_approx_coeff_y(){ return model.get_approx_coeff_y(); }
     bool is_pivot_right(){ 
         if (pivot == Pivot::RIGHT){ return true; 
         }else{ return false; }
@@ -101,7 +98,6 @@ private:
     // com state at start and last (no consideration about double support phase)
     array<float, 2> cpn_start;
     array<float, 2> cvn_start;
-    array<float, 2> cvn_m1_start;
     array<float, 2> cvn_last;
 
     // foot pos

@@ -41,7 +41,7 @@ public:
     // LIP calculation
     array<float, 2> calc_LIP_p(float tx, float ty, array<float, 2> cp0, array<float, 2> cv0);
     array<float, 2> calc_LIP_v(float tx, float ty, array<float, 2> cp0, array<float, 2> cv0);
-    void calc_approx_coeff(array<float, 2> cp0, array<float, 2> cv0, float T_sup);
+    void calc_approx_coeff_y(float cp0_y, float cv0_y, float T_sup);
 
     // foot pos pd
     array<float, 2> foot_pos_pd(array<float, 2> cvn_last, array<float, 2> cvn_m1_last, array<float, 3> vd, array<float, 2> pn, float T_sup_x, float T_sup);
@@ -59,7 +59,7 @@ public:
     float get_Tc(){ return this->Tc; }
     float get_foot_dist_y_base(){ return this->foot_dist_y_base; }
     float get_T_sup_base(){ return this->T_sup_base; }
-    array<float, 3> get_approx_coeff(){ return this->approx_coeff; }
+    array<float, 3> get_approx_coeff_y(){ return this->approx_coeff_y; }
 
 private:
     // params
@@ -84,5 +84,5 @@ private:
     array<array<float, 6>, 2> ds_coeff;
 
     // approximation coeff for y
-    array<float, 3> approx_coeff;
+    array<float, 3> approx_coeff_y;
 };

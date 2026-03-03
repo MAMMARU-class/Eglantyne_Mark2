@@ -56,12 +56,12 @@ void GaitController::init_pose(){
 
     this->T_sup = model.get_T_sup_base();
 
-    this->cvn_m1_start = {0.0f, model.calc_basic_unpassing_com_vel(-this->pn[1], this->T_sup)};
+    array<float, 2> cvn_m1_start = {0.0f, model.calc_basic_unpassing_com_vel(-this->pn[1], this->T_sup)};
     this->cvn_start = model.calc_LIP_v(
         this->T_sup, 
         this->T_sup,
         {-this->pn[0], -this->pn[1]}, 
-        this->cvn_m1_start);
+        cvn_m1_start);
 
     this->body_angle = 0.0f;
 }
@@ -86,6 +86,7 @@ void GaitController::init_state_variables(bool zero_start, bool zero_end)
 {
     // initialize T_sup_x
     this->T_sup_x = this->T_sup;
+    this->T_ds = this->T_sup * this->ds_ratio;
 
     // calculate cn_d_0 and cn_d_T for double support sprine
     float Tc = model.get_Tc();
@@ -93,13 +94,12 @@ void GaitController::init_state_variables(bool zero_start, bool zero_end)
     array<float,2> cpn_d_0, cvn_d_0, can_d_0;
     array<float,2> cpn_d_T, cvn_d_T, can_d_T;
 
-    this->cvn_m1_start = this->cvn_start;
-
     // last sprine at single -> double 
     if(zero_start){
         cpn_d_0 = {-this->pn[0], -this->pn[1]};
         cvn_d_0 = {0.0f, 0.0f};
         can_d_0 = {0.0f, 0.0f};
+        T_ds = this->T_ds/2;
     }else{
         cpn_d_0 =
             model.calc_LIP_p(
@@ -130,7 +130,7 @@ void GaitController::init_state_variables(bool zero_start, bool zero_end)
     }
 
     // calculate variables for next sprine
-    // calculate cn_start
+    // update cn_start
     this->cvn_start = this->cvn_last;
     
     // update foot positions
@@ -206,17 +206,15 @@ void GaitController::update_state_variables(array<float, 3> vd, array<float, 2> 
 }
 
 /* #########################################################################
-INITIALIZE PHASE PARAMETERS
-at the beginning of each phase (or middle for single support), initialize the parameters related to the phase transition
-- single (at 0)    : 
-- single (at half) : Calculate swing foot goal position and update swing leg angle
+CALCULATION of SWING LEG
+calculate start / half / last position of swing leg
 ##########################################################################*/
 void GaitController::init_single(){
     // calculate model approximation coefficients
-    model.calc_approx_coeff({-this->pn[0], -this->pn[1]}, this->cvn_start, this->T_sup);
+    model.calc_approx_coeff_y(-this->pn[1], this->cvn_start[1], this->T_sup);
 
-    this->pivot_leg_angle = 0.0;
-    this->swing_leg_angle = this->body_angle;
+    this->pivot_leg_angle  = 0.0;
+    this->swing_leg_angle  = this->body_angle;
     this->single_start_com = this->model.calc_LIP_p(
         this->T_ds/2,
         this->T_ds/2,
@@ -295,7 +293,7 @@ array<array<float, 5>, 3> GaitController::calc_com_traj_single(float tx, float t
     array<float, 2> com_z = model.calc_com_z(ty, this->T_sup, this->ds_ratio);
     array<float, 2> swing_com;
 
-    // calculate swing foot trajectory based on ty to synchronize with side way fractuation
+    // calculate swing foot trajectory based on ty to synchronize with side way phase
     if (ty < T_ss/2){
         swing_com[0] = this->swing_com_0[0] * (T_ss*0.5f - ty) + this->swing_com_half[0] * ty;
         swing_com[1] = this->swing_com_0[1] * (T_ss*0.5f - ty) + this->swing_com_half[1] * ty;

@@ -4,7 +4,11 @@ SensorFB::SensorFB(){}
 
 void SensorFB::init(){
     Serial.println("Initializing BNO055...");
-    Wire.begin(SDA, SCL);
+
+    if (!Wire.begin(SDA, SCL)) {
+        Serial.println("Failed to initialize I2C");
+        while(1);
+    }
     Serial.println("Wire initialized");
 
     if (!bno.begin()){
@@ -17,34 +21,13 @@ void SensorFB::init(){
     Serial.println("BNO055 initialized");
 }
 
-void SensorFB::set_initial_rot(){
-    delay(1000);
-    update();
-    init_norm();
-}
-
 void SensorFB::update(){
     // current pose
     this->euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-    // Serial.print("euler: "); Serial.print(this->euler.x(), 4); Serial.print(", "); Serial.print(this->euler.y(), 4); Serial.print(", "); Serial.println(this->euler.z(), 4);
-
     // gyro
     this->gyro = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
-
     // acceleration
     this-> acc = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
-
-    this->euler_norm.x() = this->euler_norm.x() * 0.3 + this->euler.x() * 0.7;
-    this->euler_norm.y() = this->euler_norm.y() * 0.3 + this->euler.y() * 0.7;
-    this->euler_norm.z() = this->euler_norm.z() * 0.3 + this->euler.z() * 0.7;
-    this->gyro_norm.x() = this->gyro_norm.x() * 0.3 + this->gyro.x() * 0.7;
-    this->gyro_norm.y() = this->gyro_norm.y() * 0.3 + this->gyro.y() * 0.7;
-    this->gyro_norm.z() = this->gyro_norm.z() * 0.3 + this->gyro.z() * 0.7;
-}
-
-void SensorFB::init_norm(){
-    this->euler_norm = this->euler;
-    this->gyro_norm = this->gyro;
 }
 
 // state check
@@ -95,6 +78,7 @@ array<float, 2> SensorFB::angle_com_pos_fb(){
 }
 
 float SensorFB::angle_phi_fb(){
+    // rotate body base roll angle accordance with body angle.
     float err = this->euler.y();
     float derr = err - this->angle_err_last;
     this->angle_err_last = err;
@@ -104,14 +88,6 @@ float SensorFB::angle_phi_fb(){
 
     float angle_phi_fb = this->kp_phi_body * err + this->kd_phi_body * derr;
     return angle_phi_fb;
-}
-
-array<float, 2> SensorFB::angle_foot_pos_fb(){
-    array<float, 2> foot_pos_fb = {
-        kp_angle_foot * float(-this->euler_norm.y()) + kd_angle_foot * float(this->gyro_norm.x()),
-        kp_angle_foot * float(this->euler_norm.z()) + kd_angle_foot * float(this->gyro_norm.y())
-    };
-    return foot_pos_fb;
 }
 
 array<float, 3> SensorFB::vd_fb(array<float, 3> vd){
@@ -124,21 +100,7 @@ array<float, 3> SensorFB::vd_fb(array<float, 3> vd){
 }
 
 // acceleration feedback
-array<float, 2> SensorFB::acc_com_pos_fb(){
-    return {0,0};
-}
-
-array<float, 2> SensorFB::acc_foot_pos_fb(){
-    float d_delay_duration = this->delay_duration - this->delay_duration_last;
-    this->delay_duration_last = this->delay_duration;
-    array<float, 2> foot_pos_fb = {
-        kp_acc_foot * this->delay_duration + kd_acc_foot * d_delay_duration,
-        0
-    };
-    return foot_pos_fb;
-}
-
-int SensorFB::update_rate_fb_SINGLE(array<float, 3> approx_coeff, array<float, 2> ideal_acc, float Tc, float t_ideal, int update_rate, float com_pos){
+int SensorFB::update_rate_fb(array<float, 3> approx_coeff, array<float, 2> ideal_acc, float Tc, float t_ideal, int update_rate, float com_pos){
     // update last ideal_acc
     float acc = this->acc.y();
     this->ideal_acc_last = ideal_acc[1];
@@ -146,10 +108,11 @@ int SensorFB::update_rate_fb_SINGLE(array<float, 3> approx_coeff, array<float, 2
     
     float jerk_abs = abs(acc) - abs(this->acc_last);
 
-    // approximated trajectory: a*t^2 + b*t + c
+    // approximated trajectory: y = a*t^2 + b*t + c
     float a = approx_coeff[0];
     float b = approx_coeff[1];
     float c = approx_coeff[2];
+    // move trajectory to reduce single term: y = a*(t-t_mid)^2 + c_dash
     float c_dash = a * (b*b)/(4*a*a) - b * b/(2*a) + c;
     float t_mid = -b/(2*a);
     t_ideal = t_ideal - t_mid;
@@ -161,6 +124,7 @@ int SensorFB::update_rate_fb_SINGLE(array<float, 3> approx_coeff, array<float, 2
         sig = 1;
     }
 
+    // estimate current pos and phase(time) based on current acceleration.
     float pos_y = acc * (Tc*Tc);
     if(c_dash > 0 && pos_y < c_dash){
         pos_y = c_dash;
@@ -200,85 +164,6 @@ int SensorFB::update_rate_fb_SINGLE(array<float, 3> approx_coeff, array<float, 2
     // Serial.print("t_ideal: "); Serial.print(t_ideal, 4); Serial.print(", calculated t: "); Serial.println(sqrt((com_pos - c_dash)/a) * sig, 4);
     // Serial.print("t_now: "); Serial.println(sqrt((pos_y - c_dash)/a) * sig, 4);
     // Serial.print("t_err: "); Serial.println(t_err, 4);
-    Serial.print("update_rate_fb: "); Serial.println(update_rate_fb, 4);
-    return update_rate_fb_int;
-}
-
-int SensorFB::update_rate_fb_DOUBLE(array<float, 2> ideal_acc, int update_rate){
-    float acc = this->acc.y();
-    // check if com already pass the top
-    float ideal_jerk_abs = abs(ideal_acc[1]) - abs(this->ideal_acc_last);
-    this->ideal_acc_last = ideal_acc[1];
-    
-    float jerk_abs = abs(acc) - abs(this->acc_last);
-    this->acc_last = acc;
-
-    float fb_mag;
-    if (abs(ideal_jerk_abs) < 0.01){
-        fb_mag = 1;
-    }else{
-        fb_mag = jerk_abs / ideal_jerk_abs;
-    }
-    if (fb_mag == 0){fb_mag = 1;}
-    float fb_dir = fb_mag / abs(fb_mag);
-
-    // calculate error
-    float err = abs(ideal_acc[1]) - abs(this->acc.y());
-    err *= fb_dir;
-    float derr = err - this->acc_err_last;
-    this->acc_err_last = err;
-
-    // feed back coefficient
-    float acc_fb_coeff = (this->kp_acc_delay * err + this->kd_acc_delay * derr);
-    // Serial.print("acc_fb_coeff: "); Serial.println(acc_fb_coeff, 4);
-
-    // normalize into 0-2
-    float acc_fb = 0.95 * (2.0f / PI * atan(acc_fb_coeff) + 1.0f);
-    // Serial.println("acc_fb_coeff: " + String(acc_fb_coeff, 4));
-    // Serial.println("acc_fb: " + String(acc_fb, 4));
-
-    // show error as color
-    show_acc_error(acc_fb);
-
-    float update_rate_fb = update_rate / acc_fb;
-
-    // cast to int, and handle 0
-    int update_rate_fb_int = (int)update_rate_fb;
-    if (update_rate_fb_int == 0){
-        update_rate_fb_int = 1;
-    }
     // Serial.print("update_rate_fb: "); Serial.println(update_rate_fb, 4);
     return update_rate_fb_int;
-}
-
-void SensorFB::show_acc_error(float err){
-    array<float, 3> color;
-
-    float color_val = err - 1.0f;
-    // Serial.print("acc error: "); Serial.println(color_val, 4);
-    if (color_val >= 0) {
-        uint32_t r = (uint32_t)(color_val * 255);
-        color[0] = r;
-        color[1] = 0;
-        color[2] = 255 - r;
-    } else {
-        uint32_t g = (uint32_t)(-color_val * 255);
-        color[0] = 0;
-        color[1] = g;
-        color[2] = 255 - g;
-    }
-    // neopixelWrite(RGB_BUILTIN, color[0], color[1], color[2]);
-}
-
-// integrate feedback
-array<float, 2> SensorFB::foot_pos_fb(){
-    array<float, 2> angle_fb = angle_foot_pos_fb();
-    array<float, 2> acc_fb = acc_foot_pos_fb();
-
-    array<float, 2> foot_pos_fb = {
-        angle_fb[0] + acc_fb[0],
-        angle_fb[1] + acc_fb[1]
-    };
-    // return foot_pos_fb;
-    return {0,0};
 }

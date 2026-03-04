@@ -228,6 +228,7 @@ void Core1Task(void * parameter){
         }else{
             body_angle_order = 0.0f;
         }
+
         // guard
         if (global_control_pkt.button_left[2] == 0){
             order = Order::GUARD;
@@ -308,7 +309,7 @@ void Core1Task(void * parameter){
             );
         }
 
-        // update vd
+        // update and feedback vd
         vd = update_vel(vd, order);
         array<float, 3> vd_fb = sensor.vd_fb(vd);
         // vd[0] += vd_fb[0];
@@ -318,11 +319,19 @@ void Core1Task(void * parameter){
         // walk if vd is large enough or MODE_CHANGE is ordered
         if (mode == Mode::WAIT){
             if (abs(vd[0]) > VD_MIN || abs(vd[1]) > VD_MIN || abs(vd[2]) > VD_MIN || order == Order::MODE_CHANGE){
-                init_phase(
-                    mode_last,
-                    Phase::START,
-                    0
-                );
+                if (mode == Mode::CROUCH){
+                    init_phase(
+                        Mode::CROUCH,
+                        Phase::JUMP,
+                        0
+                    );
+                }else{
+                    init_phase(
+                        mode_last,
+                        Phase::START,
+                        0
+                    );
+                }
             }
         }
 
@@ -330,14 +339,22 @@ void Core1Task(void * parameter){
         TRAJECTORY CALCULATION AND PHASE UPDATE
         In the second step, calculate the desired com position based on the phase. Update the phase at the end of each phase duration
         For each phase,
-        - STANCE   : Start from middle point of SINGLE. decide next foot position. Next phase is DOUBLE.
+        normal walking
         - START    : Initialize satrt parameters and phase length. Next phase is SINGLE.
         - END      : Initialize end parameters and phase length. Next phase is START, and change mode to WAIT. CROUCH / UNCROUCH before phase initialization when order given.
         - SINGLE   : At the middle of the phase, decide next phase and next foot position. Next phase is (DOUBLE / END / ).
         - DOUBLE   : CoM transition between SINGLE and SINGLE. calculate next SINGLE phase parameters and change pivot in the first step. Next phase is SINGLE.
+        stance change
+        - STANCE   : Start from middle point of SINGLE. decide next foot position. Next phase is DOUBLE.
+        havent decided
         - FLIGHT   : 
+        exceptional states
         - FALL     : After slip is detected, free upper body and shrink lower body for the safety. Next phase is WAKE.
         - WAKE     : WAKE the robot up. Next phase is START. and change the mode to WAIT.
+        order execution
+        - JUMP     : 
+        - GUARD    : 
+        idring
         - WAIT     : Do nothing.
         ##########################################################################*/
         // init com_pos
@@ -381,7 +398,7 @@ void Core1Task(void * parameter){
                 }
                 break;
             }
-            
+
             case Phase::END:{
                 if (phase_count == 0){
                     Serial.println("phase: END");
@@ -594,6 +611,10 @@ void Core1Task(void * parameter){
             /* #######################################################
             order execution
             ####################################################### */
+            case Phase::JUMP:{
+                break;
+            }
+
             case Phase::GUARD:{
                 break;
             }

@@ -57,6 +57,7 @@ enum class Phase: uint8_t {
     FALL,
     WAKE,
     // order execution
+    JUMP,
     GUARD,
     // idring
     WAIT

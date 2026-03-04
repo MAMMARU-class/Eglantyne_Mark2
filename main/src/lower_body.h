@@ -11,17 +11,21 @@
 #define CTRL_STEP 100 //Hz
 #define UPDATE_RATE_BASE 100 // step
 
+// orders
 #define VD_MIN 0.01f
+#define BODY_ANGLE_SMALL 15.0f * PI / 180.0f
+#define BODY_ANGLE_LARGE 45.0f * PI / 180.0f
 
 enum class Order: uint8_t {
     NONE,
 
     // basic orders
     MODE_CHANGE,
+    CROUCH,
 
     // orders while WALK mode
-    CROUCH,
-    UNCROUCH
+
+    // orders while CROUCH mode
 
     // orders while FIGHT mode
 };
@@ -64,6 +68,10 @@ array<float, 3> update_vel(array<float, 3> vd, Order order);
 void init_phase(Mode next_mode, Phase next_phase, float next_phase_length);
 void update_phase();
 array<array<float, 5>, 3> attach_stance(array<array<float, 5>, 3> com_pos, STANCE_INFO stance);
+STANCE_INFO update_stance_diff(
+    STANCE_INFO stance_next, int phase_length,
+    float height_aim, float height_now,
+    Mode mode_next);
 
 void Core1Task(void * parameter);
 

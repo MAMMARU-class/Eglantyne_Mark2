@@ -1,8 +1,7 @@
 #include "lower_body.h"
 
-static array<float, 3> vd = {0.0f, 0.0f, 0.0f};
-
 // orders
+static array<float, 3> vd = {0.0f, 0.0f, 0.0f};
 static Order order;
 
 // stances
@@ -18,6 +17,7 @@ STANCE_INFO stance_fight = {
     .relative_body_pos   = 0.0f,
     .relative_leg_angle  = -60.0 * PI / 180.0f
 };
+STANCE_INFO stance_crouch = stance_walk;
 STANCE_INFO stance = stance_walk;
 STANCE_INFO stance_next;
 STANCE_INFO stance_diff = stance_walk;
@@ -37,7 +37,14 @@ static int phase_count_x;
 static int update_rate = UPDATE_RATE_BASE;
 bool single_calculated = true;
 
-// other classees
+// body angle
+float body_angle_order = 0.0f;
+float body_angle = 0.0f;
+float body_angle_last = body_angle;
+float kp_body_angle = 0.5f;
+float kd_body_angle = 0.01f;
+
+// control classes
 static Robot* robot;
 static MotionSD* sd;
 GaitController controller;
@@ -126,6 +133,30 @@ array<array<float, 5>, 3> attach_stance(array<array<float, 5>, 3> com_pos, STANC
     return com_pos;
 }
 
+STANCE_INFO update_stance_diff(
+    STANCE_INFO stance_next, int phase_length,
+    float height_aim, float height_now,
+    Mode mode_next)
+{
+    STANCE_INFO stance_diff_updated;
+
+    if (mode_next == Mode::FIGHT){
+        controller.init_param_fight(height_aim);
+    }else{
+        controller.init_param_walk(height_aim);
+    }
+
+    stance_diff_updated.height_diff = (height_aim - height_now) / phase_length * UPDATE_RATE_BASE;
+    stance_diff_updated.relative_body_angle = 
+        (stance_next.relative_body_angle - stance.relative_body_angle) / phase_length * UPDATE_RATE_BASE;
+    stance_diff_updated.relative_body_pos = 
+        (stance_next.relative_body_pos - stance.relative_body_pos) / phase_length * UPDATE_RATE_BASE;
+    stance_diff_updated.relative_leg_angle = 
+        (stance_next.relative_leg_angle - stance.relative_leg_angle) / phase_length * UPDATE_RATE_BASE;
+
+    return stance_diff_updated;
+}
+
 void Core1Task(void * parameter){
     // check is robot and sd is given
     if(robot == nullptr){
@@ -154,7 +185,7 @@ void Core1Task(void * parameter){
             neopixelWrite(RGB_BUILTIN, WHITE[0], WHITE[1], WHITE[2]);
         }else if (mode == Mode::WALK){
             neopixelWrite(RGB_BUILTIN, BLUE[0], BLUE[1], BLUE[2]);
-        }else if (order == Order::CROUCH){
+        }else if (mode == Mode::CROUCH){
             neopixelWrite(RGB_BUILTIN, GREEN[0], GREEN[1], GREEN[2]);
         }else if (mode == Mode::FIGHT){
             neopixelWrite(RGB_BUILTIN, YELLOW[0], YELLOW[1], YELLOW[2]);
@@ -179,7 +210,7 @@ void Core1Task(void * parameter){
             }
             else if (mode == Mode::WALK){
                 // CROUCH
-                if (global_control_pkt.button_left[2] == 0){
+                if (global_control_pkt.button_left[0] == 0){
                     order = Order::CROUCH;
                 }
             }
@@ -271,34 +302,37 @@ void Core1Task(void * parameter){
             case Phase::STANCE:{
                 if (phase_count == 0){
                     Serial.println("phase: STANCE");
+                    float height_now;
+                    float height_aim;
+                    // set height, stance, and mode
                     if (order == Order::MODE_CHANGE){
-                        // change calculation parameters except height
                         if (mode_last == Mode::WALK){
-                            controller.init_param_fight(HEIGHT_FIGHT);
-                            stance.height_diff = HEIGHT_WALK - HEIGHT_FIGHT;
-                            stance_diff.height_diff = (HEIGHT_FIGHT - HEIGHT_WALK) / phase_length * UPDATE_RATE_BASE;
+                            height_now = HEIGHT_WALK; height_aim = HEIGHT_FIGHT;
                             stance_next = stance_fight;
-                            // change mode from TRANSITION to FIGHT
-                            mode = Mode::FIGHT;
-                            mode_last = Mode::WALK;
+                            mode = Mode::FIGHT; mode_last = Mode::WALK;
                         }else if (mode_last == Mode::FIGHT){
-                            controller.init_param_walk(HEIGHT_WALK);
-                            stance.height_diff = HEIGHT_FIGHT - HEIGHT_WALK;
-                            stance_diff.height_diff = (HEIGHT_WALK - HEIGHT_FIGHT) / phase_length * UPDATE_RATE_BASE;
+                            height_now = HEIGHT_FIGHT; height_aim = HEIGHT_WALK;
                             stance_next = stance_walk;
-                            // change mode from TRANSITION to WALK
-                            mode = Mode::WALK;
-                            mode_last = Mode::FIGHT;
+                            mode = Mode::WALK; mode_last = Mode::FIGHT;
+                        }
+                    }else if (order == Order::CROUCH){
+                        if (mode == Mode::WALK){
+                            height_now = HEIGHT_WALK; height_aim = HEIGHT_CROUCH;
+                            stance_next = stance_crouch;
+                            mode = Mode::CROUCH; mode_last = Mode::WALK;
+                        }else if (mode == Mode::CROUCH){
+                            height_now = HEIGHT_CROUCH; height_aim = HEIGHT_WALK;
+                            stance_next = stance_walk;
+                            mode = Mode::WALK; mode_last = Mode::CROUCH;
                         }
                     }
-
-                    stance_diff.relative_body_angle = 
-                        (stance_next.relative_body_angle - stance.relative_body_angle) / phase_length * UPDATE_RATE_BASE;
-                    stance_diff.relative_body_pos = 
-                        (stance_next.relative_body_pos - stance.relative_body_pos) / phase_length * UPDATE_RATE_BASE;
-                    stance_diff.relative_leg_angle = 
-                        (stance_next.relative_leg_angle - stance.relative_leg_angle) / phase_length * UPDATE_RATE_BASE;
-
+                    // preparation for stance update
+                    stance.height_diff = height_now - height_aim;
+                    stance_diff = update_stance_diff(
+                        stance_next, phase_length,
+                        height_aim, height_now,
+                        mode
+                    );
                     controller.update_state_variables({0,0,0});
                 }
 
@@ -331,10 +365,13 @@ void Core1Task(void * parameter){
                     Serial.println("phase: START");
                     if (mode == Mode::CROUCH){
                         controller.init_param_walk(HEIGHT_CROUCH);
+                        stance = stance_walk;
                     }else if (mode == Mode::FIGHT){
                         controller.init_param_fight(HEIGHT_FIGHT);
+                        stance = stance_fight;
                     }else{
                         controller.init_param_walk(HEIGHT_WALK);
+                        stance = stance_walk;
                     }
                     controller.init_pose();
                     controller.inverse_pivot();
@@ -392,8 +429,15 @@ void Core1Task(void * parameter){
                 }
                 if (!single_calculated && phase_count >= int(phase_length/2)){
                     single_calculated = true;
-                    // change phase to STANCE if order is mode_change
+                    // change phase to STANCE if order is given
                     if (order == Order::MODE_CHANGE && controller.pivot_right()){
+                        init_phase(
+                            Mode::TRANSITION,
+                            Phase::STANCE,
+                            (controller.get_T_sup() - controller.get_T_ds()) / 2
+                        );
+                        break;
+                    }else if (order == Order::CROUCH && controller.pivot_right()){
                         init_phase(
                             Mode::TRANSITION,
                             Phase::STANCE,

@@ -41,6 +41,7 @@ public:
     void move_arm_t(array<float, 3> right_motion, array<float, 3> left_motion, float t);
     void move_leg_right(array<float, 6> motion);
     void move_leg_left(array<float, 6> motion);
+    void move_leg_t(array<float, 6> right_motion, array<float, 6> left_motion, float t);
 
     void move_safely_fall(
         array<float, 3> current_order_right,

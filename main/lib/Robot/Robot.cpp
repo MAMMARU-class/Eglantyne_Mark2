@@ -176,6 +176,34 @@ void Robot::move_leg_left(array<float, 6> motion){
         link_set[id+12]->move(motion[id]);
     }
 }
+void Robot::move_leg_t(array<float, 6> right_motion, array<float, 6> left_motion, float t){
+    array<float, 6> current_right;
+    array<float, 6> current_left;
+    for(int id=0; id<6; id++){
+        current_right[id] = link_set[id+6]->getq_current();
+        current_left[id] = link_set[id+12]->getq_current();
+    }
+
+    array<float, 6> diff_right;
+    array<float, 6> diff_left;
+    for(int id=0; id<6; id++){
+        diff_right[id] = right_motion[id] - current_right[id];
+        diff_left[id] = left_motion[id] - current_left[id];
+    }
+
+    int step = int(t/CTRL_CYCLE * 1000);
+    for(int i=0; i<=step; i++){
+        array<float, 6> motion_right;
+        array<float, 6> motion_left;
+        for(int id=0; id<6; id++){
+            motion_right[id] = current_right[id] + diff_right[id]*( (float)(i) ) / (float)(step);
+            motion_left[id] = current_left[id] + diff_left[id]*( (float)(i) ) / (float)(step);
+        }
+        this->move_leg_right(motion_right);
+        this->move_leg_left(motion_left);
+        delay(CTRL_CYCLE);
+    }
+}
 
 void Robot::move_safely_fall(
     array<float, 3> current_order_right,

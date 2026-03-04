@@ -21,11 +21,12 @@ enum class Order: uint8_t {
 
     // basic orders
     MODE_CHANGE,
-    CROUCH,
 
     // orders while WALK mode
+    CROUCH,
 
     // orders while CROUCH mode
+    STAND,
 
     // orders while FIGHT mode
 };
@@ -75,7 +76,6 @@ STANCE_INFO update_stance_diff(
 
 void Core1Task(void * parameter);
 
-void crouch(Order order, array<array<float, 5>, 3>& com_pos);
 void wake_face_up();
 void wake_face_down();
 

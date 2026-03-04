@@ -192,36 +192,63 @@ void Core1Task(void * parameter){
         }else{
             neopixelWrite(RGB_BUILTIN, RED[0], RED[1], RED[2]);
         }
+
         /* #########################################################################
         CONTROLLER HANDLER
         handle controller order. 
-        dont change order while first order is not executed.
-        Basic Orders: 
-        - MODE_CHANGE : Change mode between WALK and FIGHT. Change stance and control parametres whiile last half of SINGLE phase (which labeled as STANCE).
+        Mode/Phase change order will be executed after first order is finished.
+        - Motion Control orders:
+          - body angle order: change body angle accordance with button[1]. move larger if FIGHT mode.
+          - 
+
+        - Mode/Phase chaange orders
+          - Basic Orders: 
+            - MODE_CHANGE : Change mode between WALK and FIGHT. Change stance and control parametres whiile last half of SINGLE phase (which labeled as STANCE).
  
-        Orders while WALK mode:
-        CROUCH        : Crouch the robot. transit to END before CROUCH. 
-        UNCROUCH      : Return to WALK mode.
+          - Orders while WALK mode:
+            - CROUCH      : Crouch the robot. STANCE. 
+
+          - Orders while CROUCH mode:
+            - STAND       : Uncrouch the robot. STANCE.
+
+          - Orders while FIGHT mode:
         ######################################################################### */
+        // Motion control orders
+        // body angle order
+        if (global_control_pkt.button_right[1] == 0){
+            if (mode == Mode::FIGHT){
+                body_angle_order = BODY_ANGLE_LARGE;
+            }else{
+                body_angle_order = BODY_ANGLE_SMALL;
+            }
+        }else if (global_control_pkt.button_left[1] == 0){
+            body_angle_order = -BODY_ANGLE_SMALL;
+        }else{
+            body_angle_order = 0.0f;
+        }
+
+        // Mode/Phase change orders
         if(order == Order::NONE){
-            // MODE_CHENGE
+            // basic orders
             if (global_control_pkt.button_right[0] == 0){
                 order = Order::MODE_CHANGE;
             }
+            // orders while WALK mode
             else if (mode == Mode::WALK){
                 // CROUCH
                 if (global_control_pkt.button_left[0] == 0){
                     order = Order::CROUCH;
                 }
             }
-            else if (mode == Mode::FIGHT){
+            // orders while CROUCH mode
+            else if (mode == Mode::CROUCH){
+                // CROUCH
+                if (global_control_pkt.button_left[0] == 0){
+                    order = Order::STAND;
+                }
             }
-        }
-
-        // UNCROUCH
-        if (order == Order::CROUCH){
-            if (global_control_pkt.button_left[2] == 1){
-                order = Order::UNCROUCH;
+            // orders while FIGHT mode
+            else if (mode == Mode::FIGHT){
             }
         }
         /* #########################################################################
@@ -304,6 +331,7 @@ void Core1Task(void * parameter){
                     Serial.println("phase: STANCE");
                     float height_now;
                     float height_aim;
+
                     // set height, stance, and mode
                     if (order == Order::MODE_CHANGE){
                         if (mode_last == Mode::WALK){
@@ -315,24 +343,24 @@ void Core1Task(void * parameter){
                             stance_next = stance_walk;
                             mode = Mode::WALK; mode_last = Mode::FIGHT;
                         }
+
                     }else if (order == Order::CROUCH){
-                        if (mode == Mode::WALK){
-                            height_now = HEIGHT_WALK; height_aim = HEIGHT_CROUCH;
-                            stance_next = stance_crouch;
-                            mode = Mode::CROUCH; mode_last = Mode::WALK;
-                        }else if (mode == Mode::CROUCH){
-                            height_now = HEIGHT_CROUCH; height_aim = HEIGHT_WALK;
-                            stance_next = stance_walk;
-                            mode = Mode::WALK; mode_last = Mode::CROUCH;
-                        }
+                        height_now = HEIGHT_WALK; height_aim = HEIGHT_CROUCH;
+                        stance_next = stance_crouch;
+                        mode = Mode::CROUCH; mode_last = Mode::WALK;
+
+                    }else if (order == Order::STAND){
+                        height_now = HEIGHT_CROUCH; height_aim = HEIGHT_WALK;
+                        stance_next = stance_walk;
+                        mode = Mode::WALK; mode_last = Mode::CROUCH;
                     }
+
                     // preparation for stance update
                     stance.height_diff = height_now - height_aim;
                     stance_diff = update_stance_diff(
                         stance_next, phase_length,
                         height_aim, height_now,
-                        mode
-                    );
+                        mode);
                     controller.update_state_variables({0,0,0});
                 }
 
@@ -408,10 +436,6 @@ void Core1Task(void * parameter){
                 // phase transition
                 phase_count += update_rate;
                 if (phase_count >= phase_length){
-                    // CROUCH or UNCROUCH according to order
-                    if (order == Order::CROUCH || order == Order::UNCROUCH){
-                        crouch(order, com_pos);
-                    }
                     init_phase(
                         Mode::WAIT,
                         Phase::WAIT,
@@ -430,14 +454,9 @@ void Core1Task(void * parameter){
                 if (!single_calculated && phase_count >= int(phase_length/2)){
                     single_calculated = true;
                     // change phase to STANCE if order is given
-                    if (order == Order::MODE_CHANGE && controller.pivot_right()){
-                        init_phase(
-                            Mode::TRANSITION,
-                            Phase::STANCE,
-                            (controller.get_T_sup() - controller.get_T_ds()) / 2
-                        );
-                        break;
-                    }else if (order == Order::CROUCH && controller.pivot_right()){
+                    if ((order == Order::MODE_CHANGE || order == Order::CROUCH || order == Order::STAND)
+                        && controller.pivot_right())
+                    {
                         init_phase(
                             Mode::TRANSITION,
                             Phase::STANCE,
@@ -664,35 +683,6 @@ void Core1Task(void * parameter){
         // vTaskDelay(pdMS_TO_TICKS(delay_duration));
         vTaskDelay(pdMS_TO_TICKS(1000.0f / CTRL_STEP));
     }
-}
-
-void crouch(Order order, array<array<float, 5>, 3>& com_pos){
-    // similar movement as FALL
-    array<float, 3> current_order_right = {com_pos[0][0], com_pos[0][1], com_pos[0][2]};
-    array<float, 3> current_order_left =  {com_pos[1][0], com_pos[1][1], com_pos[1][2]};
-    float current_theta_right = com_pos[0][3];
-    float current_theta_left =  com_pos[1][3];
-
-    float height;
-    if (order == Order::CROUCH){
-        Serial.println("Crouch");
-        height = HEIGHT_CROUCH;
-    }else if (order == Order::UNCROUCH){
-        Serial.println("Uncrouch");
-        height = HEIGHT_WALK;
-        mode = Mode::WALK;
-        order = Order::NONE;
-    }
-
-    robot->move_safely_fall(
-        current_order_right,
-        current_theta_right,
-        current_order_left,
-        current_theta_left,
-        height,
-        0.8f
-    );
-
 }
 
 void wake_face_up(){

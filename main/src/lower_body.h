@@ -44,14 +44,21 @@ enum class Mode: uint8_t {
 };
 
 enum class Phase: uint8_t {
-    STANCE,
+    // normal walking
     START,
     END,
     SINGLE,
     DOUBLE,
+    // stance change
+    STANCE,
+    // havent decided
     FLIGHT,
+    // exceptional states
     FALL,
     WAKE,
+    // order execution
+    GUARD,
+    // idring
     WAIT
 };
 

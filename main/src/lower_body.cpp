@@ -40,9 +40,11 @@ bool single_calculated = true;
 // body angle
 float body_angle_order = 0.0f;
 float body_angle = 0.0f;
-float body_angle_last = body_angle;
+// feedback
 float kp_body_angle = 0.5f;
 float kd_body_angle = 0.01f;
+float body_angle_err = 0.0f;
+float body_angle_err_last = 0.0f;
 
 // control classes
 static Robot* robot;
@@ -199,7 +201,7 @@ void Core1Task(void * parameter){
         Mode/Phase change order will be executed after first order is finished.
         - Motion Control orders:
           - body angle order: change body angle accordance with button[1]. move larger if FIGHT mode.
-          - 
+          - guard: take guard pose. Switch to GUARD phase. Release guard button to switch back to WAIT phase.
 
         - Mode/Phase chaange orders
           - Basic Orders: 
@@ -225,6 +227,23 @@ void Core1Task(void * parameter){
             body_angle_order = -BODY_ANGLE_SMALL;
         }else{
             body_angle_order = 0.0f;
+        }
+        // guard
+        if (global_control_pkt.button_left[2] == 0){
+            order = Order::GUARD;
+            init_phase(
+                mode,
+                Phase::GUARD,
+                0
+            );
+        }
+        // if guard button released while GUARD is ordered, switch to WAIT
+        else if (order == Order::GUARD){
+            init_phase(
+                Mode::WAIT,
+                Phase::WAIT,
+                0
+            );
         }
 
         // Mode/Phase change orders
@@ -270,6 +289,7 @@ void Core1Task(void * parameter){
             robot->free_all();
             continue;
         }
+
         // if last order is "order_free", start from falling phase
         if(order_free){
             init_phase(
@@ -278,6 +298,7 @@ void Core1Task(void * parameter){
                 0
             );
         }
+
         // fall check
         if(sensor.fall() && phase != Phase::FALL && phase != Phase::WAKE){
             init_phase(
@@ -294,7 +315,7 @@ void Core1Task(void * parameter){
         // vd[1] += vd_fb[1];
         // vd[2] += vd_fb[2];
 
-        // walk if vd is large enough or in MODE_CHANGE order
+        // walk if vd is large enough or MODE_CHANGE is ordered
         if (mode == Mode::WAIT){
             if (abs(vd[0]) > VD_MIN || abs(vd[1]) > VD_MIN || abs(vd[2]) > VD_MIN || order == Order::MODE_CHANGE){
                 init_phase(
@@ -326,68 +347,9 @@ void Core1Task(void * parameter){
         float tx      = phase_count_x / (float)CTRL_STEP / (float)UPDATE_RATE_BASE + controller.get_T_ds()/2;
         // phase switch-case sentences
         switch (phase){
-            case Phase::STANCE:{
-                if (phase_count == 0){
-                    Serial.println("phase: STANCE");
-                    float height_now;
-                    float height_aim;
-
-                    // set height, stance, and mode
-                    if (order == Order::MODE_CHANGE){
-                        if (mode_last == Mode::WALK){
-                            height_now = HEIGHT_WALK; height_aim = HEIGHT_FIGHT;
-                            stance_next = stance_fight;
-                            mode = Mode::FIGHT; mode_last = Mode::WALK;
-                        }else if (mode_last == Mode::FIGHT){
-                            height_now = HEIGHT_FIGHT; height_aim = HEIGHT_WALK;
-                            stance_next = stance_walk;
-                            mode = Mode::WALK; mode_last = Mode::FIGHT;
-                        }
-
-                    }else if (order == Order::CROUCH){
-                        height_now = HEIGHT_WALK; height_aim = HEIGHT_CROUCH;
-                        stance_next = stance_crouch;
-                        mode = Mode::CROUCH; mode_last = Mode::WALK;
-
-                    }else if (order == Order::STAND){
-                        height_now = HEIGHT_CROUCH; height_aim = HEIGHT_WALK;
-                        stance_next = stance_walk;
-                        mode = Mode::WALK; mode_last = Mode::CROUCH;
-                    }
-
-                    // preparation for stance update
-                    stance.height_diff = height_now - height_aim;
-                    stance_diff = update_stance_diff(
-                        stance_next, phase_length,
-                        height_aim, height_now,
-                        mode);
-                    controller.update_state_variables({0,0,0});
-                }
-
-                com_pos = controller.calc_com_traj_single(
-                    phase_count_x / (float)CTRL_STEP / (float)UPDATE_RATE_BASE,
-                    phase_count   / (float)CTRL_STEP / (float)UPDATE_RATE_BASE
-                );
-                stance.height_diff         += stance_diff.height_diff;
-                stance.relative_body_angle += stance_diff.relative_body_angle;
-                stance.relative_body_pos   += stance_diff.relative_body_pos;
-                stance.relative_leg_angle  += stance_diff.relative_leg_angle;
-
-                // phase transition
-                phase_count_x += UPDATE_RATE_BASE;
-                phase_count   += update_rate;
-                if (phase_count >= phase_length){
-                    stance = stance_next;
-                    order = Order::NONE;
-                    init_phase(
-                        mode,
-                        Phase::DOUBLE, 
-                        controller.get_T_ds()
-                    );
-                }
-                break;
-            }
-
+            /* #######################################################
+            normal walking
+            ####################################################### */
             case Phase::START:{
                 if (phase_count == 0){
                     Serial.println("phase: START");
@@ -507,10 +469,81 @@ void Core1Task(void * parameter){
                 break;
             }
 
+            /* #######################################################
+            stance change
+            ####################################################### */
+            case Phase::STANCE:{
+                if (phase_count == 0){
+                    Serial.println("phase: STANCE");
+                    float height_now;
+                    float height_aim;
+
+                    // set height, stance, and mode
+                    if (order == Order::MODE_CHANGE){
+                        if (mode_last == Mode::WALK){
+                            height_now = HEIGHT_WALK; height_aim = HEIGHT_FIGHT;
+                            stance_next = stance_fight;
+                            mode = Mode::FIGHT; mode_last = Mode::WALK;
+                        }else if (mode_last == Mode::FIGHT){
+                            height_now = HEIGHT_FIGHT; height_aim = HEIGHT_WALK;
+                            stance_next = stance_walk;
+                            mode = Mode::WALK; mode_last = Mode::FIGHT;
+                        }
+
+                    }else if (order == Order::CROUCH){
+                        height_now = HEIGHT_WALK; height_aim = HEIGHT_CROUCH;
+                        stance_next = stance_crouch;
+                        mode = Mode::CROUCH; mode_last = Mode::WALK;
+
+                    }else if (order == Order::STAND){
+                        height_now = HEIGHT_CROUCH; height_aim = HEIGHT_WALK;
+                        stance_next = stance_walk;
+                        mode = Mode::WALK; mode_last = Mode::CROUCH;
+                    }
+
+                    // preparation for stance update
+                    stance.height_diff = height_now - height_aim;
+                    stance_diff = update_stance_diff(
+                        stance_next, phase_length,
+                        height_aim, height_now,
+                        mode);
+                    controller.update_state_variables({0,0,0});
+                }
+
+                com_pos = controller.calc_com_traj_single(
+                    phase_count_x / (float)CTRL_STEP / (float)UPDATE_RATE_BASE,
+                    phase_count   / (float)CTRL_STEP / (float)UPDATE_RATE_BASE
+                );
+                stance.height_diff         += stance_diff.height_diff;
+                stance.relative_body_angle += stance_diff.relative_body_angle;
+                stance.relative_body_pos   += stance_diff.relative_body_pos;
+                stance.relative_leg_angle  += stance_diff.relative_leg_angle;
+
+                // phase transition
+                phase_count_x += UPDATE_RATE_BASE;
+                phase_count   += update_rate;
+                if (phase_count >= phase_length){
+                    stance = stance_next;
+                    order = Order::NONE;
+                    init_phase(
+                        mode,
+                        Phase::DOUBLE, 
+                        controller.get_T_ds()
+                    );
+                }
+                break;
+            }
+
+            /* #######################################################
+            havent decided
+            ####################################################### */
             case Phase::FLIGHT:{
                 break;
             }
 
+            /* #######################################################
+            exeptional states
+            ####################################################### */
             case Phase::FALL:{
                 Serial.println("phase: FALL");
                 order_free = true;
@@ -558,6 +591,16 @@ void Core1Task(void * parameter){
                 break;
             }
 
+            /* #######################################################
+            order execution
+            ####################################################### */
+            case Phase::GUARD:{
+                break;
+            }
+
+            /* #######################################################
+            idring
+            ####################################################### */
             case Phase::WAIT:{
                 break;
             }
@@ -571,6 +614,7 @@ void Core1Task(void * parameter){
         - sensor feedback (x0 and vx0)
         - START exception
         - arm position feedback
+        - body rotation
         ##########################################################################*/
         if (phase == Phase::FALL || phase == Phase::WAKE){
             // do nothing
@@ -640,7 +684,14 @@ void Core1Task(void * parameter){
         // dummy feedback
         // com_pos_fb = {0,0};
         // update_rate = UPDATE_RATE_BASE;
-        
+
+        // body rotation
+        body_angle_err = body_angle_order - body_angle;
+        float body_angle_derr = body_angle_err - body_angle_err_last;
+        body_angle_err_last = body_angle_err;
+        body_angle += kp_body_angle * body_angle_err + kd_body_angle * body_angle_derr;
+        com_pos[0][3] += body_angle;
+        com_pos[1][3] += body_angle;
         /* #########################################################################
         EXECUTION
         - move robot

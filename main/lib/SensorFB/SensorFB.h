@@ -34,6 +34,9 @@ public:
         float com_pos);
     array<float, 2> x0_vx0_fb(float tx, float x0, float vx0, float Tc, int control_step);
 
+    // getters
+    float get_l_pivot2com(){ return l_pivot2com; }
+
 private:
     // bno
     Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);

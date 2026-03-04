@@ -53,8 +53,16 @@ public:
     );
 
     // calculation
-    void move_leg_ik(array<float, 3> foot2com, float theta, float phi, bool is_right);
-    void move_leg_ik_t(array<float, 3> foot2com, float theta, float phi, bool is_right, float t);
+    void move_leg_ik(
+        array<float, 3> foot2com, float theta, 
+        float phi_upper, float phi_lower,
+        bool is_right
+    );
+    void move_leg_ik_t(
+        array<float, 3> foot2com_r, float theta_r, float phi_upper_r, float phi_lower_r,
+        array<float, 3> foot2com_l, float theta_l, float phi_upper_l, float phi_lower_l,
+        float t
+    );
 
     // free motors
     void free_upper();

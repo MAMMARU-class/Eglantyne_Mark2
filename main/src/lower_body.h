@@ -21,13 +21,16 @@ enum class Order: uint8_t {
 
     // basic orders
     MODE_CHANGE,
+    GUARD,
 
     // orders while WALK mode
     CROUCH,
 
     // orders while CROUCH mode
     STAND,
-
+    LEARN,
+    THROW,
+    
     // orders while FIGHT mode
 };
 
@@ -56,8 +59,10 @@ enum class Phase: uint8_t {
     // exceptional states
     FALL,
     WAKE,
-    // order execution
+    // order while WALK
+    // order while CROUCH
     JUMP,
+    // order while FIGHT
     GUARD,
     // idring
     WAIT
@@ -84,6 +89,7 @@ STANCE_INFO update_stance_diff(
 
 void Core1Task(void * parameter);
 
+array<float, 2> body_angle_fb();
 void wake_face_up();
 void wake_face_down();
 

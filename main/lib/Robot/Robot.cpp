@@ -25,11 +25,6 @@ void Robot::init_home(float t){
         for(int id=0; id<LINK_SIZE; id++){
             motion[id] = current[id] + diff[id]*( (float)(i) ) / (float)(step);
         }
-        // Serial.println("move to");
-        // for(int id=0; id<LINK_SIZE; id++){
-        //     Serial.print(motion[id], 4); Serial.print(", ");
-        // }
-        // Serial.println();
         delay(CTRL_CYCLE);
         this->move_all(motion);
     }
@@ -228,49 +223,55 @@ void Robot::move_safely_fall(
             motion_left[id]  = current_order_left[id]  + diff_left[id] *( (float)(i) ) / (step);
         }
 
-        this->move_leg_ik(motion_right, current_theta_right + diff_theta_right * ( (float)(i) ) / (step), 0.0, true);
-        this->move_leg_ik(motion_left,  current_theta_left  + diff_theta_left  * ( (float)(i) ) / (step), 0.0, false);
+        this->move_leg_ik(motion_right, current_theta_right + diff_theta_right * ( (float)(i) ) / (step), 0.0, 0.0, true);
+        this->move_leg_ik(motion_left,  current_theta_left  + diff_theta_left  * ( (float)(i) ) / (step), 0.0, 0.0, false);
 
         delay(CTRL_CYCLE);
     }
 }
 
 // calculation
-void Robot::move_leg_ik(array<float, 3> foot2com, float theta, float phi, bool is_right){
+void Robot::move_leg_ik(array<float, 3> foot2com, float theta, float phi_upper, float phi_lower, bool is_right){
     array<float, 6> angles = this->leg_ik_solver_phi_zero(foot2com, theta, is_right);
-    angles[2] += phi*1.2;
-    angles[4] -= phi;
+    angles[2] += phi_upper;
+    angles[4] -= phi_lower;
 
     if (is_right){ this->move_leg_right(angles);
     }else{ this->move_leg_left(angles); }
 }
 
-void Robot::move_leg_ik_t(array<float, 3> foot2com, float theta, float phi, bool is_right, float t){
+void Robot::move_leg_ik_t(
+    array<float, 3> foot2com_r, float theta_r, float phi_upper_r, float phi_lower_r,
+    array<float, 3> foot2com_l, float theta_l, float phi_upper_l, float phi_lower_l,
+    float t)
+{
     array<float, LINK_SIZE> current = this->current();
-    array<float, 6> leg_current;
-    if(is_right){
-        leg_current = {current[6], current[7], current[8], current[9], current[10], current[11]};
-    }else{
-        leg_current = {current[12], current[13], current[14], current[15], current[16], current[17]};
-    }
-    array<float, 6> leg_goal = this->leg_ik_solver_phi_zero(foot2com, theta, is_right);
+    array<float, 6> leg_right_current;
+    array<float, 6> leg_left_current;
 
-    array<float, 6> diff;
+    leg_right_current = {current[6], current[7], current[8], current[9], current[10], current[11]};
+    leg_left_current  = {current[12], current[13], current[14], current[15], current[16], current[17]};
+
+    array<float, 6> leg_right_goal = this->leg_ik_solver_phi_zero(foot2com_r, theta_r, true);
+    array<float, 6> leg_left_goal  = this->leg_ik_solver_phi_zero(foot2com_l, theta_l, false);
+
+    array<float, 6> diff_right;
+    array<float, 6> diff_left;
     for(int id=0; id<6; id++){
-        diff[id] = leg_goal[id] - leg_current[id];
+        diff_right[id] = leg_right_goal[id] - leg_right_current[id];
+        diff_left[id]  = leg_left_goal[id]  - leg_left_current[id];
     }
 
     int step = int(t/CTRL_CYCLE * 1000);
     for(int i=0; i<=step; i++){
-        array<float, 6> motion;
+        array<float, 6> motion_right;
+        array<float, 6> motion_left;
         for(int id=0; id<6; id++){
-            motion[id] = leg_current[id] + diff[id]*( (float)(i) ) / (float)(step);
+            motion_right[id] = leg_right_current[id] + diff_right[id]*( (float)(i) ) / (float)(step);
+            motion_left[id]  = leg_left_current[id]  + diff_left[id] *( (float)(i) ) / (float)(step);
         }
-        if(is_right){
-            this->move_leg_right(motion);
-        }else{
-            this->move_leg_left(motion);
-        }
+        this->move_leg_right(motion_right);
+        this->move_leg_left(motion_left);
         delay(CTRL_CYCLE);
     }
 }

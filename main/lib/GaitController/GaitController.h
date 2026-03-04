@@ -5,6 +5,7 @@
 #define HEIGHT_WALK 0.135f
 #define HEIGHT_FIGHT 0.135f
 #define HEIGHT_CROUCH 0.08f
+#define HEIGHT_GUARD 0.08f
 
 using std::array;
 

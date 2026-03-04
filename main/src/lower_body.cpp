@@ -37,14 +37,20 @@ static int phase_count_x;
 static int update_rate = UPDATE_RATE_BASE;
 bool single_calculated = true;
 
-// body angle
-float body_angle_order = 0.0f;
-float body_angle = 0.0f;
+// body angles
+// theta
+float theta_order = 0.0f;
+float theta = 0.0f;
+float theta_err = 0.0f;
+float theta_err_last = 0.0f;
+// phi
+float phi_order = 0.0f;
+float phi = 0.0f;
+float phi_err = 0.0f;
+float phi_err_last = 0.0f;
 // feedback
 float kp_body_angle = 0.5f;
 float kd_body_angle = 0.01f;
-float body_angle_err = 0.0f;
-float body_angle_err_last = 0.0f;
 
 // control classes
 static Robot* robot;
@@ -201,50 +207,36 @@ void Core1Task(void * parameter){
         Mode/Phase change order will be executed after first order is finished.
         - Motion Control orders:
           - body angle order: change body angle accordance with button[1]. move larger if FIGHT mode.
-          - guard: take guard pose. Switch to GUARD phase. Release guard button to switch back to WAIT phase.
 
         - Mode/Phase chaange orders
-          - Basic Orders: 
-            - MODE_CHANGE : Change mode between WALK and FIGHT. Change stance and control parametres whiile last half of SINGLE phase (which labeled as STANCE).
+          Basic Orders: 
+          - MODE_CHANGE : Change mode between WALK and FIGHT. Change stance and control parametres whiile last half of SINGLE phase (which labeled as STANCE).
  
-          - Orders while WALK mode:
-            - CROUCH      : Crouch the robot. STANCE. 
+          Orders while WALK mode:
+          - CROUCH      : Crouch the robot. STANCE. 
 
-          - Orders while CROUCH mode:
-            - STAND       : Uncrouch the robot. STANCE.
+          Orders while CROUCH mode:
+          - STAND       : Uncrouch the robot. STANCE.
+          - LEARN       : Learn to the front.
 
-          - Orders while FIGHT mode:
+          Orders while FIGHT mode:
+          - GUARD       : if not in CROUCH mode, take guard pose. Switch to GUARD phase. Release guard button to switch back to WAIT phase.
+
+        - Extended orders:
+          - THROW       : while Order is LEARN. Throw holding object.
         ######################################################################### */
         // Motion control orders
         // body angle order
         if (global_control_pkt.button_right[1] == 0){
             if (mode == Mode::FIGHT){
-                body_angle_order = BODY_ANGLE_LARGE;
+                theta_order = BODY_ANGLE_LARGE;
             }else{
-                body_angle_order = BODY_ANGLE_SMALL;
+                theta_order = BODY_ANGLE_SMALL;
             }
         }else if (global_control_pkt.button_left[1] == 0){
-            body_angle_order = -BODY_ANGLE_SMALL;
+            theta_order = -BODY_ANGLE_SMALL;
         }else{
-            body_angle_order = 0.0f;
-        }
-
-        // guard
-        if (global_control_pkt.button_left[2] == 0){
-            order = Order::GUARD;
-            init_phase(
-                mode,
-                Phase::GUARD,
-                0
-            );
-        }
-        // if guard button released while GUARD is ordered, switch to WAIT
-        else if (order == Order::GUARD){
-            init_phase(
-                Mode::WAIT,
-                Phase::WAIT,
-                0
-            );
+            theta_order = 0.0f;
         }
 
         // Mode/Phase change orders
@@ -260,16 +252,35 @@ void Core1Task(void * parameter){
                     order = Order::CROUCH;
                 }
             }
+
             // orders while CROUCH mode
             else if (mode == Mode::CROUCH){
                 // CROUCH
                 if (global_control_pkt.button_left[0] == 0){
                     order = Order::STAND;
                 }
+                // LEARN
+                else if (global_control_pkt.button_left[2] == 0){
+                    order = Order::LEARN;
+                }
             }
+
             // orders while FIGHT mode
             else if (mode == Mode::FIGHT){
+                // GUARD
+                if (global_control_pkt.button_left[2] == 0 && mode != Mode::CROUCH){
+                    order = Order::GUARD;
+                    init_phase(
+                        mode,
+                        Phase::GUARD,
+                        0
+                    );
+                }
             }
+        }
+
+        if (order == Order::LEARN && global_control_pkt.button_right[2] == 0){
+            order = Order::THROW;
         }
         /* #########################################################################
         ORDER AND MODE INITIALIZEAITON
@@ -277,7 +288,7 @@ void Core1Task(void * parameter){
         - Torque off order is given -> free all joint and skip the rest of the loop
         - Fall                      -> Switch to FALL phase
         - Velocity update           -> Update vd with controller input and sensor feedback. Switch to WALK mode if vd is large enough
-        - Mode                      -> If in WAIT mode, skip the rest of the loop
+        - After fallen down (WAKE)  -> initialize parameters
         ##########################################################################*/
         // torque off order
         if(global_control_pkt.button_right[0] == 0 && global_control_pkt.button_left[0] == 0){
@@ -333,6 +344,13 @@ void Core1Task(void * parameter){
                     );
                 }
             }
+        }
+
+        // initialize parameters after fallen down
+        if (phase == Phase::WAKE){
+            theta = 0.0f;
+            phi = 0.0f;
+            order = Order::NONE;
         }
 
         /* #########################################################################
@@ -609,13 +627,44 @@ void Core1Task(void * parameter){
             }
 
             /* #######################################################
-            order execution
+            order while WALK
+            ####################################################### */
+            /* #######################################################
+            order while CROUCH
             ####################################################### */
             case Phase::JUMP:{
                 break;
             }
 
+            /* #######################################################
+            order while FIGHT
+            ####################################################### */
             case Phase::GUARD:{
+                float height_update_rate = 0.03f;
+                // set com pos to default pose
+                com_pos = controller.get_default_com_pos();
+
+                // if guard button released while GUARD is ordered, switch to WAIT
+                if (global_control_pkt.button_left[2] == 1){
+                    phi_order = 0.0f;
+                    if(stance.height_diff < 0){
+                        stance.height_diff += height_update_rate;
+                    }else{
+                        stance.height_diff = 0.0f;
+                        init_phase(
+                            Mode::WAIT,
+                            Phase::WAIT,
+                            0
+                        );
+                        order = Order::NONE;
+                    }
+                    break;
+                }
+
+                if(stance.height_diff > HEIGHT_GUARD - HEIGHT_WALK){
+                    stance.height_diff -= height_update_rate;
+                }
+                phi_order = 30.0f * PI / 180.0f;
                 break;
             }
 
@@ -707,12 +756,20 @@ void Core1Task(void * parameter){
         // update_rate = UPDATE_RATE_BASE;
 
         // body rotation
-        body_angle_err = body_angle_order - body_angle;
-        float body_angle_derr = body_angle_err - body_angle_err_last;
-        body_angle_err_last = body_angle_err;
-        body_angle += kp_body_angle * body_angle_err + kd_body_angle * body_angle_derr;
-        com_pos[0][3] += body_angle;
-        com_pos[1][3] += body_angle;
+        // theta
+        theta_err = theta_order - theta;
+        float theta_derr = theta_err - theta_err_last;
+        theta_err_last = theta_err;
+        theta += kp_body_angle * theta_err + kd_body_angle * theta_derr;
+        com_pos[0][3] += theta;
+        com_pos[1][3] += theta;
+        // phi
+        phi_err = phi_order - phi;
+        float phi_derr = phi_err - phi_err_last;
+        phi_err_last = phi_err;
+        phi += kp_body_angle * phi_err + kd_body_angle * phi_derr;
+        float l_pivot2com = sensor.get_l_pivot2com();
+        com_pos_fb[0] += l_pivot2com * sin(phi);
         /* #########################################################################
         EXECUTION
         - move robot
@@ -739,8 +796,16 @@ void Core1Task(void * parameter){
 
         // send order
         float phi_fb = sensor.angle_phi_fb(); // simple phi feedback
-        robot->move_leg_ik(leg_right_com, com_pos[0][3], phi_fb, true);
-        robot->move_leg_ik(leg_left_com, com_pos[1][3] , phi_fb, false);
+        robot->move_leg_ik(
+            leg_right_com, com_pos[0][3], 
+            phi + phi_fb, phi_fb/2, 
+            true
+        );
+        robot->move_leg_ik(
+            leg_left_com, com_pos[1][3], 
+            phi + phi_fb, phi_fb/2, 
+            false
+        );
         
         // arm_pos_fb
         array<float, 2> com_r = controller.rotate_vec({leg_right_com[0], leg_right_com[1]}, -com_pos[0][3]);

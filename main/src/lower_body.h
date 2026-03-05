@@ -25,13 +25,19 @@ enum class Order: uint8_t {
 
     // orders while WALK mode
     CROUCH,
+    JUMP,
+    RUN,
 
     // orders while CROUCH mode
     STAND,
     LEARN,
     THROW,
+    ROLL,
     
     // orders while FIGHT mode
+    KICK_LOW,
+    KICK_MIDDLE,
+    KICK_BACK
 };
 
 enum class Mode: uint8_t {
@@ -39,11 +45,12 @@ enum class Mode: uint8_t {
     WAIT,
     FREE,
     TRANSITION,
+    MOTION_PLAY,
 
     // normal states
     WALK,
-    FIGHT,
-    CROUCH
+    CROUCH,
+    FIGHT
 };
 
 enum class Phase: uint8_t {
@@ -60,10 +67,17 @@ enum class Phase: uint8_t {
     FALL,
     WAKE,
     // order while WALK
-    // order while CROUCH
     JUMP,
+    RUN,
+    // order while CROUCH
+    LEARN,
+    THROUGH,
+    ROLL,
     // order while FIGHT
     GUARD,
+    KICK_LOW,
+    KICK_MIDDLE,
+    KICK_BACK,
     // idring
     WAIT
 };
@@ -75,6 +89,13 @@ typedef struct __attribute__((packed)) {
     float relative_leg_angle;
 } STANCE_INFO;
 
+// order related variables
+enum class JumpState : uint8_t{
+    CROUCH,
+    EXTEND,
+    FLY,
+    HIT
+};
 
 void lower_body_control_init(Robot* r, MotionSD* s);
 

@@ -52,6 +52,9 @@ float phi_err_last = 0.0f;
 float kp_body_angle = 0.5f;
 float kd_body_angle = 0.01f;
 
+// jump
+JumpState jump_state = JumpState::CROUCH;
+
 // control classes
 static Robot* robot;
 static MotionSD* sd;
@@ -330,19 +333,11 @@ void Core1Task(void * parameter){
         // walk if vd is large enough or MODE_CHANGE is ordered
         if (mode == Mode::WAIT){
             if (abs(vd[0]) > VD_MIN || abs(vd[1]) > VD_MIN || abs(vd[2]) > VD_MIN || order == Order::MODE_CHANGE){
-                if (mode == Mode::CROUCH){
-                    init_phase(
-                        Mode::CROUCH,
-                        Phase::JUMP,
-                        0
-                    );
-                }else{
-                    init_phase(
-                        mode_last,
-                        Phase::START,
-                        0
-                    );
-                }
+                init_phase(
+                    mode_last,
+                    Phase::START,
+                    0
+                );
             }
         }
 
@@ -629,10 +624,77 @@ void Core1Task(void * parameter){
             /* #######################################################
             order while WALK
             ####################################################### */
+            case Phase::JUMP:{
+                if(phase_count == 0){
+                    jump_state = JumpState::CROUCH;
+                    Serial.println("phase: JUMP");
+                }
+                com_pos = controller.get_default_com_pos();
+                switch (jump_state){
+                    case JumpState::CROUCH:{
+                        // shrink until jump preparation height
+                        if(stance.height_diff > HEIGHT_JUMP - HEIGHT_WALK){
+                            stance.height_diff -= HEIGHT_UPDATE_RATE;
+                        }else{
+                            stance.height_diff = HEIGHT_JUMP - HEIGHT_WALK;
+                            jump_state = JumpState::EXTEND;
+                        }
+                        break;
+                    }
+                    case JumpState::EXTEND:{
+                        if(sensor.fly()){
+                            stance.height_diff = 0;
+                            jump_state = JumpState::FLY;
+                        }else{
+                            stance.height_diff = 0.05f;
+                        }
+                        break;
+                    }
+                    case JumpState::FLY:{
+                        if(sensor.hit_ground()){
+                            jump_state = JumpState::HIT;
+                            phase_count = 1;
+                        }
+                        break;
+                    }
+                    case JumpState::HIT:{
+                        phase_length = 20;
+                        float diff_aim = HEIGHT_JUMP - HEIGHT_WALK;
+                        float a = diff_aim / (phase_length * phase_length);
+
+                        float t = phase_count - phase_length;
+                        stance.height_diff = a*t*t - diff_aim;
+
+                        if (phase_count == phase_length){
+                            init_phase(
+                                mode,
+                                Phase::END,
+                                0
+                            );
+                            jump_state = JumpState::CROUCH;
+                        }
+                        break;
+                    }
+                }
+                phase_count += 1;
+                break;
+            }
+
+            case Phase::RUN:{
+                break;
+            }
             /* #######################################################
             order while CROUCH
             ####################################################### */
-            case Phase::JUMP:{
+            case Phase::LEARN:{
+                break;
+            }
+
+            case Phase::THROUGH:{
+                break;
+            }
+
+            case Phase::ROLL:{
                 break;
             }
 
@@ -640,7 +702,6 @@ void Core1Task(void * parameter){
             order while FIGHT
             ####################################################### */
             case Phase::GUARD:{
-                float height_update_rate = 0.03f;
                 // set com pos to default pose
                 com_pos = controller.get_default_com_pos();
 
@@ -648,7 +709,7 @@ void Core1Task(void * parameter){
                 if (global_control_pkt.button_left[2] == 1){
                     phi_order = 0.0f;
                     if(stance.height_diff < 0){
-                        stance.height_diff += height_update_rate;
+                        stance.height_diff += HEIGHT_UPDATE_RATE;
                     }else{
                         stance.height_diff = 0.0f;
                         init_phase(
@@ -662,9 +723,21 @@ void Core1Task(void * parameter){
                 }
 
                 if(stance.height_diff > HEIGHT_GUARD - HEIGHT_WALK){
-                    stance.height_diff -= height_update_rate;
+                    stance.height_diff -= HEIGHT_UPDATE_RATE;
                 }
                 phi_order = 30.0f * PI / 180.0f;
+                break;
+            }
+
+            case Phase::KICK_LOW:{
+                break;
+            }
+            
+            case Phase::KICK_MIDDLE:{
+                break;
+            }
+
+            case Phase::KICK_BACK:{
                 break;
             }
 

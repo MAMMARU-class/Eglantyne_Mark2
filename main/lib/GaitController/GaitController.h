@@ -7,6 +7,10 @@
 #define HEIGHT_CROUCH 0.08f
 #define HEIGHT_GUARD 0.08f
 
+#define HEIGHT_JUMP 0.1f
+
+#define HEIGHT_UPDATE_RATE 0.03
+
 using std::array;
 
 enum class Pivot : uint8_t{

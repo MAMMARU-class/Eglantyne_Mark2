@@ -20,6 +20,8 @@ public:
     // state check
     bool fall();
     bool face_up();
+    bool fly();
+    bool hit_ground();
 
     // feedback
     // body inclination feedback

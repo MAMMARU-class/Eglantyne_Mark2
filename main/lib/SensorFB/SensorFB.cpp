@@ -53,6 +53,22 @@ bool SensorFB::face_up(){
     }
 }
 
+bool SensorFB::fly(){
+    if (this->acc.z() - this->acc_last.z() < -5.0f){
+        return true;
+    }else{
+        return false;
+    }
+}
+
+bool SensorFB::hit_ground(){
+    if (this->acc.z() - this->acc_last.z() > 5.0f){
+        return true;
+    }else{
+        return false;
+    }
+}
+
 // feedback functions
 // body inclination feedback
 array<float, 2> SensorFB::angle_com_pos_fb(){

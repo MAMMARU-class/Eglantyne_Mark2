@@ -96,7 +96,7 @@ void GaitController::init_state_variables(bool zero_start, bool zero_end)
 
     // last sprine at single -> double 
     if(zero_start){
-        cpn_d_0 = {-this->pn[0], -this->pn[1]};
+        cpn_d_0 = {-this->pn_p1[0], -this->pn_p1[1]};
         cvn_d_0 = {0.0f, 0.0f};
         can_d_0 = {0.0f, 0.0f};
         this->T_ds = this->T_ds/2;

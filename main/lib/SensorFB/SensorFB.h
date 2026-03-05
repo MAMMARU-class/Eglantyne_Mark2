@@ -63,14 +63,17 @@ private:
     float kp_angle_vd    = 0.001f;
     float kd_angle_vd    = 0.0f;
 
-    float kp_update_rate = 5.0f;
-    float kd_update_rate = 0.0f;
+    // float kp_update_rate = 5.5f;
+    float kp_update_rate = 7.0f;
+    float kd_update_rate = 0.5f;
 
-    float kp_x0_vx0 = 0.002f;
-    float kd_x0_vx0 = 0.0002f;
+    // float kp_x0_vx0 = 0.0015f;
+    // float kd_x0_vx0 = 0.00005f;
+    float kp_x0_vx0 = 0.0008f;
+    float kd_x0_vx0 = 0.00002f;
 
     float a_pos = 1.0f;
-    float a_vel = 0.01f;
+    float a_vel = 0.007f;
 
     // feedback state variables
     // update rate feedback

@@ -14,8 +14,7 @@ STANCE_INFO stance_walk = {
 STANCE_INFO stance_fight = {
     .height_diff         = 0.0f,
     .relative_body_angle = 20 * PI / 180.0f,
-    // .relative_body_pos   = 0.003f,
-    .relative_body_pos   = 0.0f,
+    .relative_body_pos   = -0.005f,
     .relative_leg_angle  = -30.0 * PI / 180.0f
     // .relative_leg_angle  = 0.0 * PI / 180.0f
 };
@@ -53,7 +52,7 @@ float phi_err_last = 0.0f;
 // feedback
 float kp_theta = 0.15f;
 float kd_theta = 0.01f;
-float kp_phi = 0.07f;
+float kp_phi = 0.06f;
 float kd_phi = 0.005f;
 
 // jump
@@ -110,7 +109,9 @@ void init_phase(Mode next_mode, Phase next_phase, float next_phase_time){
 void update_phase(){
     // stop if no movement
     if (controller.p_n2p1_equels_p_n2m1() && 
-        abs(vd[0]) < VD_MIN && abs(vd[1]) < VD_MIN && abs(vd[2]) < VD_MIN){
+        abs(global_control_pkt.stick_right[0]) < CMD_MIN && 
+        abs(global_control_pkt.stick_right[1]) < CMD_MIN && 
+        abs(global_control_pkt.stick_left[1]) < CMD_MIN){
         phase_next = Phase::END;
     }
     else{
@@ -134,23 +135,6 @@ array<array<float, 5>, 3> attach_stance(array<array<float, 5>, 3> com_pos, STANC
     // left leg angle
     com_pos[1][3] += stance.relative_leg_angle;
 
-    // rotate
-    array<float, 2> p_r = controller.rotate_vec(
-        {com_pos[0][0], com_pos[0][1]},
-        // stance.relative_body_angle
-        0
-    );
-    array<float, 2> p_l = controller.rotate_vec(
-        {com_pos[1][0], com_pos[1][1]},
-        stance.relative_leg_angle
-        // stance.relative_body_angle + stance.relative_leg_angle
-    );
-    com_pos[0][0] =  p_r[0];
-    com_pos[0][1] =  p_r[1];
-
-    com_pos[1][0] =  p_l[0];
-    com_pos[1][1] =  p_l[1];
-
     return com_pos;
 }
 
@@ -163,6 +147,8 @@ STANCE_INFO update_stance_diff(
 
     if (mode_next == Mode::FIGHT){
         controller.init_param_fight(height_aim);
+    }else if (mode_next == Mode::CROUCH){
+        controller.init_param_crouch(height_aim);
     }else{
         controller.init_param_walk(height_aim);
     }
@@ -373,7 +359,11 @@ void Core1Task(void * parameter){
 
         // walk if vd is large enough or MODE_CHANGE is ordered
         if (mode == Mode::WAIT){
-            if (abs(vd[0]) > VD_MIN || abs(vd[1]) > VD_MIN || abs(vd[2]) > VD_MIN || order == Order::MODE_CHANGE){
+            if (abs(global_control_pkt.stick_right[0]) > CMD_MIN || 
+                abs(global_control_pkt.stick_right[1]) > CMD_MIN || 
+                abs(global_control_pkt.stick_left[1]) > CMD_MIN || 
+                order == Order::MODE_CHANGE || 
+                order == Order::CROUCH || order == Order::STAND){
                 init_phase(
                     mode_last,
                     Phase::START,
@@ -425,8 +415,8 @@ void Core1Task(void * parameter){
                 if (phase_count == 0){
                     Serial.println("phase: START");
                     if (mode == Mode::CROUCH){
-                        controller.init_param_walk(HEIGHT_CROUCH);
-                        phi_order = 20.0f * PI / 180.0f;
+                        controller.init_param_crouch(HEIGHT_CROUCH);
+                        phi_order = PHI_CROUCH;
                         stance = stance_walk;
                     }else if (mode == Mode::FIGHT){
                         controller.init_param_fight(HEIGHT_FIGHT);
@@ -497,7 +487,7 @@ void Core1Task(void * parameter){
                         init_phase(
                             Mode::TRANSITION,
                             Phase::STANCE,
-                            (controller.get_T_sup() - controller.get_T_ds()) / 2
+                            controller.get_T_sup() * 2
                         );
                         break;
                     }
@@ -549,98 +539,66 @@ void Core1Task(void * parameter){
             stance change
             ####################################################### */
             case Phase::STANCE:{
-                // if (phase_count == 0){
-                //     Serial.println("phase: STANCE");
-                //     float height_now;
-                //     float height_aim;
-
-                //     // set height, stance, and mode
-                //     if (order == Order::MODE_CHANGE){
-                //         if (mode_last == Mode::WALK){
-                //             height_now = HEIGHT_WALK; height_aim = HEIGHT_FIGHT;
-                //             stance_next = stance_fight;
-                //             mode = Mode::FIGHT; mode_last = Mode::WALK;
-                //         }else if (mode_last == Mode::FIGHT){
-                //             height_now = HEIGHT_FIGHT; height_aim = HEIGHT_WALK;
-                //             stance_next = stance_walk;
-                //             mode = Mode::WALK; mode_last = Mode::FIGHT;
-                //         }
-
-                //     }else if (order == Order::CROUCH){
-                //         height_now = HEIGHT_WALK; height_aim = HEIGHT_CROUCH;
-                //         stance_next = stance_crouch;
-                //         mode = Mode::CROUCH; mode_last = Mode::WALK;
-
-                //     }else if (order == Order::STAND){
-                //         height_now = HEIGHT_CROUCH; height_aim = HEIGHT_WALK;
-                //         stance_next = stance_walk;
-                //         mode = Mode::WALK; mode_last = Mode::CROUCH;
-                //     }
-
-                //     // preparation for stance update
-                //     stance.height_diff = height_now - height_aim;
-                //     stance_diff = update_stance_diff(
-                //         stance_next, phase_length,
-                //         height_aim, height_now,
-                //         mode);
-                //     controller.update_state_variables({0,0,0});
-                // }
-
-                // com_pos = controller.calc_com_traj_single(
-                //     true,
-                //     phase_count_x / (float)CTRL_STEP / (float)UPDATE_RATE_BASE,
-                //     phase_count   / (float)CTRL_STEP / (float)UPDATE_RATE_BASE
-                // );
-                // stance.height_diff         += stance_diff.height_diff;
-                // stance.relative_body_angle += stance_diff.relative_body_angle;
-                // stance.relative_body_pos   += stance_diff.relative_body_pos;
-                // stance.relative_leg_angle  += stance_diff.relative_leg_angle;
-
-                // // phase transition
-                // phase_count_x += UPDATE_RATE_BASE;
-                // phase_count   += update_rate;
-                // if (phase_count >= phase_length){
-                //     stance = stance_next;
-                //     order = Order::NONE;
-                //     init_phase(
-                //         mode,
-                //         Phase::DOUBLE, 
-                //         controller.get_T_ds()
-                //     );
-                // }
-                // break;
-
                 com_pos = controller.get_default_com_pos();
-                // change stance, and mode
-                if (order == Order::MODE_CHANGE){
-                    if (mode_last == Mode::WALK){
-                        stance = stance_fight;
-                        mode = Mode::FIGHT; mode_last = mode;
-                    }else if (mode_last == Mode::FIGHT){
-                        stance = stance_walk;
-                        mode = Mode::WALK; mode_last = mode;
+
+                if (phase_count == 0){
+                    Serial.println("phase: STANCE");
+                    float height_now;
+                    float height_aim;
+
+                    // set height, stance, and mode
+                    if (order == Order::MODE_CHANGE){
+                        if (mode_last == Mode::WALK){
+                            height_now = HEIGHT_WALK; height_aim = HEIGHT_FIGHT;
+                            stance_next = stance_fight;
+                            phi_order = 0.0f;
+                            mode = Mode::FIGHT; mode_last = Mode::WALK;
+                        }else if (mode_last == Mode::FIGHT){
+                            height_now = HEIGHT_FIGHT; height_aim = HEIGHT_WALK;
+                            stance_next = stance_walk;
+                            phi_order = 0.0f;
+                            mode = Mode::WALK; mode_last = Mode::FIGHT;
+                        }
+
+                    }else if (order == Order::CROUCH){
+                        height_now = HEIGHT_WALK; height_aim = HEIGHT_CROUCH;
+                        stance_next = stance_crouch;
+                        phi_order = PHI_CROUCH;
+                        mode = Mode::CROUCH; mode_last = Mode::WALK;
+
+                    }else if (order == Order::STAND){
+                        height_now = HEIGHT_CROUCH; height_aim = HEIGHT_WALK;
+                        stance_next = stance_walk;
+                        phi_order = 0.0f;
+                        mode = Mode::WALK; mode_last = Mode::CROUCH;
                     }
 
-                }else if (order == Order::CROUCH){
-                    stance = stance_crouch;
-                    mode = Mode::CROUCH; mode_last = Mode::WALK;
-
-                }else if (order == Order::STAND){
-                    stance = stance_walk;
-                    mode = Mode::WALK; mode_last = Mode::CROUCH;
+                    // preparation for stance update
+                    stance.height_diff = height_now - height_aim;
+                    stance_diff = update_stance_diff(
+                        stance_next, phase_length,
+                        height_aim, height_now,
+                        mode);
+                    controller.update_state_variables({0,0,0});
                 }
 
-                controller.update_state_variables({0,0,0});
+                stance.height_diff         += stance_diff.height_diff;
+                stance.relative_body_angle += stance_diff.relative_body_angle;
+                stance.relative_body_pos   += stance_diff.relative_body_pos;
+                stance.relative_leg_angle  += stance_diff.relative_leg_angle;
 
-                order = Order::NONE;
-                init_phase(
-                    mode,
-                    Phase::START,
-                    0
-                );
+                // phase transition
+                phase_count += update_rate;
+                if (phase_count >= phase_length){
+                    stance = stance_next;
+                    order = Order::NONE;
+                    init_phase(
+                        mode,
+                        Phase::START,
+                        controller.get_T_ds()
+                    );
+                }
                 break;
-
-                
             }
 
             /* #######################################################
@@ -690,6 +648,11 @@ void Core1Task(void * parameter){
                     wake_face_down();
                 }
                 order_free = false;
+
+                // after fall, do not start from CROUCH.
+                if(mode == Mode::CROUCH){
+                    mode = Mode::WALK;
+                }
 
                 // phase transition
                 init_phase(
@@ -838,6 +801,9 @@ void Core1Task(void * parameter){
         - arm position feedback
         - body rotation
         ##########################################################################*/
+        // arm_pos feedback
+        com_x[0] = com_pos[0][0];
+        com_x[1] = com_pos[1][0];
         if (phase == Phase::FALL || phase == Phase::WAKE){
             // do nothing
             continue;
@@ -972,12 +938,6 @@ void Core1Task(void * parameter){
             false
         );
         
-        // arm_pos_fb
-        array<float, 2> com_r = controller.rotate_vec({leg_right_com[0], leg_right_com[1]}, -com_pos[0][3]);
-        array<float, 2> com_l = controller.rotate_vec({leg_left_com[0],  leg_left_com[1]},  -com_pos[1][3]);
-        com_x[0] = com_r[0];
-        com_x[1] = com_l[0];
-
         /* #########################################################################
         DELAY for NEXT CYCLE
         ##########################################################################*/

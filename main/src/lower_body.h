@@ -12,7 +12,7 @@
 #define UPDATE_RATE_BASE 100 // step
 
 // orders
-#define VD_MIN 0.05f
+#define CMD_MIN 0.15f
 #define BODY_ANGLE_SMALL 25.0f * PI / 180.0f
 #define BODY_ANGLE_LARGE 40.0f * PI / 180.0f
 

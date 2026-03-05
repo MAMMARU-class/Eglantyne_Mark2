@@ -2,9 +2,12 @@
 #include <cmath>
 #include "SLIP.h"
 
-#define HEIGHT_WALK 0.135f
+#define HEIGHT_WALK 0.142f
 #define HEIGHT_FIGHT 0.135f
-#define HEIGHT_CROUCH 0.075f
+
+#define HEIGHT_CROUCH 0.09f
+#define PHI_CROUCH 25.0f * PI / 180.0f
+
 #define HEIGHT_GUARD 0.12f
 
 #define HEIGHT_JUMP 0.1f
@@ -39,6 +42,7 @@ public:
     void set_body_angle(float body_angle){ this->body_angle = body_angle; }
 
     void init_param_walk(float z0);
+    void init_param_crouch(float z0);
     void init_param_fight(float z0);
     void init_pose();
 
@@ -81,7 +85,6 @@ public:
     float get_ds_ratio(){ return this->ds_ratio; }
     bool pivot_right(){ return this->pivot == Pivot::RIGHT; }
     bool p_n2p1_equels_p_n2m1(){
-        Serial.print("p_n2p1 + p_n2m1: "); Serial.print(this->p_n2p1[0] + this->p_n2m1[0], 6); Serial.print(", "); Serial.println(this->p_n2p1[1] + this->p_n2m1[1], 6);
         return (
             abs(this->p_n2p1[0] + this->p_n2m1[0]) < 1e-3f &&
             abs(this->p_n2p1[1] + this->p_n2m1[1]) < 1e-3f

@@ -16,6 +16,7 @@ public:
     // initialization
     void init();
     void update();
+    void set_phi(float phi){ this->phi = phi; };
 
     // state check
     bool fall();
@@ -34,7 +35,7 @@ public:
         float t_ideal, array<float, 2> acc_ideal,
         array<float, 3> approx_coeff, float Tc, int update_rate,
         float com_pos);
-    array<float, 2> x0_vx0_fb(float tx, float x0, float vx0, float Tc, int control_step);
+    array<float, 2> x0_vx0_fb(float tx, float x0, float vx0, float Tc, int control_step, float com_x_pos);
 
     // getters
     float get_l_pivot2com(){ return l_pivot2com; }
@@ -47,28 +48,36 @@ private:
     imu::Vector<3> acc_last;
     imu::Vector<3> acc;
 
+    float phi = 0.0f;
+
     // body param
     float l_pivot2com = 0.07;
 
     // gains
-    float kp_angle_com   = 0.1f;
+    float kp_angle_com   = 0.3f;
     float kd_angle_com   = 0.001f;
 
-    float kp_phi_body    = 0.75f;
-    float kd_phi_body    = 0.04f;
+    float kp_phi_body    = 0.65f;
+    float kd_phi_body    = 0.01f;
 
     float kp_angle_vd    = 0.001f;
     float kd_angle_vd    = 0.0f;
 
-    float kp_update_rate = 2.0f;
+    float kp_update_rate = 5.0f;
     float kd_update_rate = 0.0f;
 
-    float kp_x0_vx0 = 0.1f;
+    float kp_x0_vx0 = 0.002f;
+    float kd_x0_vx0 = 0.0002f;
+
     float a_pos = 1.0f;
-    float a_vel = 0.5f;
+    float a_vel = 0.01f;
 
     // feedback state variables
     // update rate feedback
     float acc_ideal_last = 0.0f;
-    float t_err_last = 0.0f;
+    float t_err_last     = 0.0f;
+
+    // x0 and vx0 feedback
+    float x0_fb_last  = 0.0f;
+    float vx0_fb_last = 0.0f;
 };

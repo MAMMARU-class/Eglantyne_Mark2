@@ -89,8 +89,8 @@ array<float, 3> Robot::arm_k_solver(array<float, 3> arm_angles)
         {0, 0, 0, 1}
     }};
 
-    c = cos(PI / 4.0f);
-    s = sin(PI / 4.0f);
+    c = cos(-1 *PI / 4.0f);
+    s = sin(-1 *PI / 4.0f);
     array<array<float, 4>, 4> T3 = {{
         {c, -s, 0, 0},
         {s, c, 0, 0},

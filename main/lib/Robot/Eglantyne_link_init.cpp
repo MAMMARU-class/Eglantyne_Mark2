@@ -36,7 +36,7 @@ void Robot::setLink(){
     foot_pitch_right.setInitialPositions(5800, 0.7058, 0,0);
     foot_pitch_right.setMotor(serial2, 5, FORWARD);
 
-    foot_roll_right.setInitialPositions(7620, 0.0, 0,0);
+    foot_roll_right.setInitialPositions(7670, 0.0, 0,0);
     foot_roll_right.setMotor(serial2, 6, REVERSE);
 
 
@@ -55,7 +55,7 @@ void Robot::setLink(){
     foot_pitch_left.setInitialPositions(6180, 0.7058, 0,0);
     foot_pitch_left.setMotor(serial2, 11, FORWARD);
 
-    foot_roll_left.setInitialPositions(7420, 0.0, 0,0);
+    foot_roll_left.setInitialPositions(7370, 0.0, 0,0);
     foot_roll_left.setMotor(serial2, 12, REVERSE);
 
     // this->link_set = {&arm_pitch_right}; // for board test

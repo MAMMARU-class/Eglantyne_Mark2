@@ -13,9 +13,11 @@ STANCE_INFO stance_walk = {
 };
 STANCE_INFO stance_fight = {
     .height_diff         = 0.0f,
-    .relative_body_angle = 30.0 * PI / 180.0f,
+    .relative_body_angle = 20 * PI / 180.0f,
+    // .relative_body_pos   = 0.003f,
     .relative_body_pos   = 0.0f,
-    .relative_leg_angle  = -60.0 * PI / 180.0f
+    .relative_leg_angle  = -30.0 * PI / 180.0f
+    // .relative_leg_angle  = 0.0 * PI / 180.0f
 };
 STANCE_INFO stance_crouch = stance_walk;
 STANCE_INFO stance = stance_walk;
@@ -49,8 +51,10 @@ float phi = 0.0f;
 float phi_err = 0.0f;
 float phi_err_last = 0.0f;
 // feedback
-float kp_body_angle = 0.5f;
-float kd_body_angle = 0.01f;
+float kp_theta = 0.15f;
+float kd_theta = 0.01f;
+float kp_phi = 0.07f;
+float kd_phi = 0.005f;
 
 // jump
 JumpState jump_state = JumpState::CROUCH;
@@ -123,17 +127,23 @@ array<array<float, 5>, 3> attach_stance(array<array<float, 5>, 3> com_pos, STANC
     com_pos[0][3] += stance.relative_body_angle;
     com_pos[1][3] += stance.relative_body_angle;
 
+    // relative body pos
+    com_pos[0][0] += stance.relative_body_pos;
+    com_pos[1][0] += stance.relative_body_pos;
+
     // left leg angle
     com_pos[1][3] += stance.relative_leg_angle;
 
     // rotate
     array<float, 2> p_r = controller.rotate_vec(
         {com_pos[0][0], com_pos[0][1]},
-        stance.relative_body_angle
+        // stance.relative_body_angle
+        0
     );
     array<float, 2> p_l = controller.rotate_vec(
         {com_pos[1][0], com_pos[1][1]},
-        stance.relative_body_angle + stance.relative_leg_angle
+        stance.relative_leg_angle
+        // stance.relative_body_angle + stance.relative_leg_angle
     );
     com_pos[0][0] =  p_r[0];
     com_pos[0][1] =  p_r[1];
@@ -233,7 +243,7 @@ void Core1Task(void * parameter){
         // Motion control orders
         // body angle order
         if (global_control_pkt.button_right[1] == 0){
-            if (mode == Mode::FIGHT){
+            if (mode_last == Mode::FIGHT){
                 theta_order = BODY_ANGLE_LARGE;
             }else{
                 theta_order = BODY_ANGLE_SMALL;
@@ -251,7 +261,7 @@ void Core1Task(void * parameter){
                 order = Order::MODE_CHANGE;
             }
             // orders while WALK mode
-            else if (mode == Mode::WALK){
+            else if (mode_last == Mode::WALK){
                 // CROUCH
                 if (global_control_pkt.button_left[0] == 0){
                     order = Order::CROUCH;
@@ -267,7 +277,7 @@ void Core1Task(void * parameter){
             }
 
             // orders while CROUCH mode
-            else if (mode == Mode::CROUCH){
+            else if (mode_last == Mode::CROUCH){
                 // CROUCH
                 if (global_control_pkt.button_left[0] == 0){
                     order = Order::STAND;
@@ -282,9 +292,9 @@ void Core1Task(void * parameter){
             }
 
             // orders while FIGHT mode
-            else if (mode == Mode::FIGHT){
+            else if (mode_last == Mode::FIGHT){
                 // GUARD
-                if (global_control_pkt.button_left[2] == 0 && mode != Mode::CROUCH){
+                if (global_control_pkt.button_left[2] == 0 && mode_last != Mode::CROUCH){
                     order = Order::GUARD;
                     init_phase(
                         mode,
@@ -316,6 +326,14 @@ void Core1Task(void * parameter){
         - Velocity update           -> Update vd with controller input and sensor feedback. Switch to WALK mode if vd is large enough
         - After fallen down (WAKE)  -> initialize parameters
         ##########################################################################*/
+        // show Mode
+        // switch(mode){
+        //     case Mode::WAIT: Serial.println("Mode: WAIT"); break;
+        //     case Mode::WALK: Serial.println("Mode: WALK"); break;
+        //     case Mode::CROUCH: Serial.println("Mode: CROUCH"); break;
+        //     case Mode::FIGHT: Serial.println("Mode: FIGHT"); break;
+        //     default: Serial.println("Mode: UNKNOWN"); break;
+        // }
         // torque off order
         if(global_control_pkt.button_right[0] == 0 && global_control_pkt.button_left[0] == 0){
             order_free = true;
@@ -408,13 +426,16 @@ void Core1Task(void * parameter){
                     Serial.println("phase: START");
                     if (mode == Mode::CROUCH){
                         controller.init_param_walk(HEIGHT_CROUCH);
+                        phi_order = 20.0f * PI / 180.0f;
                         stance = stance_walk;
                     }else if (mode == Mode::FIGHT){
                         controller.init_param_fight(HEIGHT_FIGHT);
                         stance = stance_fight;
+                        phi_order = 0.0f * PI / 180.0f;
                     }else{
                         controller.init_param_walk(HEIGHT_WALK);
                         stance = stance_walk;
+                        phi_order = 0.0f * PI / 180.0f;
                     }
                     controller.init_pose();
                     controller.inverse_pivot();
@@ -528,66 +549,98 @@ void Core1Task(void * parameter){
             stance change
             ####################################################### */
             case Phase::STANCE:{
-                if (phase_count == 0){
-                    Serial.println("phase: STANCE");
-                    float height_now;
-                    float height_aim;
+                // if (phase_count == 0){
+                //     Serial.println("phase: STANCE");
+                //     float height_now;
+                //     float height_aim;
 
-                    // set height, stance, and mode
-                    if (order == Order::MODE_CHANGE){
-                        if (mode_last == Mode::WALK){
-                            height_now = HEIGHT_WALK; height_aim = HEIGHT_FIGHT;
-                            stance_next = stance_fight;
-                            mode = Mode::FIGHT; mode_last = Mode::WALK;
-                        }else if (mode_last == Mode::FIGHT){
-                            height_now = HEIGHT_FIGHT; height_aim = HEIGHT_WALK;
-                            stance_next = stance_walk;
-                            mode = Mode::WALK; mode_last = Mode::FIGHT;
-                        }
+                //     // set height, stance, and mode
+                //     if (order == Order::MODE_CHANGE){
+                //         if (mode_last == Mode::WALK){
+                //             height_now = HEIGHT_WALK; height_aim = HEIGHT_FIGHT;
+                //             stance_next = stance_fight;
+                //             mode = Mode::FIGHT; mode_last = Mode::WALK;
+                //         }else if (mode_last == Mode::FIGHT){
+                //             height_now = HEIGHT_FIGHT; height_aim = HEIGHT_WALK;
+                //             stance_next = stance_walk;
+                //             mode = Mode::WALK; mode_last = Mode::FIGHT;
+                //         }
 
-                    }else if (order == Order::CROUCH){
-                        height_now = HEIGHT_WALK; height_aim = HEIGHT_CROUCH;
-                        stance_next = stance_crouch;
-                        mode = Mode::CROUCH; mode_last = Mode::WALK;
+                //     }else if (order == Order::CROUCH){
+                //         height_now = HEIGHT_WALK; height_aim = HEIGHT_CROUCH;
+                //         stance_next = stance_crouch;
+                //         mode = Mode::CROUCH; mode_last = Mode::WALK;
 
-                    }else if (order == Order::STAND){
-                        height_now = HEIGHT_CROUCH; height_aim = HEIGHT_WALK;
-                        stance_next = stance_walk;
-                        mode = Mode::WALK; mode_last = Mode::CROUCH;
+                //     }else if (order == Order::STAND){
+                //         height_now = HEIGHT_CROUCH; height_aim = HEIGHT_WALK;
+                //         stance_next = stance_walk;
+                //         mode = Mode::WALK; mode_last = Mode::CROUCH;
+                //     }
+
+                //     // preparation for stance update
+                //     stance.height_diff = height_now - height_aim;
+                //     stance_diff = update_stance_diff(
+                //         stance_next, phase_length,
+                //         height_aim, height_now,
+                //         mode);
+                //     controller.update_state_variables({0,0,0});
+                // }
+
+                // com_pos = controller.calc_com_traj_single(
+                //     true,
+                //     phase_count_x / (float)CTRL_STEP / (float)UPDATE_RATE_BASE,
+                //     phase_count   / (float)CTRL_STEP / (float)UPDATE_RATE_BASE
+                // );
+                // stance.height_diff         += stance_diff.height_diff;
+                // stance.relative_body_angle += stance_diff.relative_body_angle;
+                // stance.relative_body_pos   += stance_diff.relative_body_pos;
+                // stance.relative_leg_angle  += stance_diff.relative_leg_angle;
+
+                // // phase transition
+                // phase_count_x += UPDATE_RATE_BASE;
+                // phase_count   += update_rate;
+                // if (phase_count >= phase_length){
+                //     stance = stance_next;
+                //     order = Order::NONE;
+                //     init_phase(
+                //         mode,
+                //         Phase::DOUBLE, 
+                //         controller.get_T_ds()
+                //     );
+                // }
+                // break;
+
+                com_pos = controller.get_default_com_pos();
+                // change stance, and mode
+                if (order == Order::MODE_CHANGE){
+                    if (mode_last == Mode::WALK){
+                        stance = stance_fight;
+                        mode = Mode::FIGHT; mode_last = mode;
+                    }else if (mode_last == Mode::FIGHT){
+                        stance = stance_walk;
+                        mode = Mode::WALK; mode_last = mode;
                     }
 
-                    // preparation for stance update
-                    stance.height_diff = height_now - height_aim;
-                    stance_diff = update_stance_diff(
-                        stance_next, phase_length,
-                        height_aim, height_now,
-                        mode);
-                    controller.update_state_variables({0,0,0});
+                }else if (order == Order::CROUCH){
+                    stance = stance_crouch;
+                    mode = Mode::CROUCH; mode_last = Mode::WALK;
+
+                }else if (order == Order::STAND){
+                    stance = stance_walk;
+                    mode = Mode::WALK; mode_last = Mode::CROUCH;
                 }
 
-                com_pos = controller.calc_com_traj_single(
-                    true,
-                    phase_count_x / (float)CTRL_STEP / (float)UPDATE_RATE_BASE,
-                    phase_count   / (float)CTRL_STEP / (float)UPDATE_RATE_BASE
+                controller.update_state_variables({0,0,0});
+
+                order = Order::NONE;
+                init_phase(
+                    mode,
+                    Phase::START,
+                    0
                 );
-                stance.height_diff         += stance_diff.height_diff;
-                stance.relative_body_angle += stance_diff.relative_body_angle;
-                stance.relative_body_pos   += stance_diff.relative_body_pos;
-                stance.relative_leg_angle  += stance_diff.relative_leg_angle;
-
-                // phase transition
-                phase_count_x += UPDATE_RATE_BASE;
-                phase_count   += update_rate;
-                if (phase_count >= phase_length){
-                    stance = stance_next;
-                    order = Order::NONE;
-                    init_phase(
-                        mode,
-                        Phase::DOUBLE, 
-                        controller.get_T_ds()
-                    );
-                }
                 break;
+
+                
             }
 
             /* #######################################################
@@ -831,21 +884,30 @@ void Core1Task(void * parameter){
         }
 
         // x0 and vx0 feedback
-        // if (phase == Phase::SINGLE){
-        //     array<float, 2> x0_vx0    = controller.get_x0_vx0();
-        //     array<float, 2> x0_vx0_fb = sensor.x0_vx0_fb(
-        //         tx,
-        //         x0_vx0[0], x0_vx0[1],
-        //         Tc, CTRL_STEP
-        //     );
-        //     controller.feedback_x0_vx0(x0_vx0_fb);
-        // }
+        if (phase == Phase::SINGLE){
+            array<float, 2> x0_vx0    = controller.get_x0_vx0();
+            // com calculation check
+            float com_x_pos;
+            if(controller.is_pivot_right()){
+                com_x_pos = com_pos[0][0];
+            }else{
+                com_x_pos = com_pos[1][0];
+            }
+
+            array<float, 2> x0_vx0_fb = sensor.x0_vx0_fb(
+                tx,
+                x0_vx0[0], x0_vx0[1],
+                Tc, CTRL_STEP,
+                com_x_pos
+            );
+            controller.feedback_x0_vx0(x0_vx0_fb);
+        }
 
         // arm position feedback
         array<float, 3> arm_right_pos = robot->arm_k_solver({arm_right_angles[0], arm_right_angles[1], arm_right_angles[2]});
         array<float, 3> arm_left_pos  = robot->arm_k_solver({arm_left_angles[0], arm_left_angles[1], arm_left_angles[2]});
         array<float, 2> arm_mass_pos  = {arm_right_pos[0] + arm_left_pos[0], -arm_right_pos[1] + arm_left_pos[1]};
-        array<float, 2> com_diff      = {arm_mass_pos[0] / 12 , arm_mass_pos[1] / 12};
+        array<float, 2> com_diff      = {arm_mass_pos[0] / 16 , arm_mass_pos[1] / 16};
 
         com_pos_fb[0] += com_diff[0];
         com_pos_fb[1] += com_diff[1];
@@ -859,16 +921,17 @@ void Core1Task(void * parameter){
         theta_err = theta_order - theta;
         float theta_derr = theta_err - theta_err_last;
         theta_err_last = theta_err;
-        theta += kp_body_angle * theta_err + kd_body_angle * theta_derr;
+        theta += kp_theta * theta_err + kd_theta * theta_derr;
         com_pos[0][3] += theta;
         com_pos[1][3] += theta;
         // phi
         phi_err = phi_order - phi;
         float phi_derr = phi_err - phi_err_last;
         phi_err_last = phi_err;
-        phi += kp_body_angle * phi_err + kd_body_angle * phi_derr;
+        phi += kp_phi * phi_err + kd_phi * phi_derr;
         float l_pivot2com = sensor.get_l_pivot2com();
         com_pos_fb[0] += l_pivot2com * sin(phi);
+        sensor.set_phi(phi);
         /* #########################################################################
         EXECUTION
         - move robot
@@ -927,13 +990,13 @@ void Core1Task(void * parameter){
 void wake_face_up(){
     Serial.println("Wake face up");
 
-    sd->play_motion(robot, "/wake_face_up.csv", 0.35f);
+    sd->play_motion(robot, "/wake_face_up.csv", 0.15f);
     robot->init_home(1);
 }
 
 void wake_face_down(){
     Serial.println("Wake face down");
 
-    sd->play_motion(robot, "/wake_face_down.csv", 0.35f);
+    sd->play_motion(robot, "/wake_face_down.csv", 0.15f);
     robot->init_home(1);
 }

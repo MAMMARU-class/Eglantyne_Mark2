@@ -12,9 +12,9 @@
 #define UPDATE_RATE_BASE 100 // step
 
 // orders
-#define VD_MIN 0.01f
-#define BODY_ANGLE_SMALL 15.0f * PI / 180.0f
-#define BODY_ANGLE_LARGE 45.0f * PI / 180.0f
+#define VD_MIN 0.05f
+#define BODY_ANGLE_SMALL 25.0f * PI / 180.0f
+#define BODY_ANGLE_LARGE 40.0f * PI / 180.0f
 
 enum class Order: uint8_t {
     NONE,

@@ -126,7 +126,7 @@ void MotionSD::play_motion(Robot* r, const char* fname, float duration){
     }
 
     // move to first position
-    robot->move_all_t(motions[0], 0.8);
+    robot->move_all_t(motions[0], 0.3);
 
     size_t N = motions.size();
     // create time vector

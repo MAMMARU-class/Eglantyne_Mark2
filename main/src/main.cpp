@@ -187,7 +187,7 @@ void loop(){
             neopixelWrite(RGB_BUILTIN, 0, 0, 255);
 
             Eglantyne.init_home(1);
-            sd.play_motion(&Eglantyne, ("/" + fname).c_str(), 0.35f);
+            sd.play_motion(&Eglantyne, ("/" + fname).c_str(), 0.15f);
             Eglantyne.init_home(1);
             delay(3000);
 

@@ -29,6 +29,7 @@ void SensorFB::update(){
     // current pose
     this->euler_last = this->euler;
     this->euler      = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+    this->euler.y() += this->phi * 180.0f / PI;
     // acceleration
     this->acc_last   = this->acc;
     this-> acc       = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
@@ -199,7 +200,8 @@ int SensorFB::update_rate_fb(
 array<float, 2> SensorFB::x0_vx0_fb(
     float tx, 
     float x0, float vx0, 
-    float Tc, int control_step)
+    float Tc, int control_step,
+    float com_x_pos)
 {
     // get acceleration, estimate position and velocity
     float acc      = this->acc.x();
@@ -227,8 +229,24 @@ array<float, 2> SensorFB::x0_vx0_fb(
     float x0_fb_vel  =  x0 - (tx * Ct * x_t1_ideal     - Tc * St * vel_x)  / denom;
     float vx0_fb_vel = vx0 - (-tx/Tc * St * x_t1_ideal + Ct * vel_x)       / denom;
 
-    float x0_fb  = this->kp_x0_vx0 * (this->a_pos * x0_fb_pos  + this->a_vel * x0_fb_vel);
-    float vx0_fb = this->kp_x0_vx0 * (this->a_pos * vx0_fb_pos + this->a_vel * vx0_fb_vel);
+    float x0_fb  = this->a_pos * x0_fb_pos  + this->a_vel * x0_fb_vel;
+    float vx0_fb = this->a_pos * vx0_fb_pos + this->a_vel * vx0_fb_vel;
 
-    return {x0_fb, vx0_fb};
+    float x0_fb_d  = x0_fb  - this->x0_fb_last;
+    float vx0_fb_d = vx0_fb - this->vx0_fb_last;
+
+    this->x0_fb_last  = x0_fb;
+    this->vx0_fb_last = vx0_fb;
+
+    float pd_x0_fb  = this->kp_x0_vx0 * x0_fb  + this->kd_x0_vx0 * x0_fb_d;
+    float pd_vx0_fb = this->kp_x0_vx0 * vx0_fb + this->kd_x0_vx0 * vx0_fb_d;
+
+    // Serial.println();
+    // Serial.print("com_x_pos: "); Serial.println(com_x_pos, 4);
+    // Serial.print("estimated x: "); Serial.print(pos_x, 4); Serial.print(", estimated vx: "); Serial.println(vel_x, 4);
+    // Serial.print("x0: "); Serial.print(x0, 4); Serial.print(", vx0: "); Serial.println(vx0, 4);
+    // Serial.print("x0_fb_pos: "); Serial.print(x0_fb_pos, 4); Serial.print(", vx0_fb_pos: "); Serial.println(vx0_fb_pos, 4);
+    // Serial.print("x0_fb_vel: "); Serial.print(x0_fb_vel, 4); Serial.print(", vx0_fb_vel: "); Serial.println(vx0_fb_vel, 4);
+    // Serial.print("x0_fb: "); Serial.print(x0_fb, 4); Serial.print(", vx0_fb: "); Serial.println(vx0_fb, 4);
+    return {pd_x0_fb, pd_vx0_fb};
 }

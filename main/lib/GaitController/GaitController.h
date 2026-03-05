@@ -4,8 +4,8 @@
 
 #define HEIGHT_WALK 0.135f
 #define HEIGHT_FIGHT 0.135f
-#define HEIGHT_CROUCH 0.08f
-#define HEIGHT_GUARD 0.08f
+#define HEIGHT_CROUCH 0.075f
+#define HEIGHT_GUARD 0.12f
 
 #define HEIGHT_JUMP 0.1f
 
@@ -53,8 +53,9 @@ public:
     void init_state_variables(bool zero_start = false, bool zero_end = false);
     void update_state_variables(array<float, 3> vd);
     void feedback_x0_vx0(array<float, 2> x0_vx0_fb){
-        this->pn[0] += x0_vx0_fb[0];
-        this->cvn_start[0] += x0_vx0_fb[1];
+        this->pn_p1[0] -= x0_vx0_fb[0];
+        this->pn[0] -= x0_vx0_fb[0];
+        this->cvn_start[0] -= x0_vx0_fb[1];
     }
     void update_T_sup_x(float increment){
         this->T_sup_x += increment;
@@ -80,9 +81,10 @@ public:
     float get_ds_ratio(){ return this->ds_ratio; }
     bool pivot_right(){ return this->pivot == Pivot::RIGHT; }
     bool p_n2p1_equels_p_n2m1(){
+        Serial.print("p_n2p1 + p_n2m1: "); Serial.print(this->p_n2p1[0] + this->p_n2m1[0], 6); Serial.print(", "); Serial.println(this->p_n2p1[1] + this->p_n2m1[1], 6);
         return (
-            abs(this->p_n2p1[0] - this->p_n2m1[0]) < 1e-3f &&
-            abs(this->p_n2p1[1] - this->p_n2m1[1]) < 1e-3f
+            abs(this->p_n2p1[0] + this->p_n2m1[0]) < 1e-3f &&
+            abs(this->p_n2p1[1] + this->p_n2m1[1]) < 1e-3f
         );
     };
     array<float, 3> get_vd_max_abs(){ return this->vd_max_abs; }

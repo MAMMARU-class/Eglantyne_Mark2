@@ -2,7 +2,7 @@
 #include <cmath>
 #include "SLIP.h"
 
-#define HEIGHT_WALK 0.142f
+#define HEIGHT_WALK 0.135f
 #define HEIGHT_FIGHT 0.135f
 #define HEIGHT_CROUCH 0.08f
 #define HEIGHT_GUARD 0.08f
@@ -70,7 +70,7 @@ public:
     TRAJECTORY CALCULATION
     ##########################*/
     // calculate trajectory for each steps
-    array<array<float, 5>, 3> calc_com_traj_single(float tx, float ty);
+    array<array<float, 5>, 3> calc_com_traj_single(bool calculated, float tx, float ty);
     array<array<float, 5>, 3> calc_com_traj_double(float t);
     array<array<float, 5>, 3> get_default_com_pos();
 

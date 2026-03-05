@@ -60,8 +60,8 @@ private:
     float kp_angle_vd    = 0.001f;
     float kd_angle_vd    = 0.0f;
 
-    float kp_update_rate = 5.0f;
-    float kd_update_rate = 0.5f;
+    float kp_update_rate = 2.0f;
+    float kd_update_rate = 0.0f;
 
     float kp_x0_vx0 = 0.1f;
     float a_pos = 1.0f;

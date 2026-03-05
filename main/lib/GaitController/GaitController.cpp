@@ -16,7 +16,7 @@ void GaitController::init_param_walk(float z0){
     model.set_foot_dist_y_base(0.045f);
     model.set_foot_dist_x_max(0.12f);
     // model.set_T_sup_base(0.25f);
-    model.set_T_sup_base(0.25f);
+    model.set_T_sup_base(0.22f);
     model.set_T_sup_min(0.3f);
     model.set_fb_gain(0.01, 0.001f, 0.01f, 0.001f);
     model.calculate_initial_params();
@@ -56,12 +56,13 @@ void GaitController::init_pose(){
 
     this->T_sup = model.get_T_sup_base();
 
-    array<float, 2> cvn_m1_start = {0.0f, model.calc_basic_unpassing_com_vel(-this->pn[1], this->T_sup)};
-    this->cvn_start = model.calc_LIP_v(
+    array<float, 2> cvn_start_local = {0.0f, model.calc_basic_unpassing_com_vel(-this->pn[1], this->T_sup)};
+    this->cvn_last = model.calc_LIP_v(
         this->T_sup,
         this->T_sup,
         {-this->pn[0], -this->pn[1]}, 
-        cvn_m1_start);
+        cvn_start_local
+    );
 
     this->body_angle = 0.0f;
 
@@ -202,7 +203,8 @@ void GaitController::update_state_variables(array<float, 3> vd){
         {-this->pn[0], -this->pn[1]}, 
         this->cvn_start
     );
-    this->cvn_last = model.rotate_vec(cvn_last_local, -this->body_angle);
+    cvn_last_local = model.rotate_vec(cvn_last_local, -this->body_angle);
+
     this->pn_p1 = model.foot_pos_pd(
         cvn_last_local, this->cvn_start, 
         vd, 
@@ -286,7 +288,7 @@ void GaitController::calc_swing_last(){
 TRAJECTORY CALCULATION
 calculate trajectory for each steps
 ##########################################################################*/
-array<array<float, 5>, 3> GaitController::calc_com_traj_single(float tx, float ty){
+array<array<float, 5>, 3> GaitController::calc_com_traj_single(bool calculated, float tx, float ty){
     float T_ss = this->T_sup - this->T_ds;
 
     // calculate com position for each t
@@ -302,7 +304,7 @@ array<array<float, 5>, 3> GaitController::calc_com_traj_single(float tx, float t
     array<float, 2> swing_com;
 
     // calculate swing foot trajectory based on ty to synchronize with side way phase
-    if (ty < T_ss/2){
+    if (!calculated){
         swing_com[0] = this->swing_com_0[0] * (T_ss*0.5f - ty) + this->swing_com_half[0] * ty;
         swing_com[1] = this->swing_com_0[1] * (T_ss*0.5f - ty) + this->swing_com_half[1] * ty;
         swing_com = {swing_com[0]/(T_ss*0.5f), swing_com[1]/(T_ss*0.5f)};

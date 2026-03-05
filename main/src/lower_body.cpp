@@ -467,6 +467,7 @@ void Core1Task(void * parameter){
                     single_calculated = false;
                 }
                 if (!single_calculated && phase_count >= int(phase_length/2)){
+                    Serial.println("calculate single");
                     single_calculated = true;
                     // change phase to STANCE if order is given
                     if ((order == Order::MODE_CHANGE || order == Order::CROUCH || order == Order::STAND)
@@ -485,6 +486,7 @@ void Core1Task(void * parameter){
                     update_phase();
                 }
                 com_pos = controller.calc_com_traj_single(
+                    single_calculated,
                     phase_count_x / (float)CTRL_STEP / (float)UPDATE_RATE_BASE,
                     phase_count   / (float)CTRL_STEP / (float)UPDATE_RATE_BASE
                 );
@@ -564,6 +566,7 @@ void Core1Task(void * parameter){
                 }
 
                 com_pos = controller.calc_com_traj_single(
+                    true,
                     phase_count_x / (float)CTRL_STEP / (float)UPDATE_RATE_BASE,
                     phase_count   / (float)CTRL_STEP / (float)UPDATE_RATE_BASE
                 );
@@ -824,7 +827,7 @@ void Core1Task(void * parameter){
             float height = max(com_pos[0][2], com_pos[1][2]);
             com_pos[0][2] = height;
             com_pos[1][2] = height;
-            update_rate = (int)(UPDATE_RATE_BASE / 2);
+            update_rate = (int)(UPDATE_RATE_BASE / 1.2f);
         }
 
         // x0 and vx0 feedback
@@ -887,24 +890,24 @@ void Core1Task(void * parameter){
             com_pos[1][2]};
 
         // print com position for debag
-        if (phase != Phase::WAIT){
-            Serial.println("com_pos:");
-            Serial.print(com_pos[0][0], 4); Serial.print(", "); Serial.print(com_pos[0][1], 4); Serial.print(", "); Serial.println(com_pos[0][2], 4);
-            Serial.print(com_pos[1][0], 4); Serial.print(", "); Serial.print(com_pos[1][1], 4); Serial.print(", "); Serial.println(com_pos[1][2], 4);
-        }
+        // if (phase != Phase::WAIT){
+        //     Serial.println("com_pos:");
+        //     Serial.print(com_pos[0][0], 4); Serial.print(", "); Serial.print(com_pos[0][1], 4); Serial.print(", "); Serial.println(com_pos[0][2], 4);
+        //     Serial.print(com_pos[1][0], 4); Serial.print(", "); Serial.print(com_pos[1][1], 4); Serial.print(", "); Serial.println(com_pos[1][2], 4);
+        // }
 
         // send order
         float phi_fb = sensor.angle_phi_fb(); // simple phi feedback
-        // robot->move_leg_ik(
-        //     leg_right_com, com_pos[0][3], 
-        //     phi - phi_fb, -phi_fb/2, 
-        //     true
-        // );
-        // robot->move_leg_ik(
-        //     leg_left_com, com_pos[1][3], 
-        //     phi - phi_fb, -phi_fb/2, 
-        //     false
-        // );
+        robot->move_leg_ik(
+            leg_right_com, com_pos[0][3], 
+            phi - phi_fb, -phi_fb/2, 
+            true
+        );
+        robot->move_leg_ik(
+            leg_left_com, com_pos[1][3], 
+            phi - phi_fb, -phi_fb/2, 
+            false
+        );
         
         // arm_pos_fb
         array<float, 2> com_r = controller.rotate_vec({leg_right_com[0], leg_right_com[1]}, -com_pos[0][3]);

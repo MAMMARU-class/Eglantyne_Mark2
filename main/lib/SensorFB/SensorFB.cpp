@@ -184,7 +184,7 @@ int SensorFB::update_rate_fb(
     if (update_rate_fb_int == 0){
         update_rate_fb_int = 1;
     }
-    Serial.println();
+    // Serial.println();
     // Serial.print("a: "); Serial.print(a, 4); Serial.print(", b: "); Serial.print(b, 4); Serial.print(", c: "); Serial.println(c, 4);
     // Serial.print("acc_ideal: "); Serial.print(acc_ideal[1], 4); Serial.print(", acc: "); Serial.println(acc, 4);
     // Serial.print("ideal y: "); Serial.print(com_pos, 4); Serial.print(", calculated y: "); Serial.println(a * t_ideal * t_ideal + c_dash, 4);

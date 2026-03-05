@@ -40,7 +40,7 @@ void Robot::setLink(){
     foot_roll_right.setMotor(serial2, 6, REVERSE);
 
 
-    leg_yaw_left.setInitialPositions(7550, 0.0, 0,0);
+    leg_yaw_left.setInitialPositions(7220, 0.0, 0,0);
     leg_yaw_left.setMotor(serial2, 7, REVERSE);
 
     leg_roll_left.setInitialPositions(8130, 0.0, 0,0);

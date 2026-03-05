@@ -16,7 +16,7 @@ void GaitController::init_param_walk(float z0){
     model.set_foot_dist_y_base(0.045f);
     model.set_foot_dist_x_max(0.12f);
     // model.set_T_sup_base(0.25f);
-    model.set_T_sup_base(0.22f);
+    model.set_T_sup_base(0.25f);
     model.set_T_sup_min(0.3f);
     model.set_fb_gain(0.01, 0.001f, 0.01f, 0.001f);
     model.calculate_initial_params();
@@ -58,7 +58,7 @@ void GaitController::init_pose(){
 
     array<float, 2> cvn_m1_start = {0.0f, model.calc_basic_unpassing_com_vel(-this->pn[1], this->T_sup)};
     this->cvn_start = model.calc_LIP_v(
-        this->T_sup, 
+        this->T_sup,
         this->T_sup,
         {-this->pn[0], -this->pn[1]}, 
         cvn_m1_start);

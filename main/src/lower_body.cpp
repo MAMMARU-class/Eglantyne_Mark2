@@ -213,10 +213,12 @@ void Core1Task(void * parameter){
 
         - Mode/Phase chaange orders
           Basic Orders: 
-          - MODE_CHANGE : Change mode between WALK and FIGHT. Change stance and control parametres whiile last half of SINGLE phase (which labeled as STANCE).
+          - MODE_CHANGE : Change mode between WALK and FIGHT.
+                          Flag...half of SINGLE phas
  
           Orders while WALK mode:
           - CROUCH      : Crouch the robot. STANCE. 
+                          Flag...half of SINGLE phase
 
           Orders while CROUCH mode:
           - STAND       : Uncrouch the robot. STANCE.
@@ -254,6 +256,14 @@ void Core1Task(void * parameter){
                 if (global_control_pkt.button_left[0] == 0){
                     order = Order::CROUCH;
                 }
+                // JUMP
+                else if (global_control_pkt.button_left[2] == 0){
+                    order = Order::JUMP;
+                }
+                // RUN
+                else if (global_control_pkt.button_right[2]== 0){
+                    order = Order::RUN;
+                }
             }
 
             // orders while CROUCH mode
@@ -265,6 +275,9 @@ void Core1Task(void * parameter){
                 // LEARN
                 else if (global_control_pkt.button_left[2] == 0){
                     order = Order::LEARN;
+                }
+                else if (global_control_pkt.button_right[2] == 0){
+                    order = Order::ROLL;
                 }
             }
 
@@ -278,6 +291,16 @@ void Core1Task(void * parameter){
                         Phase::GUARD,
                         0
                     );
+                }
+                // KICK
+                else if (global_control_pkt.button_right[2] == 0){
+                    if (global_control_pkt.button_right[1] == 0){
+                        order = Order::KICK_MIDDLE;
+                    }else if (global_control_pkt.button_left[1] == 0){
+                        order = Order::KICK_BACK;
+                    }else{
+                        order = Order::KICK_LOW;
+                    }
                 }
             }
         }
@@ -805,15 +828,15 @@ void Core1Task(void * parameter){
         }
 
         // x0 and vx0 feedback
-        if (phase == Phase::SINGLE){
-            array<float, 2> x0_vx0    = controller.get_x0_vx0();
-            array<float, 2> x0_vx0_fb = sensor.x0_vx0_fb(
-                tx,
-                x0_vx0[0], x0_vx0[1],
-                Tc, CTRL_STEP
-            );
-            controller.feedback_x0_vx0(x0_vx0_fb);
-        }
+        // if (phase == Phase::SINGLE){
+        //     array<float, 2> x0_vx0    = controller.get_x0_vx0();
+        //     array<float, 2> x0_vx0_fb = sensor.x0_vx0_fb(
+        //         tx,
+        //         x0_vx0[0], x0_vx0[1],
+        //         Tc, CTRL_STEP
+        //     );
+        //     controller.feedback_x0_vx0(x0_vx0_fb);
+        // }
 
         // arm position feedback
         array<float, 3> arm_right_pos = robot->arm_k_solver({arm_right_angles[0], arm_right_angles[1], arm_right_angles[2]});
@@ -864,21 +887,24 @@ void Core1Task(void * parameter){
             com_pos[1][2]};
 
         // print com position for debag
-        // Serial.println("com_pos:");
-        // Serial.print(com_pos[0][0]); Serial.print(", "); Serial.print(com_pos[0][1]); Serial.print(", "); Serial.println(com_pos[0][2]);
+        if (phase != Phase::WAIT){
+            Serial.println("com_pos:");
+            Serial.print(com_pos[0][0], 4); Serial.print(", "); Serial.print(com_pos[0][1], 4); Serial.print(", "); Serial.println(com_pos[0][2], 4);
+            Serial.print(com_pos[1][0], 4); Serial.print(", "); Serial.print(com_pos[1][1], 4); Serial.print(", "); Serial.println(com_pos[1][2], 4);
+        }
 
         // send order
         float phi_fb = sensor.angle_phi_fb(); // simple phi feedback
-        robot->move_leg_ik(
-            leg_right_com, com_pos[0][3], 
-            phi + phi_fb, phi_fb/2, 
-            true
-        );
-        robot->move_leg_ik(
-            leg_left_com, com_pos[1][3], 
-            phi + phi_fb, phi_fb/2, 
-            false
-        );
+        // robot->move_leg_ik(
+        //     leg_right_com, com_pos[0][3], 
+        //     phi - phi_fb, -phi_fb/2, 
+        //     true
+        // );
+        // robot->move_leg_ik(
+        //     leg_left_com, com_pos[1][3], 
+        //     phi - phi_fb, -phi_fb/2, 
+        //     false
+        // );
         
         // arm_pos_fb
         array<float, 2> com_r = controller.rotate_vec({leg_right_com[0], leg_right_com[1]}, -com_pos[0][3]);

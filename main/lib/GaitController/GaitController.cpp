@@ -9,7 +9,7 @@ CALCULATION PARAMETERS
 void GaitController::init_param_walk(float z0){
     // set max order input
     // this->set_vd_max_abs({0.09f, 0.1f, 0.6f});
-    this->set_vd_max_abs({0.00001f, 0.1f, 0.6f});
+    this->set_vd_max_abs({0.1f, 0.0f, 0.6f});
     // initialize control parameters
     model.set_z0(z0);
     // model.set_z_flight(0.025f);
@@ -50,18 +50,17 @@ void GaitController::init_param_crouch(float z0){
 
 void GaitController::init_param_fight(float z0){
     // set max order input
-    this->set_vd_max_abs({0.01f, 1.5f, 0.1f});
+    this->set_vd_max_abs({0.1f, 2.5f, 0.5f});
     // initialize control parameters
     model.set_z0(z0);
-    model.set_z_flight(0.001f);
-    model.set_foot_dist_y_base(0.06f);
+    model.set_z_flight(0.018f);
+    model.set_foot_dist_y_base(0.055f);
     model.set_foot_dist_x_max(0.12f);
-    model.set_T_sup_base(0.2f);
+    model.set_T_sup_base(0.14f);
     model.set_T_sup_min(0.3f);
-    // model.set_fb_gain(0.003, 0.0003f, 0.003, 0.0003);
     model.set_fb_gain(0.01, 0.001f, 0.01, 0.001);
     model.calculate_initial_params();
-    set_ds_ratio(0.2f);
+    set_ds_ratio(0.15f);
 
     this->T_sup = model.get_T_sup_base();
     this->T_ds = this->T_sup * this->ds_ratio;
@@ -238,7 +237,7 @@ void GaitController::update_state_variables(array<float, 3> vd){
 void GaitController::init_side(array<float, 3> vd){
     // initialize T_sup_x
     float T_sup_side_small = 0.17f;
-    float T_sup_side_large = 0.17f;
+    float T_sup_side_large = 0.12f;
     if (pivot_sign(this->pivot) != int(vd[1]/abs(vd[1]))){
         this->T_sup = T_sup_side_small;
         this->T_sup_next = T_sup_side_large;
@@ -307,7 +306,7 @@ void GaitController::update_state_variables_side(array<float, 3> vd){
         // Serial.println("non-pivot side");
         // foot pos that COM stops at t=T_sup
         // Serial.print("cvn_last_local[1]: "); Serial.println(cvn_last_local[1], 4);
-        this->pn_p1[1] = model.calc_basic_unpassing_foot_pos(cvn_last_local[1], this->T_sup_next * 1.7f);
+        this->pn_p1[1] = model.calc_basic_unpassing_foot_pos(cvn_last_local[1], this->T_sup_next * 1.2f);
         // Serial.print("pn_p1[1]: "); Serial.println(pn_p1[1], 4);
     }
 

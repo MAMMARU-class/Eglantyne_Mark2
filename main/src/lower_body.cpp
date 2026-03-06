@@ -11,20 +11,20 @@ STANCE_INFO stance_walk = {
     .relative_body_pos   = 0.0f,
     .relative_leg_angle  = 0.0f
 };
-// STANCE_INFO stance_fight = {
-//     .height_diff         = 0.0f,
-//     .relative_body_angle = 20 * PI / 180.0f,
-//     .relative_body_pos   = -0.005f,
-//     .relative_leg_angle  = -30.0 * PI / 180.0f
-//     // .relative_leg_angle  = 0.0 * PI / 180.0f
-// };
 STANCE_INFO stance_fight = {
     .height_diff         = 0.0f,
-    .relative_body_angle = 0.0 * PI / 180.0f,
-    .relative_body_pos   = 0.0f,
-    .relative_leg_angle  = 0.0 * PI / 180.0f
+    .relative_body_angle = 20 * PI / 180.0f,
+    .relative_body_pos   = -0.012f,
+    .relative_leg_angle  = -30.0 * PI / 180.0f
     // .relative_leg_angle  = 0.0 * PI / 180.0f
 };
+// STANCE_INFO stance_fight = {
+//     .height_diff         = 0.0f,
+//     .relative_body_angle = 0.0 * PI / 180.0f,
+//     .relative_body_pos   = 0.0f,
+//     .relative_leg_angle  = 0.0 * PI / 180.0f
+//     // .relative_leg_angle  = 0.0 * PI / 180.0f
+// };
 STANCE_INFO stance_crouch = stance_walk;
 STANCE_INFO stance = stance_walk;
 STANCE_INFO stance_next;
@@ -120,21 +120,21 @@ void update_phase(){
         abs(global_control_pkt.stick_right[1]) < CMD_MIN && 
         abs(global_control_pkt.stick_left[1]) < CMD_MIN){
             phase_next = Phase::END;
-    }else if (mode == Mode::FIGHT && abs(global_control_pkt.stick_right[1]) > 3 * CMD_MIN){
-        if(phase == Phase::SIDE){
-            phase_next = Phase::SIDE;
-        }else{
-            if( (global_control_pkt.stick_right[1] > 0 && !controller.pivot_right()) ||
-                (global_control_pkt.stick_right[1] < 0 &&  controller.pivot_right()) ){
-                phase_next = Phase::SIDE;
-            }else{
-                phase_next = Phase::DOUBLE;
-            }
-        }
-    }
-    else if (phase == Phase::SIDE){
-        // do not transit to DOUBLE after SIDE
-        phase_next = Phase::END;
+    // }else if (mode == Mode::FIGHT && abs(global_control_pkt.stick_right[1]) > 3 * CMD_MIN){
+    //     if(phase == Phase::SIDE){
+    //         phase_next = Phase::SIDE;
+    //     }else{
+    //         if( (global_control_pkt.stick_right[1] > 0 && !controller.pivot_right()) ||
+    //             (global_control_pkt.stick_right[1] < 0 &&  controller.pivot_right()) ){
+    //             phase_next = Phase::SIDE;
+    //         }else{
+    //             phase_next = Phase::DOUBLE;
+    //         }
+    //     }
+    // }
+    // else if (phase == Phase::SIDE){
+    //     // do not transit to DOUBLE after SIDE
+    //     phase_next = Phase::END;
     }else{
         phase_next = Phase::DOUBLE;
     }
@@ -960,40 +960,39 @@ void Core1Task(void * parameter){
         FIGHT MODE EXCEPTIONS
         ######################################################################### */
                 // dont make swing leg in FIGHT mode
-        if (mode == Mode::FIGHT && (phase == Phase::SINGLE || phase == Phase::DOUBLE)){
-            float height = max(com_pos[0][2], com_pos[1][2]);
-            com_pos[0][2] = height;
-            com_pos[1][2] = height;
-        }
-        // constrain y distance while FIGHT mode
-        float foot_dist_y_base = controller.get_foot_dist_y_base();
-        if (mode == Mode::FIGHT && phase == Phase::SIDE){
-            if (abs(com_pos[0][1]) < foot_dist_y_base* 0.6 || 
-                abs(com_pos[0][1]) > foot_dist_y_base* 1.8){
-                com_pos[0][1] = foot_dist_y_base * (com_pos[0][1] / abs(com_pos[0][1]));
-            }
-            if (abs(com_pos[1][1]) < foot_dist_y_base* 0.6 || 
-                abs(com_pos[1][1]) > foot_dist_y_base* 1.8){
-                com_pos[1][1] = foot_dist_y_base * (com_pos[1][1] / abs(com_pos[1][1]));
-            }
-            // Serial.print("com_pos[0][2]: "); Serial.print(com_pos[0][2], 4); Serial.print(", com_pos[1][2]: "); Serial.println(com_pos[1][2], 4);
-            if (vd[1] < 0 && com_pos[0][2] < com_pos[1][2]){
-                com_pos[0][2] = com_pos[1][2] - (com_pos[1][2] - com_pos[0][2]) * 15.0f;
-                // Serial.print("com_pos[0][2]: "); Serial.println(com_pos[0][2], 4);
-            }else if (vd[1] > 0 && com_pos[1][2] < com_pos[0][2]){
-                com_pos[1][2] = com_pos[0][2] - (com_pos[0][2] - com_pos[1][2]) * 15.0f;
-                // Serial.print("com_pos[1][2]: "); Serial.println(com_pos[1][2], 4);
-            }
-        }else if (mode == Mode::FIGHT){
-            if (abs(com_pos[0][1]) < foot_dist_y_base - 0.012 ||
-                abs(com_pos[0][1]) > foot_dist_y_base + 0.012){
-                com_pos[0][1] = foot_dist_y_base * (com_pos[0][1] / abs(com_pos[0][1]));
-            }
-            if (abs(com_pos[1][1]) < foot_dist_y_base - 0.012 ||
-                abs(com_pos[1][1]) > foot_dist_y_base + 0.012){
-                com_pos[1][1] = foot_dist_y_base * (com_pos[1][1] / abs(com_pos[1][1]));
-            }
-        }
+        // if (mode == Mode::FIGHT && (phase == Phase::SINGLE || phase == Phase::DOUBLE)){
+        //     float height = max(com_pos[0][2], com_pos[1][2]);
+        //     com_pos[0][2] = height;
+        //     com_pos[1][2] = height;
+        // }
+        // // constrain y distance while FIGHT mode
+        // float foot_dist_y_base = controller.get_foot_dist_y_base();
+        // if (mode == Mode::FIGHT && phase == Phase::SIDE){
+        //     if (abs(com_pos[0][1]) < foot_dist_y_base* 0.6 || 
+        //         abs(com_pos[0][1]) > foot_dist_y_base* 2){
+        //         com_pos[0][1] = foot_dist_y_base * (com_pos[0][1] / abs(com_pos[0][1]));
+        //     }
+        //     if (abs(com_pos[1][1]) < foot_dist_y_base* 0.6 || 
+        //         abs(com_pos[1][1]) > foot_dist_y_base* 2){
+        //         com_pos[1][1] = foot_dist_y_base * (com_pos[1][1] / abs(com_pos[1][1]));
+        //     }
+        //     // Serial.print("com_pos[0][2]: "); Serial.print(com_pos[0][2], 4); Serial.print(", com_pos[1][2]: "); Serial.println(com_pos[1][2], 4);
+        //     if (vd[1] < 0 && com_pos[0][2] < com_pos[1][2]){
+        //         com_pos[0][2] = com_pos[1][2] - (com_pos[1][2] - com_pos[0][2]) * 15.0f;
+        //         // Serial.print("com_pos[0][2]: "); Serial.println(com_pos[0][2], 4);
+        //     }else if (vd[1] > 0 && com_pos[1][2] < com_pos[0][2]){
+        //         com_pos[1][2] = com_pos[0][2] - (com_pos[0][2] - com_pos[1][2]) * 15.0f;
+        //         // Serial.print("com_pos[1][2]: "); Serial.println(com_pos[1][2], 4);
+        // }else if (mode == Mode::FIGHT){
+        //     if (abs(com_pos[0][1]) < foot_dist_y_base - 0.02 ||
+        //         abs(com_pos[0][1]) > foot_dist_y_base + 0.02){
+        //         com_pos[0][1] = foot_dist_y_base * (com_pos[0][1] / abs(com_pos[0][1]));
+        //     }
+        //     if (abs(com_pos[1][1]) < foot_dist_y_base - 0.02 ||
+        //         abs(com_pos[1][1]) > foot_dist_y_base + 0.02){
+        //         com_pos[1][1] = foot_dist_y_base * (com_pos[1][1] / abs(com_pos[1][1]));
+        //     }
+        // }
 
         /* #########################################################################
         FEEDBACK

@@ -42,6 +42,7 @@ public:
     void set_body_angle(float body_angle){ this->body_angle = body_angle; }
 
     void init_param_walk(float z0);
+    void init_param_side(float z0);
     void init_param_crouch(float z0);
     void init_param_fight(float z0);
     void init_pose();

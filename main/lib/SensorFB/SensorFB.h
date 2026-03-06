@@ -37,6 +37,8 @@ public:
         float com_pos);
     array<float, 2> x0_vx0_fb(float tx, float x0, float vx0, float Tc, int control_step, float com_x_pos);
 
+    // setters
+    void set_update_rate_fb_gains(float kp, float kd){ this->kp_update_rate = kp; this->kd_update_rate = kd; }
     // getters
     float get_l_pivot2com(){ return l_pivot2com; }
 
@@ -54,18 +56,23 @@ private:
     float l_pivot2com = 0.07;
 
     // gains
-    float kp_angle_com   = 0.3f;
-    float kd_angle_com   = 0.001f;
+    // float kp_angle_com   = 0.5f;
+    // float kd_angle_com   = 0.01f;
+    float kp_angle_com   = 0.0f;
+    float kd_angle_com   = 0.0f;
 
-    float kp_phi_body    = 0.65f;
+    float kp_phi_body    = 0.55f;
     float kd_phi_body    = 0.01f;
+    // float kp_phi_body    = 0.0f;
+    // float kd_phi_body    = 0.0f;
 
     float kp_angle_vd    = 0.001f;
     float kd_angle_vd    = 0.0f;
 
-    // float kp_update_rate = 5.5f;
     float kp_update_rate = 7.0f;
     float kd_update_rate = 0.5f;
+    // float kp_update_rate = 1.0f;
+    // float kd_update_rate = 0.03f;
 
     // float kp_x0_vx0 = 0.0015f;
     // float kd_x0_vx0 = 0.00005f;

@@ -91,8 +91,13 @@ void lower_body_control_init(Robot* r, MotionSD* s){
 array<float, 3> update_vel(array<float, 3> vd, Order order){
     if (!connected){
         vd = {0.0f, 0.0f, 0.0f};
+        global_control_pkt.stick_right[0] = 0.0f;
+        global_control_pkt.stick_right[1] = 0.0f;
+        global_control_pkt.stick_left[1] = 0.0f;
+        global_control_pkt.stick_left[2] = 0.0f;
         return vd;
     }
+
     array<float, 3> vd_max_abs = controller.get_vd_max_abs();
     vd[0] = global_control_pkt.stick_right[0] * vd_max_abs[0];
     vd[1] = global_control_pkt.stick_right[1] * vd_max_abs[1];
@@ -120,21 +125,24 @@ void update_phase(){
         abs(global_control_pkt.stick_right[1]) < CMD_MIN && 
         abs(global_control_pkt.stick_left[1]) < CMD_MIN){
             phase_next = Phase::END;
-    // }else if (mode == Mode::FIGHT && abs(global_control_pkt.stick_right[1]) > 3 * CMD_MIN){
-    //     if(phase == Phase::SIDE){
-    //         phase_next = Phase::SIDE;
-    //     }else{
-    //         if( (global_control_pkt.stick_right[1] > 0 && !controller.pivot_right()) ||
-    //             (global_control_pkt.stick_right[1] < 0 &&  controller.pivot_right()) ){
-    //             phase_next = Phase::SIDE;
-    //         }else{
-    //             phase_next = Phase::DOUBLE;
-    //         }
-    //     }
-    // }
-    // else if (phase == Phase::SIDE){
-    //     // do not transit to DOUBLE after SIDE
-    //     phase_next = Phase::END;
+    }else if (mode == Mode::SIDE && abs(global_control_pkt.stick_right[1]) > CMD_MIN){
+        if(phase == Phase::SIDE){
+            phase_next = Phase::SIDE;
+        }else{
+            if( (global_control_pkt.stick_right[1] > 0 && !controller.pivot_right()) ||
+                (global_control_pkt.stick_right[1] < 0 &&  controller.pivot_right()) ){
+                controller.init_param_side(HEIGHT_WALK);
+                phase_next = Phase::SIDE;
+            }else{
+                phase_next = Phase::DOUBLE;
+            }
+        }
+    }
+    else if (phase == Phase::SIDE){
+        // do not transit to DOUBLE after SIDE
+        controller.init_param_walk(HEIGHT_WALK);
+        mode = Mode::WALK;
+        phase_next = Phase::END;
     }else{
         phase_next = Phase::DOUBLE;
     }
@@ -227,6 +235,7 @@ void Core1Task(void * parameter){
         Mode/Phase change order will be executed after first order is finished.
         - Motion Control orders:
           - body angle order: change body angle accordance with button[1]. move larger if FIGHT mode.
+          - SIDE mode
 
         - Mode/Phase chaange orders
           Basic Orders: 
@@ -256,6 +265,24 @@ void Core1Task(void * parameter){
             theta_order = -BODY_ANGLE_SMALL;
         }else{
             theta_order = 0.0f;
+        }
+        
+        if (mode_last == Mode::WALK && global_control_pkt.stick_right[2] == 0){
+            controller.init_param_side(HEIGHT_WALK);
+            controller.init_pose();
+            mode = Mode::SIDE;
+            init_phase(
+                Mode::SIDE,
+                Phase::END,
+                0
+            );
+        }if (mode_last == Mode::SIDE && global_control_pkt.stick_right[2] != 0){
+            controller.init_param_walk(HEIGHT_WALK);
+            init_phase(
+                Mode::WALK,
+                Phase::END,
+                0
+            );
         }
 
         // Mode/Phase change orders
@@ -389,7 +416,7 @@ void Core1Task(void * parameter){
         }
 
         // initialize parameters after fallen down
-        if (phase == Phase::WAKE){
+        if (phase == Phase::WAKE || (phase == Phase::WAIT && !connected)){
             theta = 0.0f;
             phi = 0.0f;
             order = Order::NONE;
@@ -959,38 +986,30 @@ void Core1Task(void * parameter){
         /* #########################################################################
         FIGHT MODE EXCEPTIONS
         ######################################################################### */
-                // dont make swing leg in FIGHT mode
-        // if (mode == Mode::FIGHT && (phase == Phase::SINGLE || phase == Phase::DOUBLE)){
-        //     float height = max(com_pos[0][2], com_pos[1][2]);
-        //     com_pos[0][2] = height;
-        //     com_pos[1][2] = height;
-        // }
-        // // constrain y distance while FIGHT mode
-        // float foot_dist_y_base = controller.get_foot_dist_y_base();
-        // if (mode == Mode::FIGHT && phase == Phase::SIDE){
-        //     if (abs(com_pos[0][1]) < foot_dist_y_base* 0.6 || 
-        //         abs(com_pos[0][1]) > foot_dist_y_base* 2){
-        //         com_pos[0][1] = foot_dist_y_base * (com_pos[0][1] / abs(com_pos[0][1]));
+        // dont make swing leg in FIGHT mode
+        float foot_dist_y_base = controller.get_foot_dist_y_base();
+        if (mode == Mode::SIDE){
+            if (com_pos[0][1] < 0){
+                com_pos[0][1] *= -1;
+            }
+            if (com_pos[1][1] > 0){
+                com_pos[1][1] *= -1;
+            }
+            if (abs(com_pos[0][1]) < foot_dist_y_base - 0.015f ||
+                abs(com_pos[0][1]) > foot_dist_y_base + 0.015f){
+                com_pos[0][1] = foot_dist_y_base * (com_pos[0][1] / abs(com_pos[0][1]));
+            }
+            if (abs(com_pos[1][1]) < foot_dist_y_base - 0.015f || 
+                abs(com_pos[1][1]) > foot_dist_y_base + 0.015f){
+                com_pos[1][1] = foot_dist_y_base * (com_pos[1][1] / abs(com_pos[1][1]));
+            }
+        }
+        // if (mode == Mode::SIDE){
+        //     if (vd[1] > 0 && com_pos[0][2] < com_pos[1][2]){
+        //         com_pos[0][2] = com_pos[1][2] - (com_pos[1][2] - com_pos[0][2]) * 3;
         //     }
-        //     if (abs(com_pos[1][1]) < foot_dist_y_base* 0.6 || 
-        //         abs(com_pos[1][1]) > foot_dist_y_base* 2){
-        //         com_pos[1][1] = foot_dist_y_base * (com_pos[1][1] / abs(com_pos[1][1]));
-        //     }
-        //     // Serial.print("com_pos[0][2]: "); Serial.print(com_pos[0][2], 4); Serial.print(", com_pos[1][2]: "); Serial.println(com_pos[1][2], 4);
-        //     if (vd[1] < 0 && com_pos[0][2] < com_pos[1][2]){
-        //         com_pos[0][2] = com_pos[1][2] - (com_pos[1][2] - com_pos[0][2]) * 15.0f;
-        //         // Serial.print("com_pos[0][2]: "); Serial.println(com_pos[0][2], 4);
-        //     }else if (vd[1] > 0 && com_pos[1][2] < com_pos[0][2]){
-        //         com_pos[1][2] = com_pos[0][2] - (com_pos[0][2] - com_pos[1][2]) * 15.0f;
-        //         // Serial.print("com_pos[1][2]: "); Serial.println(com_pos[1][2], 4);
-        // }else if (mode == Mode::FIGHT){
-        //     if (abs(com_pos[0][1]) < foot_dist_y_base - 0.02 ||
-        //         abs(com_pos[0][1]) > foot_dist_y_base + 0.02){
-        //         com_pos[0][1] = foot_dist_y_base * (com_pos[0][1] / abs(com_pos[0][1]));
-        //     }
-        //     if (abs(com_pos[1][1]) < foot_dist_y_base - 0.02 ||
-        //         abs(com_pos[1][1]) > foot_dist_y_base + 0.02){
-        //         com_pos[1][1] = foot_dist_y_base * (com_pos[1][1] / abs(com_pos[1][1]));
+        //     if (vd[1] > 0 && com_pos[1][2] < com_pos[0][2]){
+        //         com_pos[1][2] = com_pos[0][2] - (com_pos[0][2] - com_pos[1][2]) * 3;
         //     }
         // }
 
@@ -1023,7 +1042,12 @@ void Core1Task(void * parameter){
         // update_rate feedback
         array<float, 2> acc_ideal = {com_pos[2][0], com_pos[2][1]};
         float Tc = controller.get_Tc();
-        if (phase == Phase::SINGLE){
+        if (phase == Phase::SINGLE || phase == Phase::SIDE){
+            if (phase == Phase::SINGLE){
+                sensor.set_update_rate_fb_gains(7.0, 0.5);
+            }else{
+                sensor.set_update_rate_fb_gains(1.0, 0.03);
+            }
             // com calculation check
             float com_y_pos;
             if(controller.is_pivot_right()){

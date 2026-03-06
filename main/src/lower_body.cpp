@@ -11,11 +11,18 @@ STANCE_INFO stance_walk = {
     .relative_body_pos   = 0.0f,
     .relative_leg_angle  = 0.0f
 };
+// STANCE_INFO stance_fight = {
+//     .height_diff         = 0.0f,
+//     .relative_body_angle = 20 * PI / 180.0f,
+//     .relative_body_pos   = -0.005f,
+//     .relative_leg_angle  = -30.0 * PI / 180.0f
+//     // .relative_leg_angle  = 0.0 * PI / 180.0f
+// };
 STANCE_INFO stance_fight = {
     .height_diff         = 0.0f,
-    .relative_body_angle = 20 * PI / 180.0f,
-    .relative_body_pos   = -0.005f,
-    .relative_leg_angle  = -30.0 * PI / 180.0f
+    .relative_body_angle = 0.0 * PI / 180.0f,
+    .relative_body_pos   = 0.0f,
+    .relative_leg_angle  = 0.0 * PI / 180.0f
     // .relative_leg_angle  = 0.0 * PI / 180.0f
 };
 STANCE_INFO stance_crouch = stance_walk;
@@ -112,9 +119,23 @@ void update_phase(){
         abs(global_control_pkt.stick_right[0]) < CMD_MIN && 
         abs(global_control_pkt.stick_right[1]) < CMD_MIN && 
         abs(global_control_pkt.stick_left[1]) < CMD_MIN){
-        phase_next = Phase::END;
+            phase_next = Phase::END;
+    }else if (mode == Mode::FIGHT && abs(global_control_pkt.stick_right[1]) > 3 * CMD_MIN){
+        if(phase == Phase::SIDE){
+            phase_next = Phase::SIDE;
+        }else{
+            if( (global_control_pkt.stick_right[1] > 0 && !controller.pivot_right()) ||
+                (global_control_pkt.stick_right[1] < 0 &&  controller.pivot_right()) ){
+                phase_next = Phase::SIDE;
+            }else{
+                phase_next = Phase::DOUBLE;
+            }
+        }
     }
-    else{
+    else if (phase == Phase::SIDE){
+        // do not transit to DOUBLE after SIDE
+        phase_next = Phase::END;
+    }else{
         phase_next = Phase::DOUBLE;
     }
 }
@@ -222,9 +243,6 @@ void Core1Task(void * parameter){
 
           Orders while FIGHT mode:
           - GUARD       : if not in CROUCH mode, take guard pose. Switch to GUARD phase. Release guard button to switch back to WAIT phase.
-
-        - Extended orders:
-          - THROW       : while Order is LEARN. Throw holding object.
         ######################################################################### */
         // Motion control orders
         // body angle order
@@ -300,10 +318,6 @@ void Core1Task(void * parameter){
                 }
             }
         }
-
-        if (order == Order::LEARN && global_control_pkt.button_right[2] == 0){
-            order = Order::THROW;
-        }
         /* #########################################################################
         ORDER AND MODE INITIALIZEAITON
         In the first step, check
@@ -311,6 +325,7 @@ void Core1Task(void * parameter){
         - Fall                      -> Switch to FALL phase
         - Velocity update           -> Update vd with controller input and sensor feedback. Switch to WALK mode if vd is large enough
         - After fallen down (WAKE)  -> initialize parameters
+        - Order detect              -> if in WAIT mode execute order (change phase)
         ##########################################################################*/
         // show Mode
         // switch(mode){
@@ -343,6 +358,7 @@ void Core1Task(void * parameter){
 
         // fall check
         if(sensor.fall() && phase != Phase::FALL && phase != Phase::WAKE){
+            order = Order::NONE;
             init_phase(
                 Mode::WALK,
                 Phase::FALL,
@@ -377,6 +393,58 @@ void Core1Task(void * parameter){
             theta = 0.0f;
             phi = 0.0f;
             order = Order::NONE;
+        }
+
+        // order execution
+        if (mode == Mode::WAIT){
+            // order while WALK
+            if (order == Order::JUMP){
+                init_phase(
+                    mode_last,
+                    Phase::JUMP,
+                    0
+                );
+            }
+            // order while CROUCH
+            else if (order == Order::LEARN){
+                init_phase(
+                    mode_last,
+                    Phase::LEARN,
+                    0
+                );
+            }else if (order == Order::ROLL){
+                init_phase(
+                    mode_last,
+                    Phase::ROLL,
+                    0
+                );
+            }
+            // order while FIGHT
+            else if (order == Order::GUARD){
+                init_phase(
+                    mode_last,
+                    Phase::GUARD,
+                    0
+                );
+            }else if (order == Order::KICK_LOW){
+                init_phase(
+                    mode_last,
+                    Phase::KICK_LOW,
+                    0
+                );
+            }else if(order == Order::KICK_MIDDLE){
+                init_phase(
+                    mode_last,
+                    Phase::KICK_MIDDLE,
+                    0
+                );
+            }else if(order == Order::KICK_BACK){
+                init_phase(
+                    mode_last,
+                    Phase::KICK_BACK,
+                    0
+                );
+            }
         }
 
         /* #########################################################################
@@ -650,9 +718,7 @@ void Core1Task(void * parameter){
                 order_free = false;
 
                 // after fall, do not start from CROUCH.
-                if(mode == Mode::CROUCH){
-                    mode = Mode::WALK;
-                }
+
 
                 // phase transition
                 init_phase(
@@ -660,6 +726,13 @@ void Core1Task(void * parameter){
                     Phase::WAIT,
                     0
                 );
+
+                // initialize pose to WALK
+                controller.init_param_walk(HEIGHT_WALK);
+                com_pos = controller.get_default_com_pos();
+                stance = stance_walk;
+                phi_order = 0.0f;
+
                 break;
             }
 
@@ -667,15 +740,12 @@ void Core1Task(void * parameter){
             order while WALK
             ####################################################### */
             case Phase::JUMP:{
-                if(phase_count == 0){
-                    jump_state = JumpState::CROUCH;
-                    Serial.println("phase: JUMP");
-                }
                 com_pos = controller.get_default_com_pos();
                 switch (jump_state){
                     case JumpState::CROUCH:{
                         // shrink until jump preparation height
                         if(stance.height_diff > HEIGHT_JUMP - HEIGHT_WALK){
+                            phi_order = PHI_JUMP;
                             stance.height_diff -= HEIGHT_UPDATE_RATE;
                         }else{
                             stance.height_diff = HEIGHT_JUMP - HEIGHT_WALK;
@@ -684,39 +754,54 @@ void Core1Task(void * parameter){
                         break;
                     }
                     case JumpState::EXTEND:{
-                        if(sensor.fly()){
-                            stance.height_diff = 0;
-                            jump_state = JumpState::FLY;
-                        }else{
-                            stance.height_diff = 0.05f;
-                        }
-                        break;
-                    }
-                    case JumpState::FLY:{
-                        if(sensor.hit_ground()){
-                            jump_state = JumpState::HIT;
-                            phase_count = 1;
-                        }
-                        break;
-                    }
-                    case JumpState::HIT:{
-                        phase_length = 20;
-                        float diff_aim = HEIGHT_JUMP - HEIGHT_WALK;
-                        float a = diff_aim / (phase_length * phase_length);
+                        kp_phi = 1.0;
+                        phi_order = 0.0f;
+                        stance = stance_walk;
+                        jump_state = JumpState::HIT;
+                        // if(sensor.fly()){
+                        //     stance.height_diff = 0;
+                        //     jump_state = JumpState::FLY;
+                        // }else{
+                        //     stance.height_diff = 0.05f;
+                        // }
 
-                        float t = phase_count - phase_length;
-                        stance.height_diff = a*t*t - diff_aim;
-
-                        if (phase_count == phase_length){
-                            init_phase(
-                                mode,
-                                Phase::END,
-                                0
-                            );
-                            jump_state = JumpState::CROUCH;
-                        }
+                    }case JumpState::HIT:{
+                        kp_phi = KP_PHI_BASE;
+                        jump_state = JumpState::CROUCH;
+                        order = Order::NONE;
+                        init_phase(
+                            mode,
+                            Phase::END,
+                            0
+                        );
                         break;
                     }
+                    // case JumpState::FLY:{
+                    //     if(sensor.hit_ground()){
+                    //         jump_state = JumpState::HIT;
+                    //         phase_count = 0;
+                    //     }
+                    //     break;
+                    // }
+                    // case JumpState::HIT:{
+                    //     phase_length = 20;
+                    //     float diff_aim = HEIGHT_JUMP - HEIGHT_WALK;
+                    //     float a = diff_aim / (phase_length * phase_length);
+
+                    //     float t = phase_count - phase_length;
+                    //     stance.height_diff = a*t*t - diff_aim;
+
+                    //     if (phase_count == phase_length){
+                    //         order = Order::NONE;
+                    //         init_phase(
+                    //             mode,
+                    //             Phase::END,
+                    //             0
+                    //         );
+                    //         jump_state = JumpState::CROUCH;
+                    //     }
+                    //     break;
+                    // }
                 }
                 phase_count += 1;
                 break;
@@ -729,6 +814,34 @@ void Core1Task(void * parameter){
             order while CROUCH
             ####################################################### */
             case Phase::LEARN:{
+                if (phase_count == 0){
+                    Serial.println("phase: LEARN");
+                    array<float, LINK_SIZE> motion = sd->read_motion("/LEARN.csv", 0);
+                    array<float, 6> LEARN_leg_right = {motion[6], motion[7], motion[8], motion[9], motion[10], motion[11]};
+                    array<float, 6> LEARN_leg_left = {motion[12], motion[13], motion[14], motion[15], motion[16], motion[17]};
+
+                    robot->move_leg_t(LEARN_leg_right, LEARN_leg_left, 0.25f);
+                }
+
+                phase_count++;
+
+                if (global_control_pkt.button_left[2] == 1){   
+                    order = Order::NONE;
+                    com_pos = controller.get_default_com_pos();
+                    phi_order = PHI_CROUCH;
+                    float l_pivot2com = sensor.get_l_pivot2com();
+                    float com_x_diff = l_pivot2com * sin(phi_order);
+                    robot->move_leg_ik_t(
+                        {com_pos[0][0] - com_x_diff, com_pos[0][1], com_pos[0][2]}, 0,phi_order,0,
+                        {com_pos[1][0] - com_x_diff, com_pos[1][1], com_pos[1][2]}, 0,phi_order,0,
+                        0.25f
+                    );
+                    init_phase(
+                        Mode::WAIT,
+                        Phase::WAIT,
+                        0
+                    );
+                }
                 break;
             }
 
@@ -743,6 +856,48 @@ void Core1Task(void * parameter){
             /* #######################################################
             order while FIGHT
             ####################################################### */
+            case Phase::SIDE:{
+                if (phase_count == 0){
+                    Serial.println("phase: SIDE");
+                    controller.inverse_pivot();
+                    controller.init_side(vd);
+                    controller.init_single();
+                    single_calculated = false;
+                    // re-initialize phase to set correct phase length
+                    init_phase(
+                        mode,
+                        Phase::SIDE,
+                        controller.get_T_sup()
+                    );
+                }
+                if (!single_calculated && phase_count >= int(phase_length/2)){
+                    Serial.println("calculate single");
+                    single_calculated = true;
+                    // update state variables in gait controller
+                    controller.update_state_variables_side(vd);
+                    update_phase();
+                }
+                com_pos = controller.calc_com_traj_single(
+                    single_calculated,
+                    phase_count / (float)CTRL_STEP / (float)UPDATE_RATE_BASE,
+                    phase_count / (float)CTRL_STEP / (float)UPDATE_RATE_BASE
+                );
+
+                // phase transition
+                phase_count += update_rate;
+                if (phase_count >= phase_length){
+                    if(phase_next != Phase::SIDE){
+                        com_pos = controller.get_default_com_pos();
+                    }
+                    init_phase(
+                        mode,
+                        phase_next,
+                        controller.get_T_sup()
+                    );
+                }
+                break;
+            }
+
             case Phase::GUARD:{
                 // set com pos to default pose
                 com_pos = controller.get_default_com_pos();
@@ -792,22 +947,69 @@ void Core1Task(void * parameter){
         }
 
         /* #########################################################################
+        Skip the rest in exceptional states.
+        ##########################################################################*/
+        if (phase == Phase::FALL || phase == Phase::WAKE ||
+            phase == Phase::LEARN ||
+            phase == Phase::GUARD){
+            // do nothing
+            continue;
+        }
+
+        /* #########################################################################
+        FIGHT MODE EXCEPTIONS
+        ######################################################################### */
+                // dont make swing leg in FIGHT mode
+        if (mode == Mode::FIGHT && (phase == Phase::SINGLE || phase == Phase::DOUBLE)){
+            float height = max(com_pos[0][2], com_pos[1][2]);
+            com_pos[0][2] = height;
+            com_pos[1][2] = height;
+        }
+        // constrain y distance while FIGHT mode
+        float foot_dist_y_base = controller.get_foot_dist_y_base();
+        if (mode == Mode::FIGHT && phase == Phase::SIDE){
+            if (abs(com_pos[0][1]) < foot_dist_y_base* 0.6 || 
+                abs(com_pos[0][1]) > foot_dist_y_base* 1.8){
+                com_pos[0][1] = foot_dist_y_base * (com_pos[0][1] / abs(com_pos[0][1]));
+            }
+            if (abs(com_pos[1][1]) < foot_dist_y_base* 0.6 || 
+                abs(com_pos[1][1]) > foot_dist_y_base* 1.8){
+                com_pos[1][1] = foot_dist_y_base * (com_pos[1][1] / abs(com_pos[1][1]));
+            }
+            // Serial.print("com_pos[0][2]: "); Serial.print(com_pos[0][2], 4); Serial.print(", com_pos[1][2]: "); Serial.println(com_pos[1][2], 4);
+            if (vd[1] < 0 && com_pos[0][2] < com_pos[1][2]){
+                com_pos[0][2] = com_pos[1][2] - (com_pos[1][2] - com_pos[0][2]) * 15.0f;
+                // Serial.print("com_pos[0][2]: "); Serial.println(com_pos[0][2], 4);
+            }else if (vd[1] > 0 && com_pos[1][2] < com_pos[0][2]){
+                com_pos[1][2] = com_pos[0][2] - (com_pos[0][2] - com_pos[1][2]) * 15.0f;
+                // Serial.print("com_pos[1][2]: "); Serial.println(com_pos[1][2], 4);
+            }
+        }else if (mode == Mode::FIGHT){
+            if (abs(com_pos[0][1]) < foot_dist_y_base - 0.012 ||
+                abs(com_pos[0][1]) > foot_dist_y_base + 0.012){
+                com_pos[0][1] = foot_dist_y_base * (com_pos[0][1] / abs(com_pos[0][1]));
+            }
+            if (abs(com_pos[1][1]) < foot_dist_y_base - 0.012 ||
+                abs(com_pos[1][1]) > foot_dist_y_base + 0.012){
+                com_pos[1][1] = foot_dist_y_base * (com_pos[1][1] / abs(com_pos[1][1]));
+            }
+        }
+
+        /* #########################################################################
         FEEDBACK
+        - FIGHT mode exceptions
+        - arm position feedback
         - attach stance
         - sensor feedback (angle)
         - sensor feedback (update rate)
         - sensor feedback (x0 and vx0)
         - START exception
-        - arm position feedback
         - body rotation
         ##########################################################################*/
         // arm_pos feedback
         com_x[0] = com_pos[0][0];
         com_x[1] = com_pos[1][0];
-        if (phase == Phase::FALL || phase == Phase::WAKE){
-            // do nothing
-            continue;
-        }
+
         // attach stance
         com_pos = attach_stance(com_pos, stance);
 
@@ -919,7 +1121,7 @@ void Core1Task(void * parameter){
             com_pos[1][2]};
 
         // print com position for debag
-        // if (phase != Phase::WAIT){
+        // if (phase == Phase::SIDE){
         //     Serial.println("com_pos:");
         //     Serial.print(com_pos[0][0], 4); Serial.print(", "); Serial.print(com_pos[0][1], 4); Serial.print(", "); Serial.println(com_pos[0][2], 4);
         //     Serial.print(com_pos[1][0], 4); Serial.print(", "); Serial.print(com_pos[1][1], 4); Serial.print(", "); Serial.println(com_pos[1][2], 4);

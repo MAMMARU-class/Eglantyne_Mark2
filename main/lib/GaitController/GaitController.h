@@ -11,8 +11,8 @@
 #define HEIGHT_GUARD 0.12f
 
 #define HEIGHT_JUMP 0.1f
-
-#define HEIGHT_UPDATE_RATE 0.03
+#define PHI_JUMP 20.0f * PI / 180.0f
+#define HEIGHT_UPDATE_RATE 0.001f
 
 using std::array;
 
@@ -56,6 +56,8 @@ public:
     // update state variables
     void init_state_variables(bool zero_start = false, bool zero_end = false);
     void update_state_variables(array<float, 3> vd);
+    void init_side(array<float, 3> vd);
+    void update_state_variables_side(array<float, 3> vd);
     void feedback_x0_vx0(array<float, 2> x0_vx0_fb){
         this->pn_p1[0] -= x0_vx0_fb[0];
         this->pn[0] -= x0_vx0_fb[0];
@@ -104,6 +106,7 @@ public:
     array<float, 2> rotate_vec(const array<float, 2>& vec, float angle){
         return model.rotate_vec(vec, angle);
     }
+    float get_foot_dist_y_base(){ return model.get_foot_dist_y_base(); }
 
 private:
     // model
@@ -129,6 +132,7 @@ private:
     // phase time
     float T_sup;
     float T_sup_x;
+    float T_sup_next;
 
     // double support calculation
     float T_ds;

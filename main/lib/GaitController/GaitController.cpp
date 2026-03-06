@@ -35,7 +35,7 @@ void GaitController::init_param_crouch(float z0){
     model.set_z0(z0);
     // model.set_z_flight(0.025f);
     model.set_z_flight(0.015f);
-    model.set_foot_dist_y_base(0.045f);
+    model.set_foot_dist_y_base(0.03f);
     model.set_foot_dist_x_max(0.12f);
     model.set_T_sup_base(0.15f);
     // model.set_T_sup_base(0.18f);
@@ -50,16 +50,16 @@ void GaitController::init_param_crouch(float z0){
 
 void GaitController::init_param_fight(float z0){
     // set max order input
-    this->set_vd_max_abs({0.02f, 0.02f, 0.1f});
+    this->set_vd_max_abs({0.01f, 1.5f, 0.1f});
     // initialize control parameters
     model.set_z0(z0);
-    model.set_z_flight(0.01f);
-    model.set_foot_dist_y_base(0.065f);
+    model.set_z_flight(0.001f);
+    model.set_foot_dist_y_base(0.06f);
     model.set_foot_dist_x_max(0.12f);
-    model.set_T_sup_base(0.12f);
+    model.set_T_sup_base(0.2f);
     model.set_T_sup_min(0.3f);
     // model.set_fb_gain(0.003, 0.0003f, 0.003, 0.0003);
-    model.set_fb_gain(0.00001, 0.000001f, 0.00001, 0.000001);
+    model.set_fb_gain(0.01, 0.001f, 0.01, 0.001);
     model.calculate_initial_params();
     set_ds_ratio(0.2f);
 
@@ -235,13 +235,106 @@ void GaitController::update_state_variables(array<float, 3> vd){
     );
 }
 
+void GaitController::init_side(array<float, 3> vd){
+    // initialize T_sup_x
+    float T_sup_side_small = 0.17f;
+    float T_sup_side_large = 0.17f;
+    if (pivot_sign(this->pivot) != int(vd[1]/abs(vd[1]))){
+        this->T_sup = T_sup_side_small;
+        this->T_sup_next = T_sup_side_large;
+    }else{
+        this->T_sup = T_sup_side_large;
+        this->T_sup_next = T_sup_side_small;
+    }
+    this->T_sup_x = this->T_sup;
+    // calculate variables for next sprine
+    // update cn_start
+    this->cvn_start = this->cvn_last;
+    
+    // update foot positions
+    this->pn = this->pn_p1;
+    this->p_n2m1 = {-this->p_n2p1[0], -this->p_n2p1[1]};
+    this->p_n2m1 = model.rotate_vec(this->p_n2m1, -this->body_angle);
+
+    // Serial.println("---------------init_side--------------");
+    // Serial.print("T_sup: "); Serial.println(this->T_sup, 4);
+    // Serial.print("pn: "); Serial.print(this->pn[0], 4); Serial.print(", "); Serial.println(this->pn[1], 4);
+    // Serial.print("p_n2m1: "); Serial.print(this->p_n2m1[0], 4); Serial.print(", "); Serial.println(this->p_n2m1[1], 4);
+    // Serial.print("cvn_start: "); Serial.print(this->cvn_start[0], 4); Serial.print(", "); Serial.println(this->cvn_start[1], 4);
+    this->T_ds = 0.0f;
+}
+
+void GaitController::update_state_variables_side(array<float, 3> vd){
+    // Serial.println("---------------update_state_variables_side--------------");
+    // normalize control input
+    vd = model.normalize_vel(vd);
+
+    // decide angle
+    array<float, 2> angle_limits = model.calc_rot_angle_limit(this->cvn_start);
+    float rotation = vd[2];
+    if (rotation > 0) {
+        rotation = angle_limits[0] * abs(rotation);
+    } else {
+        rotation = angle_limits[1] * abs(rotation);
+    }
+    this->body_angle = rotation;
+
+    array<float, 2> cvn_last_local = model.calc_LIP_v(
+        this->T_sup,
+        this->T_sup,
+        {-this->pn[0], -this->pn[1]}, 
+        this->cvn_start
+    );
+    cvn_last_local = model.rotate_vec(cvn_last_local, -this->body_angle);
+
+    float Tc = model.get_Tc();
+    // decide pn_p1
+    // y_pos_calculation
+    // if (this->pivot == Pivot::RIGHT){
+    //     Serial.println("pivot: RIGHT");
+    // }else{
+    //     Serial.println("pivot: LEFT");
+    // }
+
+    if (pivot_sign(this->pivot) != int(vd[1]/abs(vd[1]))){
+        float basic_foot_y = model.get_foot_dist_y_base();
+        float vd_base = model.calc_basic_unpassing_com_vel(basic_foot_y, T_sup);
+        vd[1] = vd[1] * 1.2 * abs(vd_base);
+
+        // Serial.println("pivot side");
+        this->pn_p1[1] = -1 * Tc / sinh(this->T_sup_next/Tc) * (vd[1] - cvn_last_local[1]*cosh(this->T_sup_next/Tc));
+    }else{
+        // Serial.println("non-pivot side");
+        // foot pos that COM stops at t=T_sup
+        // Serial.print("cvn_last_local[1]: "); Serial.println(cvn_last_local[1], 4);
+        this->pn_p1[1] = model.calc_basic_unpassing_foot_pos(cvn_last_local[1], this->T_sup_next * 1.7f);
+        // Serial.print("pn_p1[1]: "); Serial.println(pn_p1[1], 4);
+    }
+
+    // Serial.print("vd[1]: "); Serial.println(vd[1], 4);
+    // Serial.print("cvn_last_local: "); Serial.print(cvn_last_local[0], 4); Serial.print(", "); Serial.println(cvn_last_local[1], 4);
+    
+    // x_pos calculation
+    array<float, 2> pn_p1_local = model.foot_pos_pd(
+        cvn_last_local, this->cvn_start, 
+        {0, vd[1], vd[2]},
+        this->pn, 
+        this->T_sup_next, this->T_sup_next
+    );
+    this-> pn_p1[0] = pn_p1_local[0];
+
+    // Serial.print("T_sup: "); Serial.println(this->T_sup, 4);
+    // Serial.print("pn_p1: "); Serial.print(this->pn_p1[0], 4); Serial.print(", "); Serial.println(this->pn_p1[1], 4);
+    // Serial.println("-----------------------------");
+}
+
 /* #########################################################################
 CALCULATION of SWING LEG
 calculate start / half / last position of swing leg
 ##########################################################################*/
 void GaitController::init_single(){
     // reinitialize T_ds
-    this->T_ds = this->T_sup * this->ds_ratio;
+    // this->T_ds = this->T_sup * this->ds_ratio;
     // calculate model approximation coefficients
     model.calc_approx_coeff_y(-this->pn[1], this->cvn_start[1], this->T_sup);
 

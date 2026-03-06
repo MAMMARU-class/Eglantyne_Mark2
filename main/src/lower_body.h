@@ -16,6 +16,12 @@
 #define BODY_ANGLE_SMALL 25.0f * PI / 180.0f
 #define BODY_ANGLE_LARGE 40.0f * PI / 180.0f
 
+// rotation feedback gains
+#define KP_THETA_BASE 0.15f
+#define KD_THETA_BASE 0.01f
+#define KP_PHI_BASE 0.06f
+#define KD_PHI_BASE 0.005f
+
 enum class Order: uint8_t {
     NONE,
 
@@ -31,7 +37,6 @@ enum class Order: uint8_t {
     // orders while CROUCH mode
     STAND,
     LEARN,
-    THROW,
     ROLL,
     
     // orders while FIGHT mode
@@ -74,6 +79,7 @@ enum class Phase: uint8_t {
     THROUGH,
     ROLL,
     // order while FIGHT
+    SIDE,
     GUARD,
     KICK_LOW,
     KICK_MIDDLE,

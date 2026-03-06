@@ -253,7 +253,11 @@ void Robot::move_leg_ik_t(
     leg_left_current  = {current[12], current[13], current[14], current[15], current[16], current[17]};
 
     array<float, 6> leg_right_goal = this->leg_ik_solver_phi_zero(foot2com_r, theta_r, true);
+    leg_right_goal[2] += phi_upper_r;
+    leg_right_goal[4] -= phi_lower_r;
     array<float, 6> leg_left_goal  = this->leg_ik_solver_phi_zero(foot2com_l, theta_l, false);
+    leg_left_goal[2] += phi_upper_l;
+    leg_left_goal[4] -= phi_lower_l;
 
     array<float, 6> diff_right;
     array<float, 6> diff_left;

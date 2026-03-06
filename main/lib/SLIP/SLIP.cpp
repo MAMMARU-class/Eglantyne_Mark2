@@ -125,7 +125,7 @@ array<float, 2> SLIP::foot_pos_pd(array<float, 2> cvn_last,
 {
     // somehow doesnt work if vd[0] == 0;
     if (vd[0] == 0.0f){
-        vd[0] = 1e-4f;
+        vd[0] = 1e-8f;
     }
 
     array<float, 2> err;
@@ -146,16 +146,16 @@ array<float, 2> SLIP::foot_pos_pd(array<float, 2> cvn_last,
     float px = p_base[0] - kxp * err[0] - kxd * derr[0];
     float py = p_base[1] - kyp * err[1] - kyd * derr[1];
 
-    Serial.print("cvn_last: ");
-    Serial.print(cvn_last[0], 4); Serial.print(", "); Serial.println(cvn_last[1], 4);
-    Serial.print("basic foot pos: ");
-    Serial.print(p_base[0], 4); Serial.print(", "); Serial.println(p_base[1], 4);
-    Serial.print("velocity order: ");
-    Serial.print(vd[0], 4); Serial.print(", "); Serial.print(vd[1], 4); Serial.print(", vd_sum: "); Serial.println(vd_y_sum, 4);
-    Serial.print("velocity error: ");
-    Serial.print(err[0], 4); Serial.print(", "); Serial.println(err[1], 4);
-    Serial.print("foot pos pd: ");
-    Serial.print(px, 4); Serial.print(", "); Serial.println(py, 4);
+    // Serial.print("cvn_last: ");
+    // Serial.print(cvn_last[0], 4); Serial.print(", "); Serial.println(cvn_last[1], 4);
+    // Serial.print("basic foot pos: ");
+    // Serial.print(p_base[0], 4); Serial.print(", "); Serial.println(p_base[1], 4);
+    // Serial.print("velocity order: ");
+    // Serial.print(vd[0], 4); Serial.print(", "); Serial.print(vd[1], 4); Serial.print(", vd_sum: "); Serial.println(vd_y_sum, 4);
+    // Serial.print("velocity error: ");
+    // Serial.print(err[0], 4); Serial.print(", "); Serial.println(err[1], 4);
+    // Serial.print("foot pos pd: ");
+    // Serial.print(px, 4); Serial.print(", "); Serial.println(py, 4);
 
     return {px, py};
 }

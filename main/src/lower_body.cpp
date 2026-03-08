@@ -93,14 +93,22 @@ array<float, 3> update_vel(array<float, 3> vd, Order order){
         vd = {0.0f, 0.0f, 0.0f};
         global_control_pkt.stick_right[0] = 0.0f;
         global_control_pkt.stick_right[1] = 0.0f;
+        global_control_pkt.stick_left[0] = 0.0f;
         global_control_pkt.stick_left[1] = 0.0f;
-        global_control_pkt.stick_left[2] = 0.0f;
         return vd;
+    }
+    // in SIDE mode, dont send move forward command
+    else if (mode == Mode::SIDE){
+        global_control_pkt.stick_right[0] = 0.0f;
+    }
+    // in SMALL mode, dont send rotate command
+    else if (mode == Mode::SMALL){
+        global_control_pkt.stick_left[1] = 0.0f;
     }
 
     array<float, 3> vd_max_abs = controller.get_vd_max_abs();
     vd[0] = global_control_pkt.stick_right[0] * vd_max_abs[0];
-    vd[1] = global_control_pkt.stick_right[1] * vd_max_abs[1];
+    vd[1] = -1 * global_control_pkt.stick_right[1] * vd_max_abs[1];
     vd[2] = global_control_pkt.stick_left[1] * vd_max_abs[2];
     return vd;
 }
@@ -267,6 +275,7 @@ void Core1Task(void * parameter){
             theta_order = 0.0f;
         }
         
+        // SIDE mode handle
         if (mode_last == Mode::WALK && global_control_pkt.stick_right[2] == 0){
             controller.init_param_side(HEIGHT_WALK);
             controller.init_pose();
@@ -276,7 +285,26 @@ void Core1Task(void * parameter){
                 Phase::END,
                 0
             );
-        }if (mode_last == Mode::SIDE && global_control_pkt.stick_right[2] != 0){
+        }
+        if (mode_last == Mode::SIDE && global_control_pkt.stick_right[2] != 0){
+            controller.init_param_walk(HEIGHT_WALK);
+            init_phase(
+                Mode::WALK,
+                Phase::END,
+                0
+            );
+        }
+
+        // SMALL mode handle
+        if (mode_last == Mode::WALK && global_control_pkt.stick_left[2] == 0){
+            mode = Mode::SMALL;
+            init_phase(
+                Mode::SMALL,
+                Phase::END,
+                0
+            );
+        }
+        if (mode_last == Mode::SMALL && global_control_pkt.stick_left[2] != 0){
             controller.init_param_walk(HEIGHT_WALK);
             init_phase(
                 Mode::WALK,
@@ -384,7 +412,7 @@ void Core1Task(void * parameter){
         }
 
         // fall check
-        if(sensor.fall() && phase != Phase::FALL && phase != Phase::WAKE){
+        if(sensor.fall() && phase != Phase::FALL && phase != Phase::WAKE && phase != Phase::LEARN){
             order = Order::NONE;
             init_phase(
                 Mode::WALK,
@@ -517,6 +545,9 @@ void Core1Task(void * parameter){
                         controller.init_param_fight(HEIGHT_FIGHT);
                         stance = stance_fight;
                         phi_order = 0.0f * PI / 180.0f;
+                    }else if (mode == Mode::SMALL){
+                        controller.init_param_small(HEIGHT_WALK);
+                        stance = stance_walk;
                     }else{
                         controller.init_param_walk(HEIGHT_WALK);
                         stance = stance_walk;
@@ -868,6 +899,22 @@ void Core1Task(void * parameter){
                         Phase::WAIT,
                         0
                     );
+                }else if (global_control_pkt.button_right[2] == 0){
+                    while(global_control_pkt.button_right[2] == 0){
+                        array<float, LINK_SIZE> motion = sd->read_motion("/HOLD.csv", 0);
+                        array<float, 6> leg_right = {motion[6], motion[7], motion[8], motion[9], motion[10], motion[11]};
+                        array<float, 6> leg_left = {motion[12], motion[13], motion[14], motion[15], motion[16], motion[17]};
+
+                        robot->move_leg_t(leg_right, leg_left, 0.1f);
+                    }
+                }else if (global_control_pkt.button_right[1] == 0){
+                    while(global_control_pkt.button_right[2] == 0){
+                        array<float, LINK_SIZE> motion = sd->read_motion("/THROW.csv", 0);
+                        array<float, 6> leg_right = {motion[6], motion[7], motion[8], motion[9], motion[10], motion[11]};
+                        array<float, 6> leg_left = {motion[12], motion[13], motion[14], motion[15], motion[16], motion[17]};
+
+                        robot->move_leg_t(leg_right, leg_left, 0.1f);
+                    }
                 }
                 break;
             }
@@ -1044,7 +1091,7 @@ void Core1Task(void * parameter){
         float Tc = controller.get_Tc();
         if (phase == Phase::SINGLE || phase == Phase::SIDE){
             if (phase == Phase::SINGLE){
-                sensor.set_update_rate_fb_gains(7.0, 0.5);
+                sensor.set_update_rate_fb_gains(7.5, 0.60);
             }else{
                 sensor.set_update_rate_fb_gains(1.0, 0.03);
             }

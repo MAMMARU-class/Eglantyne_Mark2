@@ -43,6 +43,7 @@ public:
 
     void init_param_walk(float z0);
     void init_param_side(float z0);
+    void init_param_small(float z0);
     void init_param_crouch(float z0);
     void init_param_fight(float z0);
     void init_pose();
@@ -60,8 +61,8 @@ public:
     void init_side(array<float, 3> vd);
     void update_state_variables_side(array<float, 3> vd);
     void feedback_x0_vx0(array<float, 2> x0_vx0_fb){
-        this->pn_p1[0] -= x0_vx0_fb[0];
-        this->pn[0] -= x0_vx0_fb[0];
+        // this->pn_p1[0] += x0_vx0_fb[0];
+        this->pn[0] += x0_vx0_fb[0];
         this->cvn_start[0] -= x0_vx0_fb[1];
     }
     void update_T_sup_x(float increment){

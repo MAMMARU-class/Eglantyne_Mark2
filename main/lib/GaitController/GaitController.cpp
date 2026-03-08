@@ -9,7 +9,7 @@ CALCULATION PARAMETERS
 void GaitController::init_param_walk(float z0){
     // set max order input
     // this->set_vd_max_abs({0.09f, 0.1f, 0.6f});
-    this->set_vd_max_abs({0.1f, 0.0f, 0.6f});
+    this->set_vd_max_abs({0.09f, 0.0f, 0.6f});
     // initialize control parameters
     model.set_z0(z0);
     // model.set_z_flight(0.025f);
@@ -45,6 +45,24 @@ void GaitController::init_param_side(float z0){
     this->T_ds = this->T_sup * this->ds_ratio;
 }
 
+void GaitController::init_param_small(float z0){
+    // set max order input
+    this->set_vd_max_abs({0.1f, 0.1f, 0.4f});
+    // initialize control parameters
+    model.set_z0(z0);
+    model.set_z_flight(0.007f);
+    model.set_foot_dist_y_base(0.045f);
+    model.set_foot_dist_x_max(0.12f);
+    model.set_T_sup_base(0.14f);
+    model.set_T_sup_min(0.3f);
+    model.set_fb_gain(0.03, 0.003f, 0.05f, 0.005f);
+    model.calculate_initial_params();
+    set_ds_ratio(0.7f);
+
+    this->T_sup = model.get_T_sup_base();
+    this->T_ds = this->T_sup * this->ds_ratio;
+}
+
 void GaitController::init_param_crouch(float z0){
     // set max order input
     // this->set_vd_max_abs({0.09f, 0.1f, 0.6f});
@@ -53,7 +71,7 @@ void GaitController::init_param_crouch(float z0){
     model.set_z0(z0);
     // model.set_z_flight(0.025f);
     model.set_z_flight(0.015f);
-    model.set_foot_dist_y_base(0.03f);
+    model.set_foot_dist_y_base(0.05f);
     model.set_foot_dist_x_max(0.12f);
     model.set_T_sup_base(0.15f);
     // model.set_T_sup_base(0.18f);

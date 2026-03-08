@@ -56,15 +56,11 @@ private:
     float l_pivot2com = 0.07;
 
     // gains
-    // float kp_angle_com   = 0.5f;
-    // float kd_angle_com   = 0.01f;
     float kp_angle_com   = 0.0f;
     float kd_angle_com   = 0.0f;
 
-    float kp_phi_body    = 0.55f;
-    float kd_phi_body    = 0.01f;
-    // float kp_phi_body    = 0.0f;
-    // float kd_phi_body    = 0.0f;
+    float kp_phi_body    = 0.45f;
+    float kd_phi_body    = 0.015f;
 
     float kp_angle_vd    = 0.001f;
     float kd_angle_vd    = 0.0f;
@@ -74,10 +70,10 @@ private:
     // float kp_update_rate = 1.0f;
     // float kd_update_rate = 0.03f;
 
-    // float kp_x0_vx0 = 0.0015f;
-    // float kd_x0_vx0 = 0.00005f;
-    float kp_x0_vx0 = 0.0008f;
-    float kd_x0_vx0 = 0.00002f;
+    float kp_x0_vx0 = 0.0027f;
+    float kd_x0_vx0 = 0.000005f;
+    // float kp_x0_vx0 = 0.0008f;
+    // float kd_x0_vx0 = 0.00002f;
 
     float a_pos = 1.0f;
     float a_vel = 0.007f;

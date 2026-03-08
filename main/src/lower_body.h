@@ -55,6 +55,7 @@ enum class Mode: uint8_t {
     // normal states
     WALK,
     SIDE,
+    SMALL,
     CROUCH,
     FIGHT
 };

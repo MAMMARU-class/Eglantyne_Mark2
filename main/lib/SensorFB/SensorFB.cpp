@@ -1,8 +1,35 @@
 #include "SensorFB.h"
 
+static MotionSD* sd;
+char f_update_rate[20];
+char f_x0_vx0[20];
+
+int i_update_rate = 0;
+int i_x0_vx0 = 0;
+
+float (*motions_update_rate)[18];
+float (*motions_x0_vx0)[18];
+
 SensorFB::SensorFB(){}
 
-void SensorFB::init(){
+void SensorFB::init(MotionSD* s){
+    motions_update_rate =
+        (float (*)[18]) malloc(sizeof(float) * 600 * 18);
+
+    motions_x0_vx0 =
+        (float (*)[18]) malloc(sizeof(float) * 600 * 18);
+    sd = s;
+    int i = 0;
+    while(true){
+        sprintf(f_update_rate, "/update_rate_%d.csv", i);
+        if(sd->is_file_exist(f_update_rate) == true){
+            i++;
+        }else{
+            break;
+        }
+    }
+    sprintf(f_x0_vx0, "/x0_vx0_%d.csv", i);
+
     Serial.println("Initializing BNO055...");
 
     if (!Wire.begin(SDA, SCL)) {
@@ -194,6 +221,21 @@ int SensorFB::update_rate_fb(
     // Serial.print("t_now: "); Serial.println(sqrt((pos_y - c_dash)/a) * sig, 4);
     // Serial.print("t_err: "); Serial.println(t_err, 4);
     // Serial.print("update_rate_fb: "); Serial.println(update_rate_fb, 4);
+
+    i_update_rate++;
+    if (i_update_rate == 600){
+        Serial.println("Writing update rate feedback data to SD card...");
+        sd->write_long_motion(f_update_rate, motions_update_rate, 600);
+    }else{
+        float data[18] = {
+            acc_ideal[1], acc, 0.0,
+            com_pos, pos_y, 0.0,
+            t_ideal, sqrt((pos_y - c_dash)/a) * sig, update_rate_fb, 0.0,
+            0,0,0,0,0,0,0,0
+        };
+
+        memcpy(motions_update_rate[i_update_rate], data, sizeof(data));
+    }
     return update_rate_fb_int;
 }
 
@@ -248,5 +290,19 @@ array<float, 2> SensorFB::x0_vx0_fb(
     // Serial.print("x0_fb_pos: "); Serial.print(x0_fb_pos, 4); Serial.print(", vx0_fb_pos: "); Serial.println(vx0_fb_pos, 4);
     // Serial.print("x0_fb_vel: "); Serial.print(x0_fb_vel, 4); Serial.print(", vx0_fb_vel: "); Serial.println(vx0_fb_vel, 4);
     // Serial.print("x0_fb: "); Serial.print(x0_fb, 4); Serial.print(", vx0_fb: "); Serial.println(vx0_fb, 4);
+    i_x0_vx0++;
+    if (i_x0_vx0 == 600){
+        sd->write_long_motion(f_x0_vx0, motions_x0_vx0, 600);
+    }else{
+        float data[18] = {
+            acc, vel_x, 0.0,
+            com_x_pos, pos_x, 0.0,
+            x0, x0_fb_pos, x0_fb_vel,
+            vx0, vx0_fb_pos, vx0_fb_vel,
+            pd_x0_fb, pd_vx0_fb, 0.0
+        };
+        memcpy(motions_x0_vx0[i_x0_vx0], data, sizeof(data));
+    }
+
     return {pd_x0_fb, pd_vx0_fb};
 }

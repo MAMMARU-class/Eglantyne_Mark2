@@ -4,6 +4,8 @@
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
 
+#include "MotionSD.h"
+
 #define SDA 5
 #define SCL 4
 
@@ -14,7 +16,7 @@ public:
     SensorFB();
 
     // initialization
-    void init();
+    void init(MotionSD* s);
     void update();
     void set_phi(float phi){ this->phi = phi; };
 

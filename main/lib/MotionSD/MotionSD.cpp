@@ -45,6 +45,25 @@ void MotionSD::write_motion(
     file.close();
 }
 
+void MotionSD::write_long_motion(
+    const char* filename,
+    float motions[][18],
+    int length
+){
+    File file = SD.open(filename, FILE_APPEND);
+    if (!file) return;
+
+    for (int k = 0; k < length; k++) {
+        for (int i = 0; i < 18; i++) {
+            file.print(motions[k][i], 6);
+            if (i < 17) file.print(",");
+        }
+        file.println();
+    }
+
+    file.close();
+}
+
 array<float, 18> MotionSD::read_motion(
     const char* filename,
     size_t id)
@@ -224,4 +243,8 @@ void MotionSD::delete_motion_file(const char* filename){
     // create empty file to overwrite
     File file = SD.open(filename, FILE_WRITE);
     file.close();
+}
+
+bool MotionSD::is_file_exist(const char* filename){
+    return SD.exists(filename);
 }

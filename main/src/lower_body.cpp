@@ -77,7 +77,7 @@ void lower_body_control_init(Robot* r, MotionSD* s){
 
     sd->init();
 
-    sensor.init();
+    sensor.init(sd);
     delay(1000);
     sensor.update();
     delay(1000);
@@ -89,6 +89,8 @@ void lower_body_control_init(Robot* r, MotionSD* s){
 }
 
 array<float, 3> update_vel(array<float, 3> vd, Order order){
+    global_control_pkt.stick_right[0] = 1.0f;
+    return {0.05f, 0.0f, 0.0f};
     if (!connected){
         vd = {0.0f, 0.0f, 0.0f};
         global_control_pkt.stick_right[0] = 0.0f;

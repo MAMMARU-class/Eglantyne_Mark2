@@ -25,7 +25,13 @@ public:
     void write_motion(
         const char* filename,
         array<float, 18>);
-        
+    
+    void write_long_motion(
+        const char* filename,
+        float motions[][18],
+        int length
+    );
+    
     array<float, 18> read_motion(
         const char* filename,
         size_t id);
@@ -38,6 +44,8 @@ public:
     std::string get_filename_by_id(size_t id);
     
     void delete_motion_file(const char* filename);
+
+    bool is_file_exist(const char* filename);
 
 private:
 

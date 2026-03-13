@@ -52,7 +52,7 @@ void Robot::setLink(){
     leg_under_left.setInitialPositions(4420, 1.2833, 0,0);
     leg_under_left.setMotor(serial2, 10, FORWARD);
 
-    foot_pitch_left.setInitialPositions(6200, 0.7058, 0,0);
+    foot_pitch_left.setInitialPositions(6100, 0.7058, 0,0);
     foot_pitch_left.setMotor(serial2, 11, FORWARD);
 
     foot_roll_left.setInitialPositions(7270, 0.0, 0,0);

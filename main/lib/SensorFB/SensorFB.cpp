@@ -30,6 +30,7 @@ void SensorFB::update(){
     this->euler_last = this->euler;
     this->euler      = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
     this->euler.y() += this->phi * 180.0f / PI;
+    this->euler.y() += 15.0f;
     // acceleration
     this->acc_last   = this->acc;
     this-> acc       = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
@@ -37,7 +38,7 @@ void SensorFB::update(){
 
 // state check
 bool SensorFB::fall(){
-    float fall_angle = 30.0f;
+    float fall_angle = 45.0f;
     if(this->euler.y() > -fall_angle && this->euler.y() < fall_angle && 
        this->euler.z() > -fall_angle && this->euler.z() < fall_angle){
         return false;

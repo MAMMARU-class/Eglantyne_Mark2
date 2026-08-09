@@ -64,7 +64,7 @@ void SensorFB::update(){
 
 // state check
 bool SensorFB::fall(){
-    float fall_angle = 30.0f;
+    float fall_angle = 45.0f;
     if(this->euler.y() > -fall_angle && this->euler.y() < fall_angle && 
        this->euler.z() > -fall_angle && this->euler.z() < fall_angle){
         return false;

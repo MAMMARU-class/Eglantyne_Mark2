@@ -46,6 +46,7 @@ public:
     void delete_motion_file(const char* filename);
 
     bool is_file_exist(const char* filename);
+    void create_directory(const char* dirname);
 
 private:
 

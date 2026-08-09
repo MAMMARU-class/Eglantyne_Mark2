@@ -1,4 +1,12 @@
 #include "lower_body.h"
+#include "connection.h"
+#include <vector>
+#include <string>
+#include <cstdio>
+
+// variables use in experiment
+float selected_T_sup;
+bool is_fb_on;
 
 // orders
 static array<float, 3> vd = {0.0f, 0.0f, 0.0f};
@@ -18,13 +26,7 @@ STANCE_INFO stance_fight = {
     .relative_leg_angle  = -30.0 * PI / 180.0f
     // .relative_leg_angle  = 0.0 * PI / 180.0f
 };
-// STANCE_INFO stance_fight = {
-//     .height_diff         = 0.0f,
-//     .relative_body_angle = 0.0 * PI / 180.0f,
-//     .relative_body_pos   = 0.0f,
-//     .relative_leg_angle  = 0.0 * PI / 180.0f
-//     // .relative_leg_angle  = 0.0 * PI / 180.0f
-// };
+
 STANCE_INFO stance_crouch = stance_walk;
 STANCE_INFO stance = stance_walk;
 STANCE_INFO stance_next;
@@ -83,8 +85,108 @@ void lower_body_control_init(Robot* r, MotionSD* s){
     delay(1000);
     Serial.println("Lower body control initialized");
 
+    // experimental setup
+    send_msg2controller("experimental setup");
+    delay(1000);
+    // --- 設定値・変数の準備 ---
+    std::vector<float> T_sup_list = {0.1f, 0.15f, 0.18f, 0.2f, 0.25f, 0.3f, 0.35f, 0.4f};
+    selected_T_sup = T_sup_list[0];
+    is_fb_on = true;
+    std::string created_filename = "";
+    char filename_buf[64];
+
+    // フォルダパスの設定
+    const char* target_dir = "/data";
+
+    // 1. T_sup の選択処理
+    size_t t_sup_idx = 0;
+    while (1) {
+        // [choose] ボタン右[1]で次のリスト要素へ切り替え
+        if (global_control_pkt.button_right[1] == 0) {
+            t_sup_idx = (t_sup_idx + 1) % T_sup_list.size();
+            while (global_control_pkt.button_right[1] == 0) {
+                delay(10);
+            }
+            delay(100);
+        }
+
+        // コントローラへ現在の設定値を送信表示
+        char msg[32];
+        snprintf(msg, sizeof(msg), "T_sup: %.2f", T_sup_list[t_sup_idx]);
+        send_msg2controller(msg);
+        delay(100);
+
+        // [select] ボタン右[0]で決定
+        if (global_control_pkt.button_right[0] == 0) {
+            selected_T_sup = T_sup_list[t_sup_idx];
+            Serial.print("Selected T_sup: ");
+            Serial.println(selected_T_sup);
+
+            while (global_control_pkt.button_right[0] == 0) {
+                delay(10);
+            }
+            delay(100);
+            break;
+        }
+    }
+
+    // 2. FB (Feedback) ON/OFF の選択処理
+    while (1) {
+        // [choose] ボタン右[1]で ON / OFF 切り替え
+        if (global_control_pkt.button_right[1] == 0) {
+            is_fb_on = !is_fb_on;
+            while (global_control_pkt.button_right[1] == 0) {
+                delay(10);
+            }
+            delay(100);
+        }
+
+        // コントローラ表示
+        if (is_fb_on) {
+            send_msg2controller("FB: ON");
+        } else {
+            send_msg2controller("FB: OFF");
+        }
+        delay(100);
+
+        // [select] ボタン右[0]で決定
+        if (global_control_pkt.button_right[0] == 0) {
+            Serial.print("Selected FB: ");
+            Serial.println(is_fb_on ? "ON" : "OFF");
+
+            while (global_control_pkt.button_right[0] == 0) {
+                delay(10);
+            }
+            delay(100);
+            break;
+        }
+    }
+
+    // 3. 既存のファイル数をカウントして最新の試行番号 (trial_id) を算出
+    int i = 0;
+    while (true) {
+        // 例: "/data/exp_0_T0.20_FB1.csv"
+        sprintf(filename_buf, "%s/exp%03d_T%.2f_FB%d.csv", 
+                target_dir, i, selected_T_sup, is_fb_on ? 1 : 0);
+
+        if (s->is_file_exist(filename_buf) == true) {
+            i++;
+        } else {
+            break;
+        }
+    }
+    created_filename = filename_buf;
+    // センサクラスにファイル名をセット
+    sensor.set_filename(created_filename.c_str());
+
+    // 完了通知と状態リセット
+    Serial.print("Created File Name: ");
+    Serial.println(created_filename.c_str());
+
+    send_msg2controller("LOGO");
+
     // initialize control parameters
-    controller.init_param_walk(HEIGHT_WALK);
+    controller.init_param_walk(HEIGHT_WALK, selected_T_sup);
     controller.init_pose();
 }
 
@@ -150,7 +252,7 @@ void update_phase(){
     }
     else if (phase == Phase::SIDE){
         // do not transit to DOUBLE after SIDE
-        controller.init_param_walk(HEIGHT_WALK);
+        controller.init_param_walk(HEIGHT_WALK, selected_T_sup);
         mode = Mode::WALK;
         phase_next = Phase::END;
     }else{
@@ -189,7 +291,7 @@ STANCE_INFO update_stance_diff(
     }else if (mode_next == Mode::CROUCH){
         controller.init_param_crouch(height_aim);
     }else{
-        controller.init_param_walk(height_aim);
+        controller.init_param_walk(height_aim, selected_T_sup);
     }
 
     stance_diff_updated.height_diff = (height_aim - height_now) / phase_length * UPDATE_RATE_BASE;
@@ -289,7 +391,7 @@ void Core1Task(void * parameter){
             );
         }
         if (mode_last == Mode::SIDE && global_control_pkt.stick_right[2] != 0){
-            controller.init_param_walk(HEIGHT_WALK);
+            controller.init_param_walk(HEIGHT_WALK, selected_T_sup);
             init_phase(
                 Mode::WALK,
                 Phase::END,
@@ -307,7 +409,7 @@ void Core1Task(void * parameter){
             );
         }
         if (mode_last == Mode::SMALL && global_control_pkt.stick_left[2] != 0){
-            controller.init_param_walk(HEIGHT_WALK);
+            controller.init_param_walk(HEIGHT_WALK, selected_T_sup);
             init_phase(
                 Mode::WALK,
                 Phase::END,
@@ -551,7 +653,7 @@ void Core1Task(void * parameter){
                         controller.init_param_small(HEIGHT_WALK);
                         stance = stance_walk;
                     }else{
-                        controller.init_param_walk(HEIGHT_WALK);
+                        controller.init_param_walk(HEIGHT_WALK, selected_T_sup);
                         stance = stance_walk;
                         phi_order = 0.0f * PI / 180.0f;
                     }
@@ -788,7 +890,7 @@ void Core1Task(void * parameter){
                 );
 
                 // initialize pose to WALK
-                controller.init_param_walk(HEIGHT_WALK);
+                controller.init_param_walk(HEIGHT_WALK, selected_T_sup);
                 com_pos = controller.get_default_com_pos();
                 stance = stance_walk;
                 phi_order = 0.0f;
@@ -1053,14 +1155,6 @@ void Core1Task(void * parameter){
                 com_pos[1][1] = foot_dist_y_base * (com_pos[1][1] / abs(com_pos[1][1]));
             }
         }
-        // if (mode == Mode::SIDE){
-        //     if (vd[1] > 0 && com_pos[0][2] < com_pos[1][2]){
-        //         com_pos[0][2] = com_pos[1][2] - (com_pos[1][2] - com_pos[0][2]) * 3;
-        //     }
-        //     if (vd[1] > 0 && com_pos[1][2] < com_pos[0][2]){
-        //         com_pos[1][2] = com_pos[0][2] - (com_pos[0][2] - com_pos[1][2]) * 3;
-        //     }
-        // }
 
         /* #########################################################################
         FEEDBACK
@@ -1125,7 +1219,7 @@ void Core1Task(void * parameter){
 
         // x0 and vx0 feedback
         if (phase == Phase::SINGLE){
-            array<float, 2> x0_vx0    = controller.get_x0_vx0();
+            array<float, 2> x0_vx0 = controller.get_x0_vx0();
             // com calculation check
             float com_x_pos;
             if(controller.is_pivot_right()){

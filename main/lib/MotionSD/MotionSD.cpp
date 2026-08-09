@@ -248,3 +248,9 @@ void MotionSD::delete_motion_file(const char* filename){
 bool MotionSD::is_file_exist(const char* filename){
     return SD.exists(filename);
 }
+
+void MotionSD::create_directory(const char* dirname){
+    if (!SD.exists(dirname)) {
+        SD.mkdir(dirname);
+    }
+}

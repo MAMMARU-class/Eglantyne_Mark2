@@ -37,9 +37,6 @@ array<float, 2> com_x = {0.0f, 0.0f};
 array<float, 3> arm_right_angles;
 array<float, 3> arm_left_angles;
 
-// motionn register
-bool motion_register_mode = false;
-
 void setup(){
     neopixelWrite(RGB_BUILTIN, 255, 0, 0);
 
@@ -83,124 +80,21 @@ void setup(){
         NULL,
         0 // core 0
     );
-
-    // init register mode
-    pinMode(SW, INPUT);
-    if (digitalRead(SW) == LOW){
-        order_free = true;
-        Serial.println("motion register mode");
-        neopixelWrite(RGB_BUILTIN, 255, 255, 0);
-        delay(1000);
-        motion_register_mode = true;
-        return;
-    }
     
-    if(!motion_register_mode){
-        order_free = false;
-        // lower body control task (core 1)
-        xTaskCreatePinnedToCore(
-            Core1Task,
-            "Core1Task",
-            12288,
-            NULL,
-            configMAX_PRIORITIES-1, // max priority
-            NULL,
-            1 // core 1
-        );
-    }
+    order_free = false;
+    // lower body control task (core 1)
+    xTaskCreatePinnedToCore(
+        Core1Task,
+        "Core1Task",
+        12288,
+        NULL,
+        configMAX_PRIORITIES-1, // max priority
+        NULL,
+        1 // core 1
+    );
 }
 
 void loop(){
-    // sleep if not in motion register mode
-    if (!motion_register_mode){
-        vTaskDelay(10);
-        return;
-    }
-
-    // choose motion file to register
-    size_t file_id = 0;
-    std::string fname;
-    while(1){
-        // choose
-        if (global_control_pkt.button_right[1] == 0){
-            file_id++;
-            while(global_control_pkt.button_right[1] == 0){
-                delay(10);
-            }
-            delay(100);
-        }
-        send_msg2controller(sd.get_filename_by_id(file_id).c_str());
-        delay(100);
-
-        // select
-        if (global_control_pkt.button_right[0] == 0){
-            fname = sd.get_filename_by_id(file_id);
-            Serial.print("Selected file: ");
-            Serial.println(fname.c_str());
-            while(global_control_pkt.button_right[0] == 0){
-                delay(10);
-            }
-            delay(100);
-            Eglantyne.free_all();
-            send_msg2controller("LOGO");
-            break;
-        }
-    }
-
-    bool set = false;
-    while(1){
-        // set motion
-        if (set && global_control_pkt.button_right[1] == 1){
-            sd.write_motion(("/" + fname).c_str(), Eglantyne.current());
-            set = false;
-            send_msg2controller("LOGO");
-        }
-
-        if (global_control_pkt.button_right[1] == 0){
-            Serial.println("Registering motion...");
-            send_msg2controller("Registering motion...");
-            set = true;
-            while(global_control_pkt.button_right[1] == 0){
-                delay(10);
-            }
-        }
-
-        // delete motion
-        if (global_control_pkt.button_right[2] == 0){
-            sd.delete_motion_file(("/" + fname).c_str());
-            neopixelWrite(RGB_BUILTIN, 255, 0, 0);
-            Serial.println("Motion deleted");
-            send_msg2controller("delete motion");
-            while(global_control_pkt.button_right[2] == 0){
-                delay(10);
-            }
-            delay(100);
-            neopixelWrite(RGB_BUILTIN, 255, 255, 0);
-            send_msg2controller("LOGO");
-        }
-
-        // play motion
-        if (global_control_pkt.button_right[0] == 0){
-            send_msg2controller(("playing " + fname).c_str());
-            Serial.print("Playing motion: ");
-            Serial.println(fname.c_str());
-            neopixelWrite(RGB_BUILTIN, 0, 0, 255);
-
-            Eglantyne.init_home(1);
-            sd.play_motion(&Eglantyne, ("/" + fname).c_str(), 0.15f);
-            Eglantyne.init_home(1);
-            delay(3000);
-
-            while(global_control_pkt.button_right[0] == 0){
-                delay(10);
-            }
-
-            delay(100);
-            neopixelWrite(RGB_BUILTIN, 255, 255, 0);
-            Eglantyne.free_all();
-            send_msg2controller("LOGO");
-        }
-
-       delay(100);
-    }
+    vTaskDelay(10);
+    return;
 }

@@ -41,6 +41,7 @@ public:
 
     // setters
     void set_update_rate_fb_gains(float kp, float kd){ this->kp_update_rate = kp; this->kd_update_rate = kd; }
+    void set_filename(const char* filename){ this->data_save_filename = filename; }
     // getters
     float get_l_pivot2com(){ return l_pivot2com; }
 
@@ -88,4 +89,7 @@ private:
     // x0 and vx0 feedback
     float x0_fb_last  = 0.0f;
     float vx0_fb_last = 0.0f;
+
+    // data save folder
+    std::string data_save_filename;
 };

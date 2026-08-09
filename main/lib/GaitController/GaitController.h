@@ -41,7 +41,7 @@ public:
     void set_ds_ratio(float ds_ratio){ this->ds_ratio = ds_ratio; }
     void set_body_angle(float body_angle){ this->body_angle = body_angle; }
 
-    void init_param_walk(float z0);
+    void init_param_walk(float z0, float T_sup_base);
     void init_param_side(float z0);
     void init_param_small(float z0);
     void init_param_crouch(float z0);

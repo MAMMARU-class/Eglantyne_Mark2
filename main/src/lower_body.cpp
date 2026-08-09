@@ -89,9 +89,10 @@ void lower_body_control_init(Robot* r, MotionSD* s){
     send_msg2controller("experimental setup");
     delay(1000);
     // --- 設定値・変数の準備 ---
-    std::vector<float> T_sup_list = {0.1f, 0.15f, 0.18f, 0.2f, 0.25f, 0.3f, 0.35f, 0.4f};
+    std::vector<float> T_sup_list = {0.12f, 0.14f, 0.15f, 0.16f, 0.18f, 0.2f};
     selected_T_sup = T_sup_list[0];
     is_fb_on = true;
+    bool is_disturb_on = true;
     std::string created_filename = "";
     char filename_buf[64];
 
@@ -107,14 +108,14 @@ void lower_body_control_init(Robot* r, MotionSD* s){
             while (global_control_pkt.button_right[1] == 0) {
                 delay(10);
             }
-            delay(100);
+            delay(5);
         }
 
         // コントローラへ現在の設定値を送信表示
         char msg[32];
         snprintf(msg, sizeof(msg), "T_sup: %.2f", T_sup_list[t_sup_idx]);
         send_msg2controller(msg);
-        delay(100);
+        delay(5);
 
         // [select] ボタン右[0]で決定
         if (global_control_pkt.button_right[0] == 0) {
@@ -125,7 +126,7 @@ void lower_body_control_init(Robot* r, MotionSD* s){
             while (global_control_pkt.button_right[0] == 0) {
                 delay(10);
             }
-            delay(100);
+            delay(1000);
             break;
         }
     }
@@ -138,7 +139,7 @@ void lower_body_control_init(Robot* r, MotionSD* s){
             while (global_control_pkt.button_right[1] == 0) {
                 delay(10);
             }
-            delay(100);
+            delay(5);
         }
 
         // コントローラ表示
@@ -147,7 +148,7 @@ void lower_body_control_init(Robot* r, MotionSD* s){
         } else {
             send_msg2controller("FB: OFF");
         }
-        delay(100);
+        delay(5);
 
         // [select] ボタン右[0]で決定
         if (global_control_pkt.button_right[0] == 0) {
@@ -157,7 +158,39 @@ void lower_body_control_init(Robot* r, MotionSD* s){
             while (global_control_pkt.button_right[0] == 0) {
                 delay(10);
             }
-            delay(100);
+            delay(1000);
+            break;
+        }
+    }
+
+    // 2. 外乱 (disturbance) ON/OFF の選択処理
+    while (1) {
+        // [choose] ボタン右[1]で ON / OFF 切り替え
+        if (global_control_pkt.button_right[1] == 0) {
+            is_disturb_on = !is_disturb_on;
+            while (global_control_pkt.button_right[1] == 0) {
+                delay(10);
+            }
+            delay(5);
+        }
+
+        // コントローラ表示
+        if (is_disturb_on) {
+            send_msg2controller("Disturbance: ON");
+        } else {
+            send_msg2controller("Disturbance: OFF");
+        }
+        delay(5);
+
+        // [select] ボタン右[0]で決定
+        if (global_control_pkt.button_right[0] == 0) {
+            Serial.print("Selected Disturbance: ");
+            Serial.println(is_disturb_on ? "ON" : "OFF");
+
+            while (global_control_pkt.button_right[0] == 0) {
+                delay(10);
+            }
+            delay(1000);
             break;
         }
     }
@@ -166,8 +199,8 @@ void lower_body_control_init(Robot* r, MotionSD* s){
     int i = 0;
     while (true) {
         // 例: "/data/exp_0_T0.20_FB1.csv"
-        sprintf(filename_buf, "%s/exp%03d_T%.2f_FB%d.csv", 
-                target_dir, i, selected_T_sup, is_fb_on ? 1 : 0);
+        sprintf(filename_buf, "%s/T%.2f_FB%d_dist%d_exp%03d.csv", 
+                target_dir, selected_T_sup, is_fb_on ? 1 : 0, is_disturb_on ? 1 : 0, i);
 
         if (s->is_file_exist(filename_buf) == true) {
             i++;
@@ -305,7 +338,9 @@ STANCE_INFO update_stance_diff(
     return stance_diff_updated;
 }
 
+int loop_count = 0;
 void Core1Task(void * parameter){
+    loop_count++;
     // check is robot and sd is given
     if(robot == nullptr){
         Serial.println("Robot is null");
@@ -920,13 +955,6 @@ void Core1Task(void * parameter){
                         phi_order = 0.0f;
                         stance = stance_walk;
                         jump_state = JumpState::HIT;
-                        // if(sensor.fly()){
-                        //     stance.height_diff = 0;
-                        //     jump_state = JumpState::FLY;
-                        // }else{
-                        //     stance.height_diff = 0.05f;
-                        // }
-
                     }case JumpState::HIT:{
                         kp_phi = KP_PHI_BASE;
                         jump_state = JumpState::CROUCH;
@@ -938,32 +966,7 @@ void Core1Task(void * parameter){
                         );
                         break;
                     }
-                    // case JumpState::FLY:{
-                    //     if(sensor.hit_ground()){
-                    //         jump_state = JumpState::HIT;
-                    //         phase_count = 0;
-                    //     }
-                    //     break;
-                    // }
-                    // case JumpState::HIT:{
-                    //     phase_length = 20;
-                    //     float diff_aim = HEIGHT_JUMP - HEIGHT_WALK;
-                    //     float a = diff_aim / (phase_length * phase_length);
 
-                    //     float t = phase_count - phase_length;
-                    //     stance.height_diff = a*t*t - diff_aim;
-
-                    //     if (phase_count == phase_length){
-                    //         order = Order::NONE;
-                    //         init_phase(
-                    //             mode,
-                    //             Phase::END,
-                    //             0
-                    //         );
-                    //         jump_state = JumpState::CROUCH;
-                    //     }
-                    //     break;
-                    // }
                 }
                 phase_count += 1;
                 break;
@@ -1202,7 +1205,8 @@ void Core1Task(void * parameter){
             update_rate = sensor.update_rate_fb(
                 t_ideal, acc_ideal,
                 controller.get_approx_coeff_y(), Tc, UPDATE_RATE_BASE,
-                com_y_pos
+                com_y_pos,
+                is_fb_on
             );
         }else{
             update_rate = UPDATE_RATE_BASE;

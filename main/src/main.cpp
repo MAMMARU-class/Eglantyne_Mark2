@@ -64,11 +64,6 @@ void setup(){
 
     // sub loop initializations
     connection_init(&Eglantyne);
-    send_msg2controller("Eglantyne initializing...");
-    lower_body_control_init(&Eglantyne, &sd);
-    Serial.println("Eglantyne Mark2 ready");
-    send_msg2controller("LOGO");
-    neopixelWrite(RGB_BUILTIN, 0, 0, 255);
 
     // esp now and upper body control task (core 0)
     xTaskCreatePinnedToCore(
@@ -80,6 +75,12 @@ void setup(){
         NULL,
         0 // core 0
     );
+
+    send_msg2controller("Eglantyne initializing...");
+    lower_body_control_init(&Eglantyne, &sd);
+    Serial.println("Eglantyne Mark2 ready");
+    send_msg2controller("LOGO");
+    neopixelWrite(RGB_BUILTIN, 0, 0, 255);
     
     order_free = false;
     // lower body control task (core 1)

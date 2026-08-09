@@ -69,19 +69,20 @@ void onReceive(const uint8_t *mac_addr, const uint8_t *data, int len) {
             sizeof(ControlPacket));
 
     // move robot arm
+    // force to set home position
     std::array<float, 3> arm_right = {
         global_control_pkt.arm_right[0] - com_x[1]*17,
         global_control_pkt.arm_right[1],
         global_control_pkt.arm_right[2]
     };
-    // arm_right = {-com_x[1]*17, 10 * 3.14/180, 0};
+    arm_right = {-com_x[1]*17, 10 * 3.14/180, 0};
 
     std::array<float, 3> arm_left = {
         global_control_pkt.arm_left[0] - com_x[0]*17,
         global_control_pkt.arm_left[1],
         global_control_pkt.arm_left[2]
     };
-    // arm_left = {-com_x[0]*17, 10 * 3.14/180, 0};
+    arm_left = {-com_x[0]*17, 10 * 3.14/180, 0};
 
     // while free order, do nothing
     if (order_free){
@@ -92,7 +93,7 @@ void onReceive(const uint8_t *mac_addr, const uint8_t *data, int len) {
     if(!connected){
         Serial.println("ESP-NOW client reconnected");
         connected = true;
-        send_msg2controller("LOGO");
+        // send_msg2controller("LOGO");
         robot->move_arm_t(arm_right, arm_left, 0.6f);
     }else{
         robot->move_arm_right(arm_right);

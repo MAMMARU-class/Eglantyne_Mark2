@@ -140,7 +140,8 @@ array<float, 3> SensorFB::vd_fb(array<float, 3> vd){
 int SensorFB::update_rate_fb(
     float t_ideal, array<float, 2> acc_ideal,
     array<float, 3> approx_coeff, float Tc, int update_rate, 
-    float com_pos)
+    float com_pos,
+    bool use_fb)
 {
     // update last acc_ideal
     float acc = this->acc.y();
@@ -197,6 +198,10 @@ int SensorFB::update_rate_fb(
     int update_rate_fb_int = (int)update_rate_fb;
     if (update_rate_fb_int == 0){
         update_rate_fb_int = 1;
+    }
+
+    if(!use_fb && i_update_rate > 150){
+        update_rate_fb_int = (int)update_rate;
     }
     // Serial.println();
     // Serial.print("a: "); Serial.print(a, 4); Serial.print(", b: "); Serial.print(b, 4); Serial.print(", c: "); Serial.println(c, 4);

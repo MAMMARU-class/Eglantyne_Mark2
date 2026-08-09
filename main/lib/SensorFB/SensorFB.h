@@ -36,7 +36,8 @@ public:
     int update_rate_fb(
         float t_ideal, array<float, 2> acc_ideal,
         array<float, 3> approx_coeff, float Tc, int update_rate,
-        float com_pos);
+        float com_pos,
+        bool use_fb);
     array<float, 2> x0_vx0_fb(float tx, float x0, float vx0, float Tc, int control_step, float com_x_pos);
 
     // setters

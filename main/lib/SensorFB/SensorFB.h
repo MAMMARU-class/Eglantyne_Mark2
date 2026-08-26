@@ -69,15 +69,15 @@ private:
     float kp_angle_vd    = 0.001f;
     float kd_angle_vd    = 0.0f;
 
-    float kp_update_rate = 7.0f;
-    float kd_update_rate = 0.5f;
-    // float kp_update_rate = 1.0f;
-    // float kd_update_rate = 0.03f;
+    // successive gains
+    // float kp_update_rate = 7.0f;
+    // float kd_update_rate = 0.5f;
+    // testing
+    float kp_update_rate = 2.5f;
+    float kd_update_rate = 1.8f;
 
     float kp_x0_vx0 = 0.0027f;
     float kd_x0_vx0 = 0.000005f;
-    // float kp_x0_vx0 = 0.0008f;
-    // float kd_x0_vx0 = 0.00002f;
 
     float a_pos = 1.0f;
     float a_vel = 0.007f;

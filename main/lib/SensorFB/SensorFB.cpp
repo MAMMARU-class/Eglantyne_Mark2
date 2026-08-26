@@ -12,7 +12,7 @@ SensorFB::SensorFB(){}
 
 void SensorFB::init(MotionSD* s){
     motions_update_rate =
-        (float (*)[18]) malloc(sizeof(float) * 800 * 18);
+        (float (*)[18]) malloc(sizeof(float) * 1200 * 18);
 
     sd = s;
 
@@ -214,13 +214,13 @@ int SensorFB::update_rate_fb(
     // Serial.print("update_rate_fb: "); Serial.println(update_rate_fb, 4);
 
     i_update_rate++;
-    if (i_update_rate == 800){
+    if (i_update_rate == 1200){
         Serial.println("Writing update rate feedback data to SD card...");
-        sd->write_long_motion(this->data_save_filename.c_str(), motions_update_rate, 800);
+        sd->write_long_motion(this->data_save_filename.c_str(), motions_update_rate, 1200);
     }else{
         float data[18] = {
             acc_ideal[1], acc, 0.0,
-            com_pos, pos_y, 0.0,
+            com_pos, acc*Tc*Tc, pos_y,
             t_ideal, sqrt((pos_y - c_dash)/a) * sig, update_rate_fb, 0.0,
             0,0,0,0,0,0,0,0
         };

@@ -10,7 +10,6 @@ bool is_fb_on;
 
 // orders
 static array<float, 3> vd = {0.0f, 0.0f, 0.0f};
-static Order order;
 
 // stances
 STANCE_INFO stance_walk = {
@@ -19,18 +18,7 @@ STANCE_INFO stance_walk = {
     .relative_body_pos   = 0.0f,
     .relative_leg_angle  = 0.0f
 };
-STANCE_INFO stance_fight = {
-    .height_diff         = 0.0f,
-    .relative_body_angle = 20 * PI / 180.0f,
-    .relative_body_pos   = -0.012f,
-    .relative_leg_angle  = -30.0 * PI / 180.0f
-    // .relative_leg_angle  = 0.0 * PI / 180.0f
-};
-
-STANCE_INFO stance_crouch = stance_walk;
 STANCE_INFO stance = stance_walk;
-STANCE_INFO stance_next;
-STANCE_INFO stance_diff = stance_walk;
 
 // mode and phase
 static Mode mode = Mode::WAIT;
@@ -64,9 +52,6 @@ float kd_theta = 0.01f;
 float kp_phi = 0.06f;
 float kd_phi = 0.005f;
 
-// jump
-JumpState jump_state = JumpState::CROUCH;
-
 // control classes
 static Robot* robot;
 static MotionSD* sd;
@@ -85,11 +70,14 @@ void lower_body_control_init(Robot* r, MotionSD* s){
     delay(1000);
     Serial.println("Lower body control initialized");
 
+    Serial.println("experimental setup start");
+
     // experimental setup
     send_msg2controller("experimental setup");
     delay(1000);
     // --- 設定値・変数の準備 ---
-    std::vector<float> T_sup_list = {0.12f, 0.14f, 0.15f, 0.16f, 0.18f, 0.2f};
+    // std::vector<float> T_sup_list = {0.12f, 0.14f, 0.15f, 0.16f, 0.18f, 0.2f};
+    std::vector<float> T_sup_list = {0.14f, 0.18f, 0.2f, 0.25f, 0.3f, 0.35f};
     selected_T_sup = T_sup_list[0];
     is_fb_on = true;
     bool is_disturb_on = true;
@@ -221,11 +209,14 @@ void lower_body_control_init(Robot* r, MotionSD* s){
     // initialize control parameters
     controller.init_param_walk(HEIGHT_WALK, selected_T_sup);
     controller.init_pose();
+
+    robot->init_home(1);
+    delay(500);
 }
 
-array<float, 3> update_vel(array<float, 3> vd, Order order){
+array<float, 3> update_vel(array<float, 3> vd){
     global_control_pkt.stick_right[0] = 1.0f;
-    return {0.05f, 0.0f, 0.0f};
+    return {0.1f, 0.0f, 0.0f};
     if (!connected){
         vd = {0.0f, 0.0f, 0.0f};
         global_control_pkt.stick_right[0] = 0.0f;
@@ -234,15 +225,6 @@ array<float, 3> update_vel(array<float, 3> vd, Order order){
         global_control_pkt.stick_left[1] = 0.0f;
         return vd;
     }
-    // in SIDE mode, dont send move forward command
-    else if (mode == Mode::SIDE){
-        global_control_pkt.stick_right[0] = 0.0f;
-    }
-    // in SMALL mode, dont send rotate command
-    else if (mode == Mode::SMALL){
-        global_control_pkt.stick_left[1] = 0.0f;
-    }
-
     array<float, 3> vd_max_abs = controller.get_vd_max_abs();
     vd[0] = global_control_pkt.stick_right[0] * vd_max_abs[0];
     vd[1] = -1 * global_control_pkt.stick_right[1] * vd_max_abs[1];
@@ -270,24 +252,6 @@ void update_phase(){
         abs(global_control_pkt.stick_right[1]) < CMD_MIN && 
         abs(global_control_pkt.stick_left[1]) < CMD_MIN){
             phase_next = Phase::END;
-    }else if (mode == Mode::SIDE && abs(global_control_pkt.stick_right[1]) > CMD_MIN){
-        if(phase == Phase::SIDE){
-            phase_next = Phase::SIDE;
-        }else{
-            if( (global_control_pkt.stick_right[1] > 0 && !controller.pivot_right()) ||
-                (global_control_pkt.stick_right[1] < 0 &&  controller.pivot_right()) ){
-                controller.init_param_side(HEIGHT_WALK);
-                phase_next = Phase::SIDE;
-            }else{
-                phase_next = Phase::DOUBLE;
-            }
-        }
-    }
-    else if (phase == Phase::SIDE){
-        // do not transit to DOUBLE after SIDE
-        controller.init_param_walk(HEIGHT_WALK, selected_T_sup);
-        mode = Mode::WALK;
-        phase_next = Phase::END;
     }else{
         phase_next = Phase::DOUBLE;
     }
@@ -312,32 +276,6 @@ array<array<float, 5>, 3> attach_stance(array<array<float, 5>, 3> com_pos, STANC
     return com_pos;
 }
 
-STANCE_INFO update_stance_diff(
-    STANCE_INFO stance_next, int phase_length,
-    float height_aim, float height_now,
-    Mode mode_next)
-{
-    STANCE_INFO stance_diff_updated;
-
-    if (mode_next == Mode::FIGHT){
-        controller.init_param_fight(height_aim);
-    }else if (mode_next == Mode::CROUCH){
-        controller.init_param_crouch(height_aim);
-    }else{
-        controller.init_param_walk(height_aim, selected_T_sup);
-    }
-
-    stance_diff_updated.height_diff = (height_aim - height_now) / phase_length * UPDATE_RATE_BASE;
-    stance_diff_updated.relative_body_angle = 
-        (stance_next.relative_body_angle - stance.relative_body_angle) / phase_length * UPDATE_RATE_BASE;
-    stance_diff_updated.relative_body_pos = 
-        (stance_next.relative_body_pos - stance.relative_body_pos) / phase_length * UPDATE_RATE_BASE;
-    stance_diff_updated.relative_leg_angle = 
-        (stance_next.relative_leg_angle - stance.relative_leg_angle) / phase_length * UPDATE_RATE_BASE;
-
-    return stance_diff_updated;
-}
-
 int loop_count = 0;
 void Core1Task(void * parameter){
     loop_count++;
@@ -359,8 +297,6 @@ void Core1Task(void * parameter){
         array<int,3> RED    = {255, 0,   0  }; // : disconnected or free
         array<int,3> WHITE  = {255, 255, 255}; // : WAIT
         array<int,3> BLUE   = {0,   0,   255}; // : WALK
-        array<int,3> GREEN  = {0,   255, 0  }; // : CROUCH
-        array<int,3> YELLOW = {255, 255, 0  }; // : FIGHT
         /* ###################################################################### */
         if(!connected || mode == Mode::FREE){
             neopixelWrite(RGB_BUILTIN, RED[0], RED[1], RED[2]);
@@ -368,150 +304,24 @@ void Core1Task(void * parameter){
             neopixelWrite(RGB_BUILTIN, WHITE[0], WHITE[1], WHITE[2]);
         }else if (mode == Mode::WALK){
             neopixelWrite(RGB_BUILTIN, BLUE[0], BLUE[1], BLUE[2]);
-        }else if (mode == Mode::CROUCH){
-            neopixelWrite(RGB_BUILTIN, GREEN[0], GREEN[1], GREEN[2]);
-        }else if (mode == Mode::FIGHT){
-            neopixelWrite(RGB_BUILTIN, YELLOW[0], YELLOW[1], YELLOW[2]);
         }else{
             neopixelWrite(RGB_BUILTIN, RED[0], RED[1], RED[2]);
         }
 
         /* #########################################################################
         CONTROLLER HANDLER
-        handle controller order. 
-        Mode/Phase change order will be executed after first order is finished.
-        - Motion Control orders:
-          - body angle order: change body angle accordance with button[1]. move larger if FIGHT mode.
-          - SIDE mode
-
-        - Mode/Phase chaange orders
-          Basic Orders: 
-          - MODE_CHANGE : Change mode between WALK and FIGHT.
-                          Flag...half of SINGLE phas
- 
-          Orders while WALK mode:
-          - CROUCH      : Crouch the robot. STANCE. 
-                          Flag...half of SINGLE phase
-
-          Orders while CROUCH mode:
-          - STAND       : Uncrouch the robot. STANCE.
-          - LEARN       : Learn to the front.
-
-          Orders while FIGHT mode:
-          - GUARD       : if not in CROUCH mode, take guard pose. Switch to GUARD phase. Release guard button to switch back to WAIT phase.
+        Handle body angle orders.
         ######################################################################### */
         // Motion control orders
         // body angle order
         if (global_control_pkt.button_right[1] == 0){
-            if (mode_last == Mode::FIGHT){
-                theta_order = BODY_ANGLE_LARGE;
-            }else{
-                theta_order = BODY_ANGLE_SMALL;
-            }
+            theta_order = BODY_ANGLE_SMALL;
         }else if (global_control_pkt.button_left[1] == 0){
             theta_order = -BODY_ANGLE_SMALL;
         }else{
             theta_order = 0.0f;
         }
         
-        // SIDE mode handle
-        if (mode_last == Mode::WALK && global_control_pkt.stick_right[2] == 0){
-            controller.init_param_side(HEIGHT_WALK);
-            controller.init_pose();
-            mode = Mode::SIDE;
-            init_phase(
-                Mode::SIDE,
-                Phase::END,
-                0
-            );
-        }
-        if (mode_last == Mode::SIDE && global_control_pkt.stick_right[2] != 0){
-            controller.init_param_walk(HEIGHT_WALK, selected_T_sup);
-            init_phase(
-                Mode::WALK,
-                Phase::END,
-                0
-            );
-        }
-
-        // SMALL mode handle
-        if (mode_last == Mode::WALK && global_control_pkt.stick_left[2] == 0){
-            mode = Mode::SMALL;
-            init_phase(
-                Mode::SMALL,
-                Phase::END,
-                0
-            );
-        }
-        if (mode_last == Mode::SMALL && global_control_pkt.stick_left[2] != 0){
-            controller.init_param_walk(HEIGHT_WALK, selected_T_sup);
-            init_phase(
-                Mode::WALK,
-                Phase::END,
-                0
-            );
-        }
-
-        // Mode/Phase change orders
-        if(order == Order::NONE){
-            // basic orders
-            if (global_control_pkt.button_right[0] == 0){
-                order = Order::MODE_CHANGE;
-            }
-            // orders while WALK mode
-            else if (mode_last == Mode::WALK){
-                // CROUCH
-                if (global_control_pkt.button_left[0] == 0){
-                    order = Order::CROUCH;
-                }
-                // JUMP
-                else if (global_control_pkt.button_left[2] == 0){
-                    order = Order::JUMP;
-                }
-                // RUN
-                else if (global_control_pkt.button_right[2]== 0){
-                    order = Order::RUN;
-                }
-            }
-
-            // orders while CROUCH mode
-            else if (mode_last == Mode::CROUCH){
-                // CROUCH
-                if (global_control_pkt.button_left[0] == 0){
-                    order = Order::STAND;
-                }
-                // LEARN
-                else if (global_control_pkt.button_left[2] == 0){
-                    order = Order::LEARN;
-                }
-                else if (global_control_pkt.button_right[2] == 0){
-                    order = Order::ROLL;
-                }
-            }
-
-            // orders while FIGHT mode
-            else if (mode_last == Mode::FIGHT){
-                // GUARD
-                if (global_control_pkt.button_left[2] == 0 && mode_last != Mode::CROUCH){
-                    order = Order::GUARD;
-                    init_phase(
-                        mode,
-                        Phase::GUARD,
-                        0
-                    );
-                }
-                // KICK
-                else if (global_control_pkt.button_right[2] == 0){
-                    if (global_control_pkt.button_right[1] == 0){
-                        order = Order::KICK_MIDDLE;
-                    }else if (global_control_pkt.button_left[1] == 0){
-                        order = Order::KICK_BACK;
-                    }else{
-                        order = Order::KICK_LOW;
-                    }
-                }
-            }
-        }
         /* #########################################################################
         ORDER AND MODE INITIALIZEAITON
         In the first step, check
@@ -519,16 +329,7 @@ void Core1Task(void * parameter){
         - Fall                      -> Switch to FALL phase
         - Velocity update           -> Update vd with controller input and sensor feedback. Switch to WALK mode if vd is large enough
         - After fallen down (WAKE)  -> initialize parameters
-        - Order detect              -> if in WAIT mode execute order (change phase)
         ##########################################################################*/
-        // show Mode
-        // switch(mode){
-        //     case Mode::WAIT: Serial.println("Mode: WAIT"); break;
-        //     case Mode::WALK: Serial.println("Mode: WALK"); break;
-        //     case Mode::CROUCH: Serial.println("Mode: CROUCH"); break;
-        //     case Mode::FIGHT: Serial.println("Mode: FIGHT"); break;
-        //     default: Serial.println("Mode: UNKNOWN"); break;
-        // }
         // torque off order
         if(global_control_pkt.button_right[0] == 0 && global_control_pkt.button_left[0] == 0){
             order_free = true;
@@ -551,8 +352,7 @@ void Core1Task(void * parameter){
         }
 
         // fall check
-        if(sensor.fall() && phase != Phase::FALL && phase != Phase::WAKE && phase != Phase::LEARN){
-            order = Order::NONE;
+        if(sensor.fall() && phase != Phase::FALL && phase != Phase::WAKE){
             init_phase(
                 Mode::WALK,
                 Phase::FALL,
@@ -561,19 +361,17 @@ void Core1Task(void * parameter){
         }
 
         // update and feedback vd
-        vd = update_vel(vd, order);
+        vd = update_vel(vd);
         array<float, 3> vd_fb = sensor.vd_fb(vd);
         // vd[0] += vd_fb[0];
         // vd[1] += vd_fb[1];
         // vd[2] += vd_fb[2];
 
-        // walk if vd is large enough or MODE_CHANGE is ordered
+        // walk if vd is large enough
         if (mode == Mode::WAIT){
             if (abs(global_control_pkt.stick_right[0]) > CMD_MIN || 
                 abs(global_control_pkt.stick_right[1]) > CMD_MIN || 
-                abs(global_control_pkt.stick_left[1]) > CMD_MIN || 
-                order == Order::MODE_CHANGE || 
-                order == Order::CROUCH || order == Order::STAND){
+                abs(global_control_pkt.stick_left[1]) > CMD_MIN){
                 init_phase(
                     mode_last,
                     Phase::START,
@@ -586,59 +384,6 @@ void Core1Task(void * parameter){
         if (phase == Phase::WAKE || (phase == Phase::WAIT && !connected)){
             theta = 0.0f;
             phi = 0.0f;
-            order = Order::NONE;
-        }
-
-        // order execution
-        if (mode == Mode::WAIT){
-            // order while WALK
-            if (order == Order::JUMP){
-                init_phase(
-                    mode_last,
-                    Phase::JUMP,
-                    0
-                );
-            }
-            // order while CROUCH
-            else if (order == Order::LEARN){
-                init_phase(
-                    mode_last,
-                    Phase::LEARN,
-                    0
-                );
-            }else if (order == Order::ROLL){
-                init_phase(
-                    mode_last,
-                    Phase::ROLL,
-                    0
-                );
-            }
-            // order while FIGHT
-            else if (order == Order::GUARD){
-                init_phase(
-                    mode_last,
-                    Phase::GUARD,
-                    0
-                );
-            }else if (order == Order::KICK_LOW){
-                init_phase(
-                    mode_last,
-                    Phase::KICK_LOW,
-                    0
-                );
-            }else if(order == Order::KICK_MIDDLE){
-                init_phase(
-                    mode_last,
-                    Phase::KICK_MIDDLE,
-                    0
-                );
-            }else if(order == Order::KICK_BACK){
-                init_phase(
-                    mode_last,
-                    Phase::KICK_BACK,
-                    0
-                );
-            }
         }
 
         /* #########################################################################
@@ -647,19 +392,12 @@ void Core1Task(void * parameter){
         For each phase,
         normal walking
         - START    : Initialize satrt parameters and phase length. Next phase is SINGLE.
-        - END      : Initialize end parameters and phase length. Next phase is START, and change mode to WAIT. CROUCH / UNCROUCH before phase initialization when order given.
+        - END      : Initialize end parameters and phase length. Next phase is START, and change mode to WAIT.
         - SINGLE   : At the middle of the phase, decide next phase and next foot position. Next phase is (DOUBLE / END / ).
         - DOUBLE   : CoM transition between SINGLE and SINGLE. calculate next SINGLE phase parameters and change pivot in the first step. Next phase is SINGLE.
-        stance change
-        - STANCE   : Start from middle point of SINGLE. decide next foot position. Next phase is DOUBLE.
-        havent decided
-        - FLIGHT   : 
         exceptional states
         - FALL     : After slip is detected, free upper body and shrink lower body for the safety. Next phase is WAKE.
         - WAKE     : WAKE the robot up. Next phase is START. and change the mode to WAIT.
-        order execution
-        - JUMP     : 
-        - GUARD    : 
         idring
         - WAIT     : Do nothing.
         ##########################################################################*/
@@ -676,22 +414,9 @@ void Core1Task(void * parameter){
             case Phase::START:{
                 if (phase_count == 0){
                     Serial.println("phase: START");
-                    if (mode == Mode::CROUCH){
-                        controller.init_param_crouch(HEIGHT_CROUCH);
-                        phi_order = PHI_CROUCH;
-                        stance = stance_walk;
-                    }else if (mode == Mode::FIGHT){
-                        controller.init_param_fight(HEIGHT_FIGHT);
-                        stance = stance_fight;
-                        phi_order = 0.0f * PI / 180.0f;
-                    }else if (mode == Mode::SMALL){
-                        controller.init_param_small(HEIGHT_WALK);
-                        stance = stance_walk;
-                    }else{
-                        controller.init_param_walk(HEIGHT_WALK, selected_T_sup);
-                        stance = stance_walk;
-                        phi_order = 0.0f * PI / 180.0f;
-                    }
+                    controller.init_param_walk(HEIGHT_WALK, selected_T_sup);
+                    stance = stance_walk;
+                    phi_order = 0.0f;
                     controller.init_pose();
                     controller.inverse_pivot();
                     controller.init_state_variables(true, false);
@@ -745,18 +470,6 @@ void Core1Task(void * parameter){
                 if (!single_calculated && phase_count >= int(phase_length/2)){
                     Serial.println("calculate single");
                     single_calculated = true;
-                    // change phase to STANCE if order is given
-                    if ((order == Order::MODE_CHANGE || order == Order::CROUCH || order == Order::STAND)
-                        && controller.pivot_right())
-                    {
-                        init_phase(
-                            Mode::TRANSITION,
-                            Phase::STANCE,
-                            controller.get_T_sup() * 2
-                        );
-                        break;
-                    }
-
                     // update state variables in gait controller
                     controller.update_state_variables(vd);
                     update_phase();
@@ -801,79 +514,6 @@ void Core1Task(void * parameter){
             }
 
             /* #######################################################
-            stance change
-            ####################################################### */
-            case Phase::STANCE:{
-                com_pos = controller.get_default_com_pos();
-
-                if (phase_count == 0){
-                    Serial.println("phase: STANCE");
-                    float height_now;
-                    float height_aim;
-
-                    // set height, stance, and mode
-                    if (order == Order::MODE_CHANGE){
-                        if (mode_last == Mode::WALK){
-                            height_now = HEIGHT_WALK; height_aim = HEIGHT_FIGHT;
-                            stance_next = stance_fight;
-                            phi_order = 0.0f;
-                            mode = Mode::FIGHT; mode_last = Mode::WALK;
-                        }else if (mode_last == Mode::FIGHT){
-                            height_now = HEIGHT_FIGHT; height_aim = HEIGHT_WALK;
-                            stance_next = stance_walk;
-                            phi_order = 0.0f;
-                            mode = Mode::WALK; mode_last = Mode::FIGHT;
-                        }
-
-                    }else if (order == Order::CROUCH){
-                        height_now = HEIGHT_WALK; height_aim = HEIGHT_CROUCH;
-                        stance_next = stance_crouch;
-                        phi_order = PHI_CROUCH;
-                        mode = Mode::CROUCH; mode_last = Mode::WALK;
-
-                    }else if (order == Order::STAND){
-                        height_now = HEIGHT_CROUCH; height_aim = HEIGHT_WALK;
-                        stance_next = stance_walk;
-                        phi_order = 0.0f;
-                        mode = Mode::WALK; mode_last = Mode::CROUCH;
-                    }
-
-                    // preparation for stance update
-                    stance.height_diff = height_now - height_aim;
-                    stance_diff = update_stance_diff(
-                        stance_next, phase_length,
-                        height_aim, height_now,
-                        mode);
-                    controller.update_state_variables({0,0,0});
-                }
-
-                stance.height_diff         += stance_diff.height_diff;
-                stance.relative_body_angle += stance_diff.relative_body_angle;
-                stance.relative_body_pos   += stance_diff.relative_body_pos;
-                stance.relative_leg_angle  += stance_diff.relative_leg_angle;
-
-                // phase transition
-                phase_count += update_rate;
-                if (phase_count >= phase_length){
-                    stance = stance_next;
-                    order = Order::NONE;
-                    init_phase(
-                        mode,
-                        Phase::START,
-                        controller.get_T_ds()
-                    );
-                }
-                break;
-            }
-
-            /* #######################################################
-            havent decided
-            ####################################################### */
-            case Phase::FLIGHT:{
-                break;
-            }
-
-            /* #######################################################
             exeptional states
             ####################################################### */
             case Phase::FALL:{
@@ -914,9 +554,6 @@ void Core1Task(void * parameter){
                 }
                 order_free = false;
 
-                // after fall, do not start from CROUCH.
-
-
                 // phase transition
                 init_phase(
                     Mode::WAIT,
@@ -934,192 +571,6 @@ void Core1Task(void * parameter){
             }
 
             /* #######################################################
-            order while WALK
-            ####################################################### */
-            case Phase::JUMP:{
-                com_pos = controller.get_default_com_pos();
-                switch (jump_state){
-                    case JumpState::CROUCH:{
-                        // shrink until jump preparation height
-                        if(stance.height_diff > HEIGHT_JUMP - HEIGHT_WALK){
-                            phi_order = PHI_JUMP;
-                            stance.height_diff -= HEIGHT_UPDATE_RATE;
-                        }else{
-                            stance.height_diff = HEIGHT_JUMP - HEIGHT_WALK;
-                            jump_state = JumpState::EXTEND;
-                        }
-                        break;
-                    }
-                    case JumpState::EXTEND:{
-                        kp_phi = 1.0;
-                        phi_order = 0.0f;
-                        stance = stance_walk;
-                        jump_state = JumpState::HIT;
-                    }case JumpState::HIT:{
-                        kp_phi = KP_PHI_BASE;
-                        jump_state = JumpState::CROUCH;
-                        order = Order::NONE;
-                        init_phase(
-                            mode,
-                            Phase::END,
-                            0
-                        );
-                        break;
-                    }
-
-                }
-                phase_count += 1;
-                break;
-            }
-
-            case Phase::RUN:{
-                break;
-            }
-            /* #######################################################
-            order while CROUCH
-            ####################################################### */
-            case Phase::LEARN:{
-                if (phase_count == 0){
-                    Serial.println("phase: LEARN");
-                    array<float, LINK_SIZE> motion = sd->read_motion("/LEARN.csv", 0);
-                    array<float, 6> LEARN_leg_right = {motion[6], motion[7], motion[8], motion[9], motion[10], motion[11]};
-                    array<float, 6> LEARN_leg_left = {motion[12], motion[13], motion[14], motion[15], motion[16], motion[17]};
-
-                    robot->move_leg_t(LEARN_leg_right, LEARN_leg_left, 0.25f);
-                }
-
-                phase_count++;
-
-                if (global_control_pkt.button_left[2] == 1){   
-                    order = Order::NONE;
-                    com_pos = controller.get_default_com_pos();
-                    phi_order = PHI_CROUCH;
-                    float l_pivot2com = sensor.get_l_pivot2com();
-                    float com_x_diff = l_pivot2com * sin(phi_order);
-                    robot->move_leg_ik_t(
-                        {com_pos[0][0] - com_x_diff, com_pos[0][1], com_pos[0][2]}, 0,phi_order,0,
-                        {com_pos[1][0] - com_x_diff, com_pos[1][1], com_pos[1][2]}, 0,phi_order,0,
-                        0.25f
-                    );
-                    init_phase(
-                        Mode::WAIT,
-                        Phase::WAIT,
-                        0
-                    );
-                }else if (global_control_pkt.button_right[2] == 0){
-                    while(global_control_pkt.button_right[2] == 0){
-                        array<float, LINK_SIZE> motion = sd->read_motion("/HOLD.csv", 0);
-                        array<float, 6> leg_right = {motion[6], motion[7], motion[8], motion[9], motion[10], motion[11]};
-                        array<float, 6> leg_left = {motion[12], motion[13], motion[14], motion[15], motion[16], motion[17]};
-
-                        robot->move_leg_t(leg_right, leg_left, 0.1f);
-                    }
-                }else if (global_control_pkt.button_right[1] == 0){
-                    while(global_control_pkt.button_right[2] == 0){
-                        array<float, LINK_SIZE> motion = sd->read_motion("/THROW.csv", 0);
-                        array<float, 6> leg_right = {motion[6], motion[7], motion[8], motion[9], motion[10], motion[11]};
-                        array<float, 6> leg_left = {motion[12], motion[13], motion[14], motion[15], motion[16], motion[17]};
-
-                        robot->move_leg_t(leg_right, leg_left, 0.1f);
-                    }
-                }
-                break;
-            }
-
-            case Phase::THROUGH:{
-                break;
-            }
-
-            case Phase::ROLL:{
-                break;
-            }
-
-            /* #######################################################
-            order while FIGHT
-            ####################################################### */
-            case Phase::SIDE:{
-                if (phase_count == 0){
-                    Serial.println("phase: SIDE");
-                    controller.inverse_pivot();
-                    controller.init_side(vd);
-                    controller.init_single();
-                    single_calculated = false;
-                    // re-initialize phase to set correct phase length
-                    init_phase(
-                        mode,
-                        Phase::SIDE,
-                        controller.get_T_sup()
-                    );
-                }
-                if (!single_calculated && phase_count >= int(phase_length/2)){
-                    Serial.println("calculate single");
-                    single_calculated = true;
-                    // update state variables in gait controller
-                    controller.update_state_variables_side(vd);
-                    update_phase();
-                }
-                com_pos = controller.calc_com_traj_single(
-                    single_calculated,
-                    phase_count / (float)CTRL_STEP / (float)UPDATE_RATE_BASE,
-                    phase_count / (float)CTRL_STEP / (float)UPDATE_RATE_BASE
-                );
-
-                // phase transition
-                phase_count += update_rate;
-                if (phase_count >= phase_length){
-                    if(phase_next != Phase::SIDE){
-                        com_pos = controller.get_default_com_pos();
-                    }
-                    init_phase(
-                        mode,
-                        phase_next,
-                        controller.get_T_sup()
-                    );
-                }
-                break;
-            }
-
-            case Phase::GUARD:{
-                // set com pos to default pose
-                com_pos = controller.get_default_com_pos();
-
-                // if guard button released while GUARD is ordered, switch to WAIT
-                if (global_control_pkt.button_left[2] == 1){
-                    phi_order = 0.0f;
-                    if(stance.height_diff < 0){
-                        stance.height_diff += HEIGHT_UPDATE_RATE;
-                    }else{
-                        stance.height_diff = 0.0f;
-                        init_phase(
-                            Mode::WAIT,
-                            Phase::WAIT,
-                            0
-                        );
-                        order = Order::NONE;
-                    }
-                    break;
-                }
-
-                if(stance.height_diff > HEIGHT_GUARD - HEIGHT_WALK){
-                    stance.height_diff -= HEIGHT_UPDATE_RATE;
-                }
-                phi_order = 30.0f * PI / 180.0f;
-                break;
-            }
-
-            case Phase::KICK_LOW:{
-                break;
-            }
-            
-            case Phase::KICK_MIDDLE:{
-                break;
-            }
-
-            case Phase::KICK_BACK:{
-                break;
-            }
-
-            /* #######################################################
             idring
             ####################################################### */
             case Phase::WAIT:{
@@ -1130,38 +581,13 @@ void Core1Task(void * parameter){
         /* #########################################################################
         Skip the rest in exceptional states.
         ##########################################################################*/
-        if (phase == Phase::FALL || phase == Phase::WAKE ||
-            phase == Phase::LEARN ||
-            phase == Phase::GUARD){
+        if (phase == Phase::FALL || phase == Phase::WAKE){
             // do nothing
             continue;
         }
 
         /* #########################################################################
-        FIGHT MODE EXCEPTIONS
-        ######################################################################### */
-        // dont make swing leg in FIGHT mode
-        float foot_dist_y_base = controller.get_foot_dist_y_base();
-        if (mode == Mode::SIDE){
-            if (com_pos[0][1] < 0){
-                com_pos[0][1] *= -1;
-            }
-            if (com_pos[1][1] > 0){
-                com_pos[1][1] *= -1;
-            }
-            if (abs(com_pos[0][1]) < foot_dist_y_base - 0.015f ||
-                abs(com_pos[0][1]) > foot_dist_y_base + 0.015f){
-                com_pos[0][1] = foot_dist_y_base * (com_pos[0][1] / abs(com_pos[0][1]));
-            }
-            if (abs(com_pos[1][1]) < foot_dist_y_base - 0.015f || 
-                abs(com_pos[1][1]) > foot_dist_y_base + 0.015f){
-                com_pos[1][1] = foot_dist_y_base * (com_pos[1][1] / abs(com_pos[1][1]));
-            }
-        }
-
-        /* #########################################################################
         FEEDBACK
-        - FIGHT mode exceptions
         - arm position feedback
         - attach stance
         - sensor feedback (angle)
@@ -1188,12 +614,8 @@ void Core1Task(void * parameter){
         // update_rate feedback
         array<float, 2> acc_ideal = {com_pos[2][0], com_pos[2][1]};
         float Tc = controller.get_Tc();
-        if (phase == Phase::SINGLE || phase == Phase::SIDE){
-            if (phase == Phase::SINGLE){
-                sensor.set_update_rate_fb_gains(7.5, 0.60);
-            }else{
-                sensor.set_update_rate_fb_gains(1.0, 0.03);
-            }
+        if (phase == Phase::SINGLE){
+            sensor.set_update_rate_fb_gains(7.5, 0.60);
             // com calculation check
             float com_y_pos;
             if(controller.is_pivot_right()){
@@ -1289,13 +711,6 @@ void Core1Task(void * parameter){
             com_pos[1][0] - fb_l[0],
             com_pos[1][1] - fb_l[1],
             com_pos[1][2]};
-
-        // print com position for debag
-        // if (phase == Phase::SIDE){
-        //     Serial.println("com_pos:");
-        //     Serial.print(com_pos[0][0], 4); Serial.print(", "); Serial.print(com_pos[0][1], 4); Serial.print(", "); Serial.println(com_pos[0][2], 4);
-        //     Serial.print(com_pos[1][0], 4); Serial.print(", "); Serial.print(com_pos[1][1], 4); Serial.print(", "); Serial.println(com_pos[1][2], 4);
-        // }
 
         // send order
         float phi_fb = sensor.angle_phi_fb(); // simple phi feedback

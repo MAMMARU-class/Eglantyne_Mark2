@@ -3,16 +3,6 @@
 #include "SLIP.h"
 
 #define HEIGHT_WALK 0.142f
-#define HEIGHT_FIGHT 0.135f
-
-#define HEIGHT_CROUCH 0.09f
-#define PHI_CROUCH 25.0f * PI / 180.0f
-
-#define HEIGHT_GUARD 0.12f
-
-#define HEIGHT_JUMP 0.1f
-#define PHI_JUMP 20.0f * PI / 180.0f
-#define HEIGHT_UPDATE_RATE 0.001f
 
 using std::array;
 
@@ -42,10 +32,6 @@ public:
     void set_body_angle(float body_angle){ this->body_angle = body_angle; }
 
     void init_param_walk(float z0, float T_sup_base);
-    void init_param_side(float z0);
-    void init_param_small(float z0);
-    void init_param_crouch(float z0);
-    void init_param_fight(float z0);
     void init_pose();
 
     // pivot
@@ -58,8 +44,6 @@ public:
     // update state variables
     void init_state_variables(bool zero_start = false, bool zero_end = false);
     void update_state_variables(array<float, 3> vd);
-    void init_side(array<float, 3> vd);
-    void update_state_variables_side(array<float, 3> vd);
     void feedback_x0_vx0(array<float, 2> x0_vx0_fb){
         // this->pn_p1[0] += x0_vx0_fb[0];
         this->pn[0] += x0_vx0_fb[0];
@@ -134,7 +118,6 @@ private:
     // phase time
     float T_sup;
     float T_sup_x;
-    float T_sup_next;
 
     // double support calculation
     float T_ds;

@@ -1,21 +1,8 @@
 #include "SensorFB.h"
 
-static MotionSD* sd;
-
-int i_update_rate = 0;
-int i_x0_vx0 = 0;
-
-float (*motions_update_rate)[18];
-float (*motions_x0_vx0)[18];
-
 SensorFB::SensorFB(){}
 
-void SensorFB::init(MotionSD* s){
-    motions_update_rate =
-        (float (*)[18]) malloc(sizeof(float) * 1200 * 18);
-
-    sd = s;
-
+void SensorFB::init(){
     Serial.println("Initializing BNO055...");
 
     if (!Wire.begin(SDA, SCL)) {
@@ -34,6 +21,7 @@ void SensorFB::init(MotionSD* s){
     delay(500);
     this->euler_last = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
     this->acc_last   = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+    this->gyro       = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
     update();
     Serial.println("BNO055 initialized");
 }
@@ -45,6 +33,28 @@ void SensorFB::update(){
     // acceleration
     this->acc_last   = this->acc;
     this-> acc       = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+    // angular velocity
+    this->gyro       = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
+}
+
+BNO055Data SensorFB::get_bno055_data() const{
+    return {
+        {
+            static_cast<float>(this->acc.x()),
+            static_cast<float>(this->acc.y()),
+            static_cast<float>(this->acc.z())
+        },
+        {
+            static_cast<float>(this->euler.x()),
+            static_cast<float>(this->euler.y()),
+            static_cast<float>(this->euler.z())
+        },
+        {
+            static_cast<float>(this->gyro.x()),
+            static_cast<float>(this->gyro.y()),
+            static_cast<float>(this->gyro.z())
+        }
+    };
 }
 
 // state check
@@ -134,6 +144,7 @@ int SensorFB::update_rate_fb(
     }else if (c_dash < 0 && pos_y > c_dash){
         pos_y = c_dash;
     }
+    this->last_pos_y = pos_y;
     float t_now;
     t_now = sqrt((pos_y - c_dash)/a) * sig;
 
@@ -153,6 +164,7 @@ int SensorFB::update_rate_fb(
         // advance. slower phase velocity.
         update_rate_fb = update_rate / acc_fb;
     }
+    this->last_update_rate_fb = update_rate_fb;
 
     // cast to int, and handle 0
     int update_rate_fb_int = (int)update_rate_fb;
@@ -160,9 +172,10 @@ int SensorFB::update_rate_fb(
         update_rate_fb_int = 1;
     }
 
-    if(!use_fb && i_update_rate > 150){
+    if(!use_fb && this->update_rate_sample_count > 150){
         update_rate_fb_int = (int)update_rate;
     }
+    this->update_rate_sample_count++;
     // Serial.println();
     // Serial.print("a: "); Serial.print(a, 4); Serial.print(", b: "); Serial.print(b, 4); Serial.print(", c: "); Serial.println(c, 4);
     // Serial.print("acc_ideal: "); Serial.print(acc_ideal[1], 4); Serial.print(", acc: "); Serial.println(acc, 4);
@@ -173,20 +186,6 @@ int SensorFB::update_rate_fb(
     // Serial.print("t_err: "); Serial.println(t_err, 4);
     // Serial.print("update_rate_fb: "); Serial.println(update_rate_fb, 4);
 
-    i_update_rate++;
-    if (i_update_rate == 1200){
-        Serial.println("Writing update rate feedback data to SD card...");
-        sd->write_long_motion(this->data_save_filename.c_str(), motions_update_rate, 1200);
-    }else{
-        float data[18] = {
-            acc_ideal[1], acc, 0.0,
-            com_pos, acc*Tc*Tc, pos_y,
-            t_ideal, sqrt((pos_y - c_dash)/a) * sig, update_rate_fb, 0.0,
-            0,0,0,0,0,0,0,0
-        };
-
-        memcpy(motions_update_rate[i_update_rate], data, sizeof(data));
-    }
     return update_rate_fb_int;
 }
 
@@ -241,19 +240,5 @@ array<float, 2> SensorFB::x0_vx0_fb(
     // Serial.print("x0_fb_pos: "); Serial.print(x0_fb_pos, 4); Serial.print(", vx0_fb_pos: "); Serial.println(vx0_fb_pos, 4);
     // Serial.print("x0_fb_vel: "); Serial.print(x0_fb_vel, 4); Serial.print(", vx0_fb_vel: "); Serial.println(vx0_fb_vel, 4);
     // Serial.print("x0_fb: "); Serial.print(x0_fb, 4); Serial.print(", vx0_fb: "); Serial.println(vx0_fb, 4);
-    // i_x0_vx0++;
-    // if (i_x0_vx0 == 600){
-    //     sd->write_long_motion(f_x0_vx0, motions_x0_vx0, 600);
-    // }else{
-    //     float data[18] = {
-    //         acc, vel_x, 0.0,
-    //         com_x_pos, pos_x, 0.0,
-    //         x0, x0_fb_pos, x0_fb_vel,
-    //         vx0, vx0_fb_pos, vx0_fb_vel,
-    //         pd_x0_fb, pd_vx0_fb, 0.0
-    //     };
-    //     memcpy(motions_x0_vx0[i_x0_vx0], data, sizeof(data));
-    // }
-
     return {pd_x0_fb, pd_vx0_fb};
 }

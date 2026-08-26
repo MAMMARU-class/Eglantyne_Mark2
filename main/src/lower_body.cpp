@@ -9,6 +9,15 @@ constexpr bool EXPERIMENT_DISTURBANCE_ENABLED = true;
 constexpr array<float, 3> TARGET_VELOCITY = {0.1f, 0.0f, 0.0f};
 constexpr float VELOCITY_EPS = 1e-4f;
 
+const char* const LOG_COLUMN_NAMES[] = {
+    "acc_x_mps2", "acc_y_mps2", "acc_z_mps2",
+    "angle_x_deg", "angle_y_deg", "angle_z_deg",
+    "gyro_x_rps", "gyro_y_rps", "gyro_z_rps",
+    "pos_y", "update_rate_fb"
+};
+constexpr size_t LOG_COLUMN_COUNT =
+    sizeof(LOG_COLUMN_NAMES) / sizeof(LOG_COLUMN_NAMES[0]);
+
 // orders
 static array<float, 3> vd = {0.0f, 0.0f, 0.0f};
 
@@ -32,13 +41,38 @@ static MotionSD* sd;
 GaitController controller;
 SensorFB sensor;
 
+static void write_motion_log(bool include_feedback_values){
+    BNO055Data bno_data = sensor.get_bno055_data();
+    const float values[LOG_COLUMN_COUNT] = {
+        bno_data.acceleration[0],
+        bno_data.acceleration[1],
+        bno_data.acceleration[2],
+        bno_data.angle[0],
+        bno_data.angle[1],
+        bno_data.angle[2],
+        bno_data.angular_velocity[0],
+        bno_data.angular_velocity[1],
+        bno_data.angular_velocity[2],
+        sensor.get_last_pos_y(),
+        sensor.get_last_update_rate_fb()
+    };
+    const bool valid[LOG_COLUMN_COUNT] = {
+        true, true, true,
+        true, true, true,
+        true, true, true,
+        include_feedback_values, include_feedback_values
+    };
+
+    sd->write_csv_row(values, valid, LOG_COLUMN_COUNT);
+}
+
 void lower_body_control_init(Robot* r, MotionSD* s){
     robot = r;
     sd = s;
 
     sd->init();
 
-    sensor.init(sd);
+    sensor.init();
     delay(1000);
     sensor.update();
     delay(1000);
@@ -70,7 +104,13 @@ void lower_body_control_init(Robot* r, MotionSD* s){
         }
     }
     created_filename = filename_buf;
-    sensor.set_filename(created_filename.c_str());
+
+    if (!sd->begin_csv_log(
+            created_filename.c_str(),
+            LOG_COLUMN_NAMES,
+            LOG_COLUMN_COUNT)) {
+        Serial.println("Motion log initialization failed");
+    }
 
     Serial.print("Created File Name: ");
     Serial.println(created_filename.c_str());
@@ -296,6 +336,7 @@ void Core1Task(void * parameter){
             ####################################################### */
             case Phase::FALL:{
                 Serial.println("phase: FALL");
+                sd->write_csv_null_row();
                 robot->free_upper();
                 array<float, 3> current_order_right = {com_pos[0][0], com_pos[0][1], com_pos[0][2]};
                 array<float, 3> current_order_left =  {com_pos[1][0], com_pos[1][1], com_pos[1][2]};
@@ -324,6 +365,7 @@ void Core1Task(void * parameter){
 
             case Phase::WAKE:{
                 Serial.println("phase: WAKE");
+                sd->write_csv_null_row();
                 if (sensor.face_up()){
                     wake_face_up();
                 }else{
@@ -415,6 +457,14 @@ void Core1Task(void * parameter){
                 com_x_pos
             );
             controller.feedback_x0_vx0(x0_vx0_fb);
+        }
+
+        // Record BNO055 data throughout normal walking. Feedback values are
+        // meaningful only during single support.
+        if (phase == Phase::SINGLE){
+            write_motion_log(true);
+        }else if (phase == Phase::DOUBLE){
+            write_motion_log(false);
         }
 
         /* #########################################################################

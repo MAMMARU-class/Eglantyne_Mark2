@@ -4,20 +4,28 @@
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
 
-#include "MotionSD.h"
-
 #define SDA 5
 #define SCL 4
 
 using std::array;
+
+struct BNO055Data {
+    array<float, 3> acceleration;
+    array<float, 3> angle;
+    array<float, 3> angular_velocity;
+};
 
 class SensorFB{
 public:
     SensorFB();
 
     // initialization
-    void init(MotionSD* s);
+    void init();
     void update();
+
+    BNO055Data get_bno055_data() const;
+    float get_last_pos_y() const { return this->last_pos_y; }
+    float get_last_update_rate_fb() const { return this->last_update_rate_fb; }
 
     // state check
     bool fall();
@@ -38,7 +46,6 @@ public:
 
     // setters
     void set_update_rate_fb_gains(float kp, float kd){ this->kp_update_rate = kp; this->kd_update_rate = kd; }
-    void set_filename(const char* filename){ this->data_save_filename = filename; }
 private:
     // bno
     Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
@@ -46,6 +53,7 @@ private:
     imu::Vector<3> euler;
     imu::Vector<3> acc_last;
     imu::Vector<3> acc;
+    imu::Vector<3> gyro;
 
     // gains
     float kp_phi_body    = 0.45f;
@@ -68,11 +76,12 @@ private:
     // update rate feedback
     float acc_ideal_last = 0.0f;
     float t_err_last     = 0.0f;
+    uint32_t update_rate_sample_count = 0;
+    float last_pos_y = NAN;
+    float last_update_rate_fb = NAN;
 
     // x0 and vx0 feedback
     float x0_fb_last  = 0.0f;
     float vx0_fb_last = 0.0f;
 
-    // data save folder
-    std::string data_save_filename;
 };

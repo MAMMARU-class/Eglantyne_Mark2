@@ -23,45 +23,128 @@ void MotionSD::init(){
 /* #########################################################################
 WRITE and READ
 ##########################################################################*/
-void MotionSD::write_motion(
+bool MotionSD::begin_csv_log(
     const char* filename,
-    array<float, 18> data
+    const char* const column_names[],
+    size_t column_count,
+    size_t row_capacity
 ){
-    Serial.print("Writing: ");
-    for (const auto &v : data) {
-        Serial.print(v, 3); Serial.print(" ");
+    if (csv_log_buffer != nullptr) {
+        free(csv_log_buffer);
+        csv_log_buffer = nullptr;
     }
-    Serial.println();
 
-    File file = SD.open(filename, FILE_APPEND);
-    if (!file) return;
+    csv_log_active = false;
+    csv_log_filename = filename;
+    csv_column_names = column_names;
+    csv_column_count = 0;
+    csv_log_row_capacity = 0;
+    csv_log_row_count = 0;
 
-    for (size_t i = 0; i < 18; ++i) {
-        file.print(data[i], 6);
-        if (i < 17) file.print(",");
+    if (column_count == 0 || row_capacity == 0) {
+        return false;
+    }
+
+    csv_log_buffer = static_cast<float*>(
+        malloc(sizeof(float) * column_count * row_capacity));
+    if (csv_log_buffer == nullptr) {
+        Serial.println("Failed to allocate CSV log buffer");
+        return false;
+    }
+
+    csv_column_count = column_count;
+    csv_log_row_capacity = row_capacity;
+    csv_log_active = true;
+
+    return true;
+}
+
+bool MotionSD::write_csv_row(
+    const float values[],
+    const bool valid[],
+    size_t value_count
+){
+    if (!csv_log_active || csv_log_buffer == nullptr ||
+        value_count != csv_column_count) {
+        return false;
+    }
+
+    for (size_t i = 0; i < value_count; ++i) {
+        size_t buffer_index = csv_log_row_count * csv_column_count + i;
+        csv_log_buffer[buffer_index] = valid[i] ? values[i] : NAN;
+    }
+
+    csv_log_row_count++;
+    if (csv_log_row_count >= csv_log_row_capacity) {
+        return finish_csv_log();
+    }
+
+    return true;
+}
+
+bool MotionSD::write_csv_null_row(){
+    if (!csv_log_active || csv_log_buffer == nullptr ||
+        csv_column_count == 0) {
+        return false;
+    }
+
+    for (size_t i = 0; i < csv_column_count; ++i) {
+        size_t buffer_index = csv_log_row_count * csv_column_count + i;
+        csv_log_buffer[buffer_index] = NAN;
+    }
+
+    csv_log_row_count++;
+    if (csv_log_row_count >= csv_log_row_capacity) {
+        return finish_csv_log();
+    }
+
+    return true;
+}
+
+bool MotionSD::finish_csv_log(){
+    if (!csv_log_active || csv_log_buffer == nullptr) {
+        return false;
+    }
+
+    csv_log_active = false;
+    File file = SD.open(csv_log_filename.c_str(), FILE_WRITE);
+    if (!file) {
+        Serial.print("Failed to open CSV log: ");
+        Serial.println(csv_log_filename.c_str());
+        return false;
+    }
+
+    for (size_t i = 0; i < csv_column_count; ++i) {
+        file.print(csv_column_names[i]);
+        if (i + 1 < csv_column_count) {
+            file.print(",");
+        }
     }
     file.println();
 
-    file.close();
-}
-
-void MotionSD::write_long_motion(
-    const char* filename,
-    float motions[][18],
-    int length
-){
-    File file = SD.open(filename, FILE_APPEND);
-    if (!file) return;
-
-    for (int k = 0; k < length; k++) {
-        for (int i = 0; i < 18; i++) {
-            file.print(motions[k][i], 6);
-            if (i < 17) file.print(",");
+    for (size_t row = 0; row < csv_log_row_count; ++row) {
+        for (size_t column = 0; column < csv_column_count; ++column) {
+            float value = csv_log_buffer[row * csv_column_count + column];
+            if (isnan(value)) {
+                file.print("Null");
+            } else {
+                file.print(value, 6);
+            }
+            if (column + 1 < csv_column_count) {
+                file.print(",");
+            }
         }
         file.println();
     }
 
     file.close();
+    free(csv_log_buffer);
+    csv_log_buffer = nullptr;
+
+    Serial.print("CSV capture completed: ");
+    Serial.print(csv_log_row_count);
+    Serial.println(" rows");
+    return true;
 }
 
 array<float, 18> MotionSD::read_motion(

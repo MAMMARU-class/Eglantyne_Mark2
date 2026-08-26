@@ -22,15 +22,19 @@ public:
 
     void init();
 
-    void write_motion(
+    bool begin_csv_log(
         const char* filename,
-        array<float, 18>);
-    
-    void write_long_motion(
-        const char* filename,
-        float motions[][18],
-        int length
-    );
+        const char* const column_names[],
+        size_t column_count,
+        size_t row_capacity = 1200);
+    bool write_csv_row(
+        const float values[],
+        const bool valid[],
+        size_t value_count);
+    bool write_csv_null_row();
+    bool finish_csv_log();
+    bool is_csv_log_active() const { return csv_log_active; }
+    size_t get_csv_log_row_count() const { return csv_log_row_count; }
     
     array<float, 18> read_motion(
         const char* filename,
@@ -49,7 +53,13 @@ public:
     void create_directory(const char* dirname);
 
 private:
-
+    std::string csv_log_filename;
+    const char* const* csv_column_names = nullptr;
+    float* csv_log_buffer = nullptr;
+    size_t csv_column_count = 0;
+    size_t csv_log_row_capacity = 0;
+    size_t csv_log_row_count = 0;
+    bool csv_log_active = false;
 };
 
 #endif

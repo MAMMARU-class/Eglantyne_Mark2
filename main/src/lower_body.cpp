@@ -11,15 +11,6 @@ bool is_fb_on;
 // orders
 static array<float, 3> vd = {0.0f, 0.0f, 0.0f};
 
-// stances
-STANCE_INFO stance_walk = {
-    .height_diff         = 0.0f,
-    .relative_body_angle = 0.0f,
-    .relative_body_pos   = 0.0f,
-    .relative_leg_angle  = 0.0f
-};
-STANCE_INFO stance = stance_walk;
-
 // mode and phase
 static Mode mode = Mode::WAIT;
 static Mode mode_last = Mode::WALK;
@@ -257,25 +248,6 @@ void update_phase(){
     }
 }
 
-array<array<float, 5>, 3> attach_stance(array<array<float, 5>, 3> com_pos, STANCE_INFO stance){
-    // // height
-    com_pos[0][2] += stance.height_diff;
-    com_pos[1][2] += stance.height_diff;
-
-    // relative body angle
-    com_pos[0][3] += stance.relative_body_angle;
-    com_pos[1][3] += stance.relative_body_angle;
-
-    // relative body pos
-    com_pos[0][0] += stance.relative_body_pos;
-    com_pos[1][0] += stance.relative_body_pos;
-
-    // left leg angle
-    com_pos[1][3] += stance.relative_leg_angle;
-
-    return com_pos;
-}
-
 int loop_count = 0;
 void Core1Task(void * parameter){
     loop_count++;
@@ -415,7 +387,6 @@ void Core1Task(void * parameter){
                 if (phase_count == 0){
                     Serial.println("phase: START");
                     controller.init_param_walk(HEIGHT_WALK, selected_T_sup);
-                    stance = stance_walk;
                     phi_order = 0.0f;
                     controller.init_pose();
                     controller.inverse_pivot();
@@ -564,7 +535,6 @@ void Core1Task(void * parameter){
                 // initialize pose to WALK
                 controller.init_param_walk(HEIGHT_WALK, selected_T_sup);
                 com_pos = controller.get_default_com_pos();
-                stance = stance_walk;
                 phi_order = 0.0f;
 
                 break;
@@ -589,7 +559,6 @@ void Core1Task(void * parameter){
         /* #########################################################################
         FEEDBACK
         - arm position feedback
-        - attach stance
         - sensor feedback (angle)
         - sensor feedback (update rate)
         - sensor feedback (x0 and vx0)
@@ -599,9 +568,6 @@ void Core1Task(void * parameter){
         // arm_pos feedback
         com_x[0] = com_pos[0][0];
         com_x[1] = com_pos[1][0];
-
-        // attach stance
-        com_pos = attach_stance(com_pos, stance);
 
         // sensor feedback
         // angle feedback

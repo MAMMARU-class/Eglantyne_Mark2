@@ -1,13 +1,7 @@
 #include "lower_body.h"
+#include "experimental_setup.h"
 #include <string>
 #include <cstdio>
-
-// experiment settings
-constexpr float EXPERIMENT_T_SUP = 0.14f;
-constexpr bool EXPERIMENT_FB_ENABLED = true;
-constexpr bool EXPERIMENT_DISTURBANCE_ENABLED = true;
-constexpr array<float, 3> TARGET_VELOCITY = {0.1f, 0.0f, 0.0f};
-constexpr float VELOCITY_EPS = 1e-4f;
 
 const char* const LOG_COLUMN_NAMES[] = {
     "acc_x_mps2", "acc_y_mps2", "acc_z_mps2",
@@ -108,7 +102,8 @@ void lower_body_control_init(Robot* r, MotionSD* s){
     if (!sd->begin_csv_log(
             created_filename.c_str(),
             LOG_COLUMN_NAMES,
-            LOG_COLUMN_COUNT)) {
+            LOG_COLUMN_COUNT,
+            EXPERIMENT_LOG_ROW_COUNT)) {
         Serial.println("Motion log initialization failed");
     }
 

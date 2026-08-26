@@ -26,7 +26,7 @@ public:
         const char* filename,
         const char* const column_names[],
         size_t column_count,
-        size_t row_capacity = 1200);
+        size_t row_capacity);
     bool write_csv_row(
         const float values[],
         const bool valid[],

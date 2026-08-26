@@ -30,13 +30,6 @@ void Robot::init_home(float t){
     }
 }
 
-void Robot::init_home_arm(float t){
-    array<float, LINK_SIZE> home = this->home();
-    array<float, 3> arm_home_right = {home[0], home[1], home[2]};
-    array<float, 3> arm_home_left  = {home[3], home[4], home[5]};
-    this->move_arm_t(arm_home_right, arm_home_left, t);
-}
-
 // set and get robot home
 void Robot::set_leg_home_pose(float leg_dist, float height){
     array<float, 6> angles_right = 
@@ -117,50 +110,6 @@ void Robot::move_link_t(int id, float q_order, float t){
     }
 }
 
-void Robot::move_arm_right(array<float, 3> motion){
-    arm_right_angles[0] = motion[0];
-    arm_right_angles[1] = motion[1];
-    arm_right_angles[2] = motion[2];
-    for(int id=0; id<3; id++){
-        link_set[id+0]->move(motion[id]);
-    }
-}
-void Robot::move_arm_left(array<float, 3> motion){
-    arm_left_angles[0] = motion[0];
-    arm_left_angles[1] = motion[1];
-    arm_left_angles[2] = motion[2];
-    for(int id=0; id<3; id++){
-        link_set[id+3]->move(motion[id]);
-    }
-}
-void Robot::move_arm_t(array<float, 3> right_motion, array<float, 3> left_motion, float t){
-    array<float, 3> current_right;
-    array<float, 3> current_left;
-    for(int id=0; id<3; id++){
-        current_right[id] = link_set[id+0]->getq_current();
-        current_left[id] = link_set[id+3]->getq_current();
-    }
-
-    array<float, 3> diff_right;
-    array<float, 3> diff_left;
-    for(int id=0; id<3; id++){
-        diff_right[id] = right_motion[id] - current_right[id];
-        diff_left[id] = left_motion[id] - current_left[id];
-    }
-
-    int step = int(t/CTRL_CYCLE * 1000);
-    for(int i=0; i<=step; i++){
-        array<float, 3> motion_right;
-        array<float, 3> motion_left;
-        for(int id=0; id<3; id++){
-            motion_right[id] = current_right[id] + diff_right[id]*( (float)(i) ) / (float)(step);
-            motion_left[id] = current_left[id] + diff_left[id]*( (float)(i) ) / (float)(step);
-        }
-        this->move_arm_right(motion_right);
-        this->move_arm_left(motion_left);
-        delay(CTRL_CYCLE);
-    }
-}
 void Robot::move_leg_right(array<float, 6> motion){
     for(int id=0; id<6; id++){
         link_set[id+6]->move(motion[id]);

@@ -18,7 +18,6 @@ public:
     CALCULATION PARAMETERS
     ##########################*/
     // initialization
-    void set_vd_max_abs(array<float, 3> vd_max_abs){ this->vd_max_abs = vd_max_abs; }
     void set_cpn_start(array<float, 2> cpn){ this->cpn_start = cpn; }
     void set_cvn_start(array<float, 2> cvn){ this->cvn_start = cvn; }
     void set_cvn_last(array<float, 2> cvn){ this->cvn_last = cvn; }
@@ -78,7 +77,6 @@ public:
             abs(this->p_n2p1[1] + this->p_n2m1[1]) < 1e-3f
         );
     };
-    array<float, 3> get_vd_max_abs(){ return this->vd_max_abs; }
     // getters from model
     float get_Tc(){ return model.get_Tc(); }
     array<float, 3> get_approx_coeff_y(){ return model.get_approx_coeff_y(); }
@@ -89,20 +87,12 @@ public:
     array<float, 2> get_x0_vx0(){
         return {-this->pn[0], this->cvn_start[0]};
     }
-    array<float, 2> rotate_vec(const array<float, 2>& vec, float angle){
-        return model.rotate_vec(vec, angle);
-    }
-    float get_foot_dist_y_base(){ return model.get_foot_dist_y_base(); }
-
 private:
     // model
     SLIP model;
 
     // pivot
     Pivot pivot;
-    // v input
-    array<float, 3> vd_max_abs = {0.02f, 0.02f, 0.2f};
-    
     // state variables
     // com state at start and last (no consideration about double support phase)
     array<float, 2> cpn_start;

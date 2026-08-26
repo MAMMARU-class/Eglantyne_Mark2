@@ -42,7 +42,6 @@ void SensorFB::update(){
     // current pose
     this->euler_last = this->euler;
     this->euler      = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-    this->euler.y() += this->phi * 180.0f / PI;
     // acceleration
     this->acc_last   = this->acc;
     this-> acc       = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
@@ -83,36 +82,6 @@ bool SensorFB::hit_ground(){
     }
 }
 
-// feedback functions
-// body inclination feedback
-array<float, 2> SensorFB::angle_com_pos_fb(){
-    // calculate angle error
-    float err = -this->euler.y();
-    float err_last = -this->euler_last.y();
-    float derr = err - err_last;
-
-    // convert angle to com position
-    array<float, 2> angle_com_err = {
-        sinf(err * PI / 180.0f) * this->l_pivot2com,
-        // sinf( this->euler.z() * PI / 180.0f) * this->l_pivot2com
-        0
-    };
-    array<float, 2> angle_com_derr = {
-        sinf(derr * PI / 180.0f) * this->l_pivot2com,
-        // sinf( this->gyro.z() * PI / 180.0f) * this->l_pivot2com
-        0
-    };
-
-    // feedback output
-    array<float, 2> angle_com_fb = {
-        this->kp_angle_com * angle_com_err[0] + this->kd_angle_com * angle_com_derr[0],
-        this->kp_angle_com * angle_com_err[1] + this->kd_angle_com * angle_com_derr[1]
-    };
-
-    return angle_com_fb;
-    // return {0,0};
-}
-
 float SensorFB::angle_phi_fb(){
     // rotate body base roll angle accordance with body angle.
     // calculate angle error
@@ -125,15 +94,6 @@ float SensorFB::angle_phi_fb(){
 
     float angle_phi_fb = this->kp_phi_body * err + this->kd_phi_body * derr;
     return angle_phi_fb;
-}
-
-array<float, 3> SensorFB::vd_fb(array<float, 3> vd){
-    array<float, 3> vd_fb = {
-        kp_angle_vd * float(-this->euler.y()) + kd_angle_vd * float(-this->euler.y()),
-        kp_angle_vd * float( this->euler.z()) + kd_angle_vd * float( this->euler.z()),
-        0
-    };
-    return vd_fb;
 }
 
 // acceleration feedback

@@ -1,7 +1,4 @@
 #include <Arduino.h>
-#include <vector>
-#include <deque>
-#include <mutex>
 // my libs
 #include "IcsHardSerialClass.h"
 #include "Robot.h"
@@ -9,12 +6,10 @@
 // SD card
 #include "MotionSD.h"
 // loops
-#include "connection.h"
 #include "lower_body.h"
 
 // using
 using std::array;
-using std::vector;
 
 // motor serial
 #define BAUDRATE 1250000
@@ -26,16 +21,6 @@ IcsHardSerialClass krs2(&Serial2, RobotEN2, BAUDRATE, TIMEOUT, RobotRX2, RobotTX
 Robot Eglantyne;
 // SD card
 MotionSD sd;
-
-// glbal variables
-// controller peripheral variables
-bool order_free = true;
-bool connected = false;
-volatile ControlPacket global_control_pkt = {};
-// feedback variables
-array<float, 2> com_x = {0.0f, 0.0f};
-array<float, 3> arm_right_angles;
-array<float, 3> arm_left_angles;
 
 void setup(){
     neopixelWrite(RGB_BUILTIN, 255, 0, 0);
@@ -62,27 +47,10 @@ void setup(){
     Eglantyne.move_all(current);
     Eglantyne.init_home(1);
 
-    // sub loop initializations
-    connection_init(&Eglantyne);
-
-    // esp now and upper body control task (core 0)
-    xTaskCreatePinnedToCore(
-        Core0Task,
-        "Core0Task",
-        8192,
-        NULL,
-        1,
-        NULL,
-        0 // core 0
-    );
-
-    send_msg2controller("Eglantyne initializing...");
     lower_body_control_init(&Eglantyne, &sd);
     Serial.println("Eglantyne Mark2 ready");
-    send_msg2controller("LOGO");
     neopixelWrite(RGB_BUILTIN, 0, 0, 255);
-    
-    order_free = false;
+
     // lower body control task (core 1)
     xTaskCreatePinnedToCore(
         Core1Task,

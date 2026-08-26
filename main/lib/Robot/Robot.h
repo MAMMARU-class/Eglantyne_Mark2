@@ -2,15 +2,11 @@
 #define robot_h
 
 #include <Arduino.h>
-#include <vector>
-#include <string>
 #include "RobotLink.h"
-#include "msg.h"
 
 #define CTRL_CYCLE 10 // ms
 // #define LINK_SIZE 1 // for board test
 #define LINK_SIZE 18
-using std::vector;
 using std::array;
 
 class Robot{
@@ -20,7 +16,6 @@ public:
     void setSerial(IcsHardSerialClass* serial1, IcsHardSerialClass* serial2);
     void setLink();
     void init_home(float t);
-    void init_home_arm(float t);
 
     // set and get robot home
     void set_leg_home_pose(float leg_dist, float height);
@@ -36,9 +31,6 @@ public:
     void move_link(int id, float q_order);
     void move_link_t(int id, float q_order, float t);
 
-    void move_arm_right(array<float, 3> motion);
-    void move_arm_left(array<float, 3> motion);
-    void move_arm_t(array<float, 3> right_motion, array<float, 3> left_motion, float t);
     void move_leg_right(array<float, 6> motion);
     void move_leg_left(array<float, 6> motion);
     void move_leg_t(array<float, 6> right_motion, array<float, 6> left_motion, float t);
@@ -70,7 +62,6 @@ public:
 
     // Kinematics (foot2com: (x,y,z)[m], theta: foot_rotation[rad], is_right: bool)
     array<float, 6> leg_ik_solver_phi_zero(array<float, 3> foot2com, float theta, bool is_right);
-    array<float, 3> arm_k_solver(array<float, 3> arm_angles);
 
 private:
     // link length [mm]
@@ -86,9 +77,6 @@ private:
 
     float l_foot_z = 37.5;
     float l_foot_x = 23.0;
-
-    float l_arm_upper = 82.84;
-    float l_arm_lower = 55;
 
     // serial
     IcsHardSerialClass* serial1;
@@ -119,7 +107,6 @@ private:
     RobotLink foot_pitch_left;
     RobotLink foot_roll_left;
 
-    array<array<float, 4>, 4> mul_T_matrices(array<array<float, 4>, 4> mat1, array<array<float, 4>, 4> mat2);
 };
 
 #endif

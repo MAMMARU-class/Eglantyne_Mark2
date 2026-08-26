@@ -7,8 +7,6 @@ GaitController::GaitController(){}
 CALCULATION PARAMETERS
 ##########################################################################*/
 void GaitController::init_param_walk(float z0, float T_sup_base){
-    // set max order input
-    this->set_vd_max_abs({0.09f, 0.0f, 0.6f});
     // initialize control parameters
     model.set_z0(z0);
     // model.set_z_flight(0.025f);

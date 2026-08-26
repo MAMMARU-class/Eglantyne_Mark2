@@ -18,7 +18,6 @@ public:
     // initialization
     void init(MotionSD* s);
     void update();
-    void set_phi(float phi){ this->phi = phi; };
 
     // state check
     bool fall();
@@ -27,10 +26,7 @@ public:
     bool hit_ground();
 
     // feedback
-    // body inclination feedback
-    array<float, 2> angle_com_pos_fb();
     float angle_phi_fb();
-    array<float, 3> vd_fb(array<float, 3> vd);
 
     // acceleration feedback
     int update_rate_fb(
@@ -43,9 +39,6 @@ public:
     // setters
     void set_update_rate_fb_gains(float kp, float kd){ this->kp_update_rate = kp; this->kd_update_rate = kd; }
     void set_filename(const char* filename){ this->data_save_filename = filename; }
-    // getters
-    float get_l_pivot2com(){ return l_pivot2com; }
-
 private:
     // bno
     Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
@@ -54,20 +47,9 @@ private:
     imu::Vector<3> acc_last;
     imu::Vector<3> acc;
 
-    float phi = 0.0f;
-
-    // body param
-    float l_pivot2com = 0.07;
-
     // gains
-    float kp_angle_com   = 0.0f;
-    float kd_angle_com   = 0.0f;
-
     float kp_phi_body    = 0.45f;
     float kd_phi_body    = 0.015f;
-
-    float kp_angle_vd    = 0.001f;
-    float kd_angle_vd    = 0.0f;
 
     // successive gains
     // float kp_update_rate = 7.0f;

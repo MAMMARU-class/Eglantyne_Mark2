@@ -25,7 +25,11 @@ public:
     void set_pn_p1(array<float, 2> pn_p1){ this->pn_p1 = pn_p1; }
     void set_p_n2p1(array<float, 2> p_n2p1){ this->p_n2p1 = p_n2p1; }
     void set_p_n2m1(array<float, 2> p_n2m1){ this->p_n2m1 = p_n2m1; }
-    void set_T_sup(float T_sup){ this->T_sup = T_sup; }
+    void set_T_sup(float T_sup){
+        this->T_sup_x += T_sup - this->T_sup;
+        this->T_sup = T_sup;
+        this->T_ds = this->T_sup * this->ds_ratio;
+    }
     void set_T_ds(float T_ds){ this->T_ds = T_ds; }
     void set_ds_ratio(float ds_ratio){ this->ds_ratio = ds_ratio; }
     void set_body_angle(float body_angle){ this->body_angle = body_angle; }

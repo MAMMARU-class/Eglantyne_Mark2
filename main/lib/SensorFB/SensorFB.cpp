@@ -110,8 +110,7 @@ float SensorFB::angle_phi_fb(){
 int SensorFB::update_rate_fb(
     float t_ideal, array<float, 2> acc_ideal,
     array<float, 3> approx_coeff, float Tc, int update_rate, 
-    float com_pos,
-    bool use_fb)
+    float com_pos)
 {
     // update last acc_ideal
     float acc = this->acc.y();
@@ -172,10 +171,6 @@ int SensorFB::update_rate_fb(
         update_rate_fb_int = 1;
     }
 
-    if(!use_fb && this->update_rate_sample_count > 150){
-        update_rate_fb_int = (int)update_rate;
-    }
-    this->update_rate_sample_count++;
     // Serial.println();
     // Serial.print("a: "); Serial.print(a, 4); Serial.print(", b: "); Serial.print(b, 4); Serial.print(", c: "); Serial.println(c, 4);
     // Serial.print("acc_ideal: "); Serial.print(acc_ideal[1], 4); Serial.print(", acc: "); Serial.println(acc, 4);

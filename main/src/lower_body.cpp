@@ -7,7 +7,7 @@ const char* const LOG_COLUMN_NAMES[] = {
     "acc_x_mps2", "acc_y_mps2", "acc_z_mps2",
     "angle_x_deg", "angle_y_deg", "angle_z_deg",
     "gyro_x_rps", "gyro_y_rps", "gyro_z_rps",
-    "pos_y", "update_rate_fb"
+    "t_sup_s", "pos_y", "update_rate_fb"
 };
 constexpr size_t LOG_COLUMN_COUNT =
     sizeof(LOG_COLUMN_NAMES) / sizeof(LOG_COLUMN_NAMES[0]);
@@ -35,6 +35,38 @@ static MotionSD* sd;
 GaitController controller;
 SensorFB sensor;
 
+static const char* feedback_gain_mode_name(FeedbackGainMode mode){
+    switch (mode){
+        case FeedbackGainMode::FIXED_MAXIMUM:
+            return "fixed_max";
+        case FeedbackGainMode::T_SUP_DEPENDENT:
+            return "t_sup_function";
+        case FeedbackGainMode::FIXED_MINIMUM:
+            return "fixed_min";
+    }
+    return "unknown";
+}
+
+static float calculate_experiment_t_sup(size_t completed_steps){
+    if (completed_steps < EXPERIMENT_T_SUP_HOLD_STEP_COUNT){
+        return EXPERIMENT_T_SUP_INITIAL;
+    }
+
+    const size_t ramp_step_count =
+        EXPERIMENT_LOG_ROW_COUNT - EXPERIMENT_T_SUP_HOLD_STEP_COUNT;
+    size_t current_ramp_step =
+        completed_steps - EXPERIMENT_T_SUP_HOLD_STEP_COUNT + 1;
+    if (current_ramp_step > ramp_step_count){
+        current_ramp_step = ramp_step_count;
+    }
+
+    const float progress =
+        static_cast<float>(current_ramp_step) /
+        static_cast<float>(ramp_step_count);
+    return EXPERIMENT_T_SUP_INITIAL +
+        (EXPERIMENT_T_SUP_FINAL - EXPERIMENT_T_SUP_INITIAL) * progress;
+}
+
 static void write_motion_log(bool include_feedback_values){
     BNO055Data bno_data = sensor.get_bno055_data();
     const float values[LOG_COLUMN_COUNT] = {
@@ -47,6 +79,7 @@ static void write_motion_log(bool include_feedback_values){
         bno_data.angular_velocity[0],
         bno_data.angular_velocity[1],
         bno_data.angular_velocity[2],
+        controller.get_T_sup(),
         sensor.get_last_pos_y(),
         sensor.get_last_update_rate_fb()
     };
@@ -54,6 +87,7 @@ static void write_motion_log(bool include_feedback_values){
         true, true, true,
         true, true, true,
         true, true, true,
+        true,
         include_feedback_values, include_feedback_values
     };
 
@@ -74,9 +108,13 @@ void lower_body_control_init(Robot* r, MotionSD* s){
 
     Serial.println("Experimental setup");
     Serial.print("T_sup: ");
-    Serial.println(EXPERIMENT_T_SUP, 3);
-    Serial.print("Feedback: ");
-    Serial.println(EXPERIMENT_FB_ENABLED ? "ON" : "OFF");
+    Serial.print(EXPERIMENT_T_SUP_INITIAL, 3);
+    Serial.print(" -> ");
+    Serial.println(EXPERIMENT_T_SUP_FINAL, 3);
+    Serial.print("Fixed T_sup steps: ");
+    Serial.println(EXPERIMENT_T_SUP_HOLD_STEP_COUNT);
+    Serial.print("Feedback gain mode: ");
+    Serial.println(feedback_gain_mode_name(EXPERIMENT_FEEDBACK_GAIN_MODE));
     Serial.print("Disturbance trial: ");
     Serial.println(EXPERIMENT_DISTURBANCE_ENABLED ? "ON" : "OFF");
 
@@ -87,8 +125,9 @@ void lower_body_control_init(Robot* r, MotionSD* s){
 
     int i = 0;
     while (true) {
-        snprintf(filename_buf, sizeof(filename_buf), "%s/T%.2f_FB%d_dist%d_exp%03d.csv",
-                 target_dir, EXPERIMENT_T_SUP, EXPERIMENT_FB_ENABLED ? 1 : 0,
+        snprintf(filename_buf, sizeof(filename_buf), "%s/T%.2f-%.2f_gain-%s_dist%d_exp%03d.csv",
+                 target_dir, EXPERIMENT_T_SUP_INITIAL, EXPERIMENT_T_SUP_FINAL,
+                 feedback_gain_mode_name(EXPERIMENT_FEEDBACK_GAIN_MODE),
                  EXPERIMENT_DISTURBANCE_ENABLED ? 1 : 0, i);
 
         if (s->is_file_exist(filename_buf) == true) {
@@ -111,7 +150,7 @@ void lower_body_control_init(Robot* r, MotionSD* s){
     Serial.println(created_filename.c_str());
 
     // initialize control parameters
-    controller.init_param_walk(HEIGHT_WALK, EXPERIMENT_T_SUP);
+    controller.init_param_walk(HEIGHT_WALK, EXPERIMENT_T_SUP_INITIAL);
     controller.init_pose();
 
     robot->init_home(1);
@@ -229,7 +268,7 @@ void Core1Task(void * parameter){
             case Phase::START:{
                 if (phase_count == 0){
                     Serial.println("phase: START");
-                    controller.init_param_walk(HEIGHT_WALK, EXPERIMENT_T_SUP);
+                    controller.init_param_walk(HEIGHT_WALK, EXPERIMENT_T_SUP_INITIAL);
                     controller.init_pose();
                     controller.inverse_pivot();
                     controller.init_state_variables(true, false);
@@ -311,6 +350,11 @@ void Core1Task(void * parameter){
                     Serial.println("phase: DOUBLE");
                     controller.inverse_pivot();
                     controller.init_state_variables(false, false);
+
+                    // Keep T_sup fixed during single support. Update it only
+                    // after the completed step has entered double support.
+                    controller.set_T_sup(calculate_experiment_t_sup(
+                        sd->get_csv_log_row_count()));
                 }
                 com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE_BASE);
                 
@@ -374,7 +418,7 @@ void Core1Task(void * parameter){
                 );
 
                 // initialize pose to WALK
-                controller.init_param_walk(HEIGHT_WALK, EXPERIMENT_T_SUP);
+                controller.init_param_walk(HEIGHT_WALK, EXPERIMENT_T_SUP_INITIAL);
                 com_pos = controller.get_default_com_pos();
 
                 break;
@@ -418,8 +462,7 @@ void Core1Task(void * parameter){
             update_rate = sensor.update_rate_fb(
                 t_ideal, acc_ideal,
                 controller.get_approx_coeff_y(), Tc, UPDATE_RATE_BASE,
-                com_y_pos,
-                EXPERIMENT_FB_ENABLED
+                com_y_pos
             );
         }else{
             update_rate = UPDATE_RATE_BASE;

@@ -40,8 +40,7 @@ public:
     int update_rate_fb(
         float t_ideal, array<float, 2> acc_ideal,
         array<float, 3> approx_coeff, float Tc, int update_rate,
-        float com_pos,
-        bool use_fb);
+        float com_pos);
     array<float, 2> x0_vx0_fb(float tx, float x0, float vx0, float Tc, int control_step, float com_x_pos);
 
     // setters
@@ -76,7 +75,6 @@ private:
     // update rate feedback
     float acc_ideal_last = 0.0f;
     float t_err_last     = 0.0f;
-    uint32_t update_rate_sample_count = 0;
     float last_pos_y = NAN;
     float last_update_rate_fb = NAN;
 

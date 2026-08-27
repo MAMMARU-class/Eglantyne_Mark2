@@ -64,9 +64,15 @@ private:
     // testing
     float kp_update_rate = 2.5f;
     float kd_update_rate = 1.8f;
+    // float kp_update_rate = 120.0f;
+    // float kd_update_rate = 50.0f;
+    // float kp_update_rate = 1.0f;
+    // float kd_update_rate = 0.1f;
 
-    float kp_x0_vx0 = 0.0027f;
-    float kd_x0_vx0 = 0.000005f;
+    // float kp_x0_vx0 = 0.0027f;
+    // float kd_x0_vx0 = 0.000005f;
+    float kp_x0_vx0 = 0.0f;
+    float kd_x0_vx0 = 0.0f;
 
     float a_pos = 1.0f;
     float a_vel = 0.007f;

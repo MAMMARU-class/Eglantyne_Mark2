@@ -2,7 +2,8 @@
 #include <cmath>
 
 #define G 9.81 // m/s^2
-#define M 1.2 // kg
+// #define M 1.2 // kg
+#define M 1.028 // kg
 
 using std::array;
 

@@ -151,7 +151,8 @@ int SensorFB::update_rate_fb(
     float t_derr = t_err - this->t_err_last;
     this->t_err_last = t_err;
 
-    float acc_fb = abs(this->kp_update_rate * t_err + this->kd_update_rate * t_derr) + 1.0f;
+    // float acc_fb = abs(this->kp_update_rate * t_err + this->kd_update_rate * t_derr) + 1.0f;
+    float acc_fb = abs(this->kp_update_rate * t_err + this->kd_update_rate * t_derr + 1.0f);
     // Serial.print("acc_fb: "); Serial.println(acc_fb, 4);
 
     // return update rate

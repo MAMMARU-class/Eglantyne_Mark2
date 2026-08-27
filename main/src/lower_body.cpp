@@ -467,7 +467,7 @@ void Core1Task(void * parameter){
         }else{
             update_rate = UPDATE_RATE_BASE;
         }
-        controller.update_T_sup_x(1/CTRL_STEP * (UPDATE_RATE_BASE - update_rate)/UPDATE_RATE_BASE);
+        controller.update_T_sup_x(float(1/CTRL_STEP)* (UPDATE_RATE_BASE - update_rate)/UPDATE_RATE_BASE);
 
         // at START and phase one after, dont make swing leg, and move slowly
         if (phase == Phase::START || phase_last == Phase::START){

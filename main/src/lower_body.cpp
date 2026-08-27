@@ -37,6 +37,8 @@ SensorFB sensor;
 
 static const char* feedback_gain_mode_name(FeedbackGainMode mode){
     switch (mode){
+        case FeedbackGainMode::ZERO:
+            return "zero";
         case FeedbackGainMode::FIXED_MAXIMUM:
             return "fixed_max";
         case FeedbackGainMode::T_SUP_DEPENDENT:
@@ -47,9 +49,9 @@ static const char* feedback_gain_mode_name(FeedbackGainMode mode){
     return "unknown";
 }
 
-static float calculate_experiment_t_sup(size_t completed_steps){
+static float calculate_experiment_progress(size_t completed_steps){
     if (completed_steps < EXPERIMENT_T_SUP_HOLD_STEP_COUNT){
-        return EXPERIMENT_T_SUP_INITIAL;
+        return 0.0f;
     }
 
     const size_t ramp_step_count =
@@ -60,11 +62,55 @@ static float calculate_experiment_t_sup(size_t completed_steps){
         current_ramp_step = ramp_step_count;
     }
 
-    const float progress =
+    return
         static_cast<float>(current_ramp_step) /
         static_cast<float>(ramp_step_count);
+}
+
+static float calculate_experiment_t_sup(size_t completed_steps){
+    const float progress = calculate_experiment_progress(completed_steps);
     return EXPERIMENT_T_SUP_INITIAL +
         (EXPERIMENT_T_SUP_FINAL - EXPERIMENT_T_SUP_INITIAL) * progress;
+}
+
+static UpdateRateFeedbackGains calculate_experiment_fb_gains(
+    size_t completed_steps)
+{
+    if (EXPERIMENT_FEEDBACK_GAIN_MODE == FeedbackGainMode::FIXED_MAXIMUM){
+        return EXPERIMENT_FB_GAINS_FINAL;
+    }
+    if (EXPERIMENT_FEEDBACK_GAIN_MODE == FeedbackGainMode::FIXED_MINIMUM){
+        return EXPERIMENT_FB_GAINS_INITIAL;
+    }
+
+    const float progress = calculate_experiment_progress(completed_steps);
+    return {
+        EXPERIMENT_FB_GAINS_INITIAL.kp +
+            (EXPERIMENT_FB_GAINS_FINAL.kp - EXPERIMENT_FB_GAINS_INITIAL.kp) * progress,
+        EXPERIMENT_FB_GAINS_INITIAL.kd +
+            (EXPERIMENT_FB_GAINS_FINAL.kd - EXPERIMENT_FB_GAINS_INITIAL.kd) * progress
+    };
+}
+
+static X0Vx0FeedbackGains calculate_experiment_x0_vx0_fb_gains(
+    size_t completed_steps)
+{
+    if (EXPERIMENT_FEEDBACK_GAIN_MODE == FeedbackGainMode::FIXED_MAXIMUM){
+        return EXPERIMENT_X0_VX0_FB_GAINS_FINAL;
+    }
+    if (EXPERIMENT_FEEDBACK_GAIN_MODE == FeedbackGainMode::FIXED_MINIMUM){
+        return EXPERIMENT_X0_VX0_FB_GAINS_INITIAL;
+    }
+
+    const float progress = calculate_experiment_progress(completed_steps);
+    return {
+        EXPERIMENT_X0_VX0_FB_GAINS_INITIAL.kp +
+            (EXPERIMENT_X0_VX0_FB_GAINS_FINAL.kp -
+             EXPERIMENT_X0_VX0_FB_GAINS_INITIAL.kp) * progress,
+        EXPERIMENT_X0_VX0_FB_GAINS_INITIAL.kd +
+            (EXPERIMENT_X0_VX0_FB_GAINS_FINAL.kd -
+             EXPERIMENT_X0_VX0_FB_GAINS_INITIAL.kd) * progress
+    };
 }
 
 static void write_motion_log(bool include_feedback_values){
@@ -115,6 +161,22 @@ void lower_body_control_init(Robot* r, MotionSD* s){
     Serial.println(EXPERIMENT_T_SUP_HOLD_STEP_COUNT);
     Serial.print("Feedback gain mode: ");
     Serial.println(feedback_gain_mode_name(EXPERIMENT_FEEDBACK_GAIN_MODE));
+    Serial.print("Initial update-rate gains: Kp=");
+    Serial.print(EXPERIMENT_FB_GAINS_INITIAL.kp, 3);
+    Serial.print(", Kd=");
+    Serial.println(EXPERIMENT_FB_GAINS_INITIAL.kd, 3);
+    Serial.print("Final update-rate gains: Kp=");
+    Serial.print(EXPERIMENT_FB_GAINS_FINAL.kp, 3);
+    Serial.print(", Kd=");
+    Serial.println(EXPERIMENT_FB_GAINS_FINAL.kd, 3);
+    Serial.print("Initial x0/vx0 gains: Kp=");
+    Serial.print(EXPERIMENT_X0_VX0_FB_GAINS_INITIAL.kp, 6);
+    Serial.print(", Kd=");
+    Serial.println(EXPERIMENT_X0_VX0_FB_GAINS_INITIAL.kd, 6);
+    Serial.print("Final x0/vx0 gains: Kp=");
+    Serial.print(EXPERIMENT_X0_VX0_FB_GAINS_FINAL.kp, 6);
+    Serial.print(", Kd=");
+    Serial.println(EXPERIMENT_X0_VX0_FB_GAINS_FINAL.kd, 6);
     Serial.print("Disturbance trial: ");
     Serial.println(EXPERIMENT_DISTURBANCE_ENABLED ? "ON" : "OFF");
 
@@ -145,6 +207,17 @@ void lower_body_control_init(Robot* r, MotionSD* s){
             EXPERIMENT_LOG_ROW_COUNT)) {
         Serial.println("Motion log initialization failed");
     }
+
+    UpdateRateFeedbackGains initial_fb_gains =
+        calculate_experiment_fb_gains(0);
+    sensor.set_update_rate_fb_gains(
+        initial_fb_gains.kp,
+        initial_fb_gains.kd);
+    X0Vx0FeedbackGains initial_x0_vx0_fb_gains =
+        calculate_experiment_x0_vx0_fb_gains(0);
+    sensor.set_x0_vx0_fb_gains(
+        initial_x0_vx0_fb_gains.kp,
+        initial_x0_vx0_fb_gains.kd);
 
     Serial.print("Created File Name: ");
     Serial.println(created_filename.c_str());
@@ -355,6 +428,18 @@ void Core1Task(void * parameter){
                     // after the completed step has entered double support.
                     controller.set_T_sup(calculate_experiment_t_sup(
                         sd->get_csv_log_row_count()));
+                    UpdateRateFeedbackGains fb_gains =
+                        calculate_experiment_fb_gains(
+                            sd->get_csv_log_row_count());
+                    sensor.set_update_rate_fb_gains(
+                        fb_gains.kp,
+                        fb_gains.kd);
+                    X0Vx0FeedbackGains x0_vx0_fb_gains =
+                        calculate_experiment_x0_vx0_fb_gains(
+                            sd->get_csv_log_row_count());
+                    sensor.set_x0_vx0_fb_gains(
+                        x0_vx0_fb_gains.kp,
+                        x0_vx0_fb_gains.kd);
                 }
                 com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE_BASE);
                 
@@ -450,7 +535,6 @@ void Core1Task(void * parameter){
         array<float, 2> acc_ideal = {com_pos[2][0], com_pos[2][1]};
         float Tc = controller.get_Tc();
         if (phase == Phase::SINGLE){
-            sensor.set_update_rate_fb_gains(7.5, 0.60);
             // com calculation check
             float com_y_pos;
             if(controller.is_pivot_right()){

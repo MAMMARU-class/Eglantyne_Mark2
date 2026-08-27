@@ -45,6 +45,7 @@ public:
 
     // setters
     void set_update_rate_fb_gains(float kp, float kd){ this->kp_update_rate = kp; this->kd_update_rate = kd; }
+    void set_x0_vx0_fb_gains(float kp, float kd){ this->kp_x0_vx0 = kp; this->kd_x0_vx0 = kd; }
 private:
     // bno
     Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
@@ -69,20 +70,21 @@ private:
     // float kp_update_rate = 1.0f;
     // float kd_update_rate = 0.1f;
 
-    // float kp_x0_vx0 = 0.0027f;
-    // float kd_x0_vx0 = 0.000005f;
-    float kp_x0_vx0 = 0.0f;
-    float kd_x0_vx0 = 0.0f;
+    float kp_x0_vx0 = 0.0027f;
+    float kd_x0_vx0 = 0.000005f;
+    // float kp_x0_vx0 = 0.0f;
+    // float kd_x0_vx0 = 0.0f;
 
     float a_pos = 1.0f;
     float a_vel = 0.007f;
 
     // feedback state variables
     // update rate feedback
+    float last_update_rate_fb = NAN;
     float acc_ideal_last = 0.0f;
     float t_err_last     = 0.0f;
     float last_pos_y = NAN;
-    float last_update_rate_fb = NAN;
+    float fb = NAN;
 
     // x0 and vx0 feedback
     float x0_fb_last  = 0.0f;

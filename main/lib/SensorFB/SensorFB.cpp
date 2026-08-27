@@ -131,28 +131,32 @@ int SensorFB::update_rate_fb(
     // time signiture
     int sig;
     if (jerk_abs > 0){
-        sig = -1;
-    }else{
         sig = 1;
+    }else{
+        sig = -1;
     }
 
     // estimate current pos and phase(time) based on current acceleration.
     float pos_y = acc * (Tc*Tc);
-    if(c_dash > 0 && pos_y < c_dash){
-        pos_y = c_dash;
-    }else if (c_dash < 0 && pos_y > c_dash){
-        pos_y = c_dash;
-    }
-    this->last_pos_y = pos_y;
     float t_now;
     t_now = sqrt((pos_y - c_dash)/a) * sig;
+
+    // error handling: if pos_y is out of range, set defalut value
+    if(c_dash > 0 && pos_y < c_dash){
+        pos_y = c_dash;
+        t_now = t_ideal;
+    }else if (c_dash < 0 && pos_y > c_dash){
+        pos_y = c_dash;
+        t_now = t_ideal;
+    }
+    this->last_pos_y = pos_y;
 
     float t_err = t_now - t_ideal;
     float t_derr = t_err - this->t_err_last;
     this->t_err_last = t_err;
 
     // float acc_fb = abs(this->kp_update_rate * t_err + this->kd_update_rate * t_derr) + 1.0f;
-    float acc_fb = abs(this->kp_update_rate * t_err + this->kd_update_rate * t_derr + 1.0f);
+    float acc_fb = abs(this->kp_update_rate * t_err + this->kd_update_rate * t_derr) + 1.0f;
     // Serial.print("acc_fb: "); Serial.println(acc_fb, 4);
 
     // return update rate
@@ -204,18 +208,18 @@ array<float, 2> SensorFB::x0_vx0_fb(
     float St = sinh(tx/Tc);
 
     float Ct_sq_St_sq = Ct * Ct - St * St;
-    float denom       = tx * Ct_sq_St_sq;
+    float denom       = Ct_sq_St_sq;
     
     // ideal values at t1
     float x_t1_ideal  = x0 * Ct + Tc * vx0 * St;
-    float vx_t1_ideal = (tx / Tc) * (x0 * St + Tc * vx0 * Ct);
+    float vx_t1_ideal = x0 / Tc * St + vx0 * Ct;
     
     // feedback calculations
-    float x0_fb_pos  =  x0 - (tx * Ct * pos_x     - Tc * St * vx_t1_ideal) / denom;
-    float vx0_fb_pos = vx0 - (-tx/Tc * St * pos_x + Ct * vx_t1_ideal)      / denom;
+    float x0_fb_pos  =  x0 - (Ct * pos_x      - Tc * St * vx_t1_ideal) / denom;
+    float vx0_fb_pos = vx0 - (-St/Tc * pos_x  + Ct * vx_t1_ideal)      / denom;
     
-    float x0_fb_vel  =  x0 - (tx * Ct * x_t1_ideal     - Tc * St * vel_x)  / denom;
-    float vx0_fb_vel = vx0 - (-tx/Tc * St * x_t1_ideal + Ct * vel_x)       / denom;
+    float x0_fb_vel  =  x0 - (Ct * x_t1_ideal     - Tc * St * vel_x) / denom;
+    float vx0_fb_vel = vx0 - (-St/Tc * x_t1_ideal + Ct * vel_x)      / denom;
 
     float x0_fb  = this->a_pos * x0_fb_pos  + this->a_vel * x0_fb_vel;
     float vx0_fb = this->a_pos * vx0_fb_pos + this->a_vel * vx0_fb_vel;

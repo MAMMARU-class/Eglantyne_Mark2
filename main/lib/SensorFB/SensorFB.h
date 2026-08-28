@@ -30,8 +30,6 @@ public:
     // state check
     bool fall();
     bool face_up();
-    bool fly();
-    bool hit_ground();
 
     // feedback
     float angle_phi_fb();
@@ -47,6 +45,16 @@ public:
     void set_update_rate_fb_gains(float kp, float kd){ this->kp_update_rate = kp; this->kd_update_rate = kd; }
     void set_x0_vx0_fb_gains(float kp, float kd){ this->kp_x0_vx0 = kp; this->kd_x0_vx0 = kd; }
 private:
+    static constexpr float ACCEL_LPF_CUTOFF_HZ = 2.0f;
+    static constexpr float GYRO_LPF_CUTOFF_HZ = 2.0f;
+    static constexpr float ANGLE_LPF_CUTOFF_HZ = 1.0f;
+
+    static float low_pass_filter(
+        float input, float previous, float cutoff_hz, float dt_s);
+    static float normalize_angle_deg(float angle_deg);
+    static float low_pass_angle_deg(
+        float input, float previous, float cutoff_hz, float dt_s);
+
     // bno
     Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
     imu::Vector<3> euler_last;
@@ -54,6 +62,8 @@ private:
     imu::Vector<3> acc_last;
     imu::Vector<3> acc;
     imu::Vector<3> gyro;
+    unsigned long last_bno_update_us = 0;
+    bool bno_filter_initialized = false;
 
     // gains
     float kp_phi_body    = 0.45f;

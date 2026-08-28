@@ -8,7 +8,7 @@
 // constexpr float EXPERIMENT_T_SUP_FINAL = 0.24f;
 
 constexpr float EXPERIMENT_T_SUP_INITIAL = 0.14f;
-constexpr float EXPERIMENT_T_SUP_FINAL = 0.25f;
+constexpr float EXPERIMENT_T_SUP_FINAL = 0.22f;
 constexpr std::size_t EXPERIMENT_T_SUP_HOLD_STEP_COUNT = 100;
 
 enum class FeedbackGainMode {
@@ -21,7 +21,7 @@ enum class FeedbackGainMode {
 constexpr FeedbackGainMode EXPERIMENT_FEEDBACK_GAIN_MODE =
     FeedbackGainMode::T_SUP_DEPENDENT;
 
-constexpr bool EXPERIMENT_DISTURBANCE_ENABLED = true;
+constexpr bool EXPERIMENT_DISTURBANCE_ENABLED = false;
 
 // values
 struct UpdateRateFeedbackGains {
@@ -49,13 +49,17 @@ constexpr UpdateRateFeedbackGains GAINS_MAX = {
 constexpr UpdateRateFeedbackGains EXPERIMENT_FB_GAINS_INITIAL = GAINS_MIN;
 constexpr UpdateRateFeedbackGains EXPERIMENT_FB_GAINS_FINAL = GAINS_MAX;
 
+// constexpr X0Vx0FeedbackGains EXPERIMENT_X0_VX0_FB_GAINS_INITIAL = {
+//     0.0047f,
+//     0.000008f
+// };
 constexpr X0Vx0FeedbackGains EXPERIMENT_X0_VX0_FB_GAINS_INITIAL = {
-    0.0047f,
-    0.000008f
+    0.006f,
+    0.000012f
 };
 constexpr X0Vx0FeedbackGains EXPERIMENT_X0_VX0_FB_GAINS_FINAL = {
-    0.0002f,
-    0.00000008f
+    0.0003f,
+    0.00000012f
 };
 
 constexpr std::array<float, 3> TARGET_VELOCITY = {0.01f, 0.0f, 0.0f};

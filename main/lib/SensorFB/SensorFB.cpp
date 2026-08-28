@@ -2,6 +2,29 @@
 
 SensorFB::SensorFB(){}
 
+float SensorFB::low_pass_filter(
+    float input, float previous, float cutoff_hz, float dt_s)
+{
+    const float alpha = 1.0f - expf(-2.0f * PI * cutoff_hz * dt_s);
+    return previous + alpha * (input - previous);
+}
+
+float SensorFB::normalize_angle_deg(float angle_deg){
+    float normalized = fmodf(angle_deg + 180.0f, 360.0f);
+    if (normalized < 0.0f){
+        normalized += 360.0f;
+    }
+    return normalized - 180.0f;
+}
+
+float SensorFB::low_pass_angle_deg(
+    float input, float previous, float cutoff_hz, float dt_s)
+{
+    const float angle_difference = normalize_angle_deg(input - previous);
+    return normalize_angle_deg(
+        low_pass_filter(angle_difference, 0.0f, cutoff_hz, dt_s) + previous);
+}
+
 void SensorFB::init(){
     Serial.println("Initializing BNO055...");
 
@@ -19,22 +42,61 @@ void SensorFB::init(){
     bno.setExtCrystalUse(true);
 
     delay(500);
-    this->euler_last = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-    this->acc_last   = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
-    this->gyro       = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
+    this->last_bno_update_us = micros();
+    this->bno_filter_initialized = false;
     update();
     Serial.println("BNO055 initialized");
 }
 
 void SensorFB::update(){
-    // current pose
+    const unsigned long current_us = micros();
+    float dt_s = (current_us - this->last_bno_update_us) * 1.0e-6f;
+    this->last_bno_update_us = current_us;
+
+    const imu::Vector<3> euler_raw =
+        bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+    const imu::Vector<3> acc_raw =
+        bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+    const imu::Vector<3> gyro_raw =
+        bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
+
+    if (!this->bno_filter_initialized || dt_s <= 0.0f){
+        // Initialize from the first measurement to avoid a zero-origin transient.
+        this->euler = euler_raw;
+        this->euler.y() = normalize_angle_deg(this->euler.y());
+        this->euler.z() = normalize_angle_deg(this->euler.z());
+        this->euler_last = this->euler;
+        this->acc = acc_raw;
+        this->acc_last = this->acc;
+        this->gyro = gyro_raw;
+        this->bno_filter_initialized = true;
+        return;
+    }
+
+    // Save the previous filtered values for derivative calculations.
     this->euler_last = this->euler;
-    this->euler      = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-    // acceleration
-    this->acc_last   = this->acc;
-    this-> acc       = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
-    // angular velocity
-    this->gyro       = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
+    this->acc_last = this->acc;
+
+    // angle_x is yaw and remains unfiltered and unnormalized.
+    this->euler.x() = euler_raw.x();
+    this->euler.y() = low_pass_angle_deg(
+        euler_raw.y(), this->euler_last.y(), ANGLE_LPF_CUTOFF_HZ, dt_s);
+    this->euler.z() = low_pass_angle_deg(
+        euler_raw.z(), this->euler_last.z(), ANGLE_LPF_CUTOFF_HZ, dt_s);
+
+    this->acc.x() = low_pass_filter(
+        acc_raw.x(), this->acc_last.x(), ACCEL_LPF_CUTOFF_HZ, dt_s);
+    this->acc.y() = low_pass_filter(
+        acc_raw.y(), this->acc_last.y(), ACCEL_LPF_CUTOFF_HZ, dt_s);
+    this->acc.z() = low_pass_filter(
+        acc_raw.z(), this->acc_last.z(), ACCEL_LPF_CUTOFF_HZ, dt_s);
+
+    this->gyro.x() = low_pass_filter(
+        gyro_raw.x(), this->gyro.x(), GYRO_LPF_CUTOFF_HZ, dt_s);
+    this->gyro.y() = low_pass_filter(
+        gyro_raw.y(), this->gyro.y(), GYRO_LPF_CUTOFF_HZ, dt_s);
+    this->gyro.z() = low_pass_filter(
+        gyro_raw.z(), this->gyro.z(), GYRO_LPF_CUTOFF_HZ, dt_s);
 }
 
 BNO055Data SensorFB::get_bno055_data() const{
@@ -70,22 +132,6 @@ bool SensorFB::fall(){
 
 bool SensorFB::face_up(){
     if(-this->euler.y()<0){
-        return true;
-    }else{
-        return false;
-    }
-}
-
-bool SensorFB::fly(){
-    if (this->acc.z() - this->acc_last.z() < -5.0f){
-        return true;
-    }else{
-        return false;
-    }
-}
-
-bool SensorFB::hit_ground(){
-    if (this->acc.z() - this->acc_last.z() > 5.0f){
         return true;
     }else{
         return false;

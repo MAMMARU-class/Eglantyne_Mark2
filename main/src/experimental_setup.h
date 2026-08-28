@@ -8,7 +8,7 @@
 // constexpr float EXPERIMENT_T_SUP_FINAL = 0.24f;
 
 constexpr float EXPERIMENT_T_SUP_INITIAL = 0.14f;
-constexpr float EXPERIMENT_T_SUP_FINAL = 0.24f;
+constexpr float EXPERIMENT_T_SUP_FINAL = 0.25f;
 constexpr std::size_t EXPERIMENT_T_SUP_HOLD_STEP_COUNT = 100;
 
 enum class FeedbackGainMode {
@@ -19,9 +19,9 @@ enum class FeedbackGainMode {
 };
 
 constexpr FeedbackGainMode EXPERIMENT_FEEDBACK_GAIN_MODE =
-    FeedbackGainMode::ZERO;
+    FeedbackGainMode::T_SUP_DEPENDENT;
 
-constexpr bool EXPERIMENT_DISTURBANCE_ENABLED = false;
+constexpr bool EXPERIMENT_DISTURBANCE_ENABLED = true;
 
 // values
 struct UpdateRateFeedbackGains {
@@ -43,11 +43,11 @@ constexpr UpdateRateFeedbackGains GAINS_MIN = {
     0.1f
 };
 constexpr UpdateRateFeedbackGains GAINS_MAX = {
-    8.0f,
-    0.8f
+    9.0f,
+    0.9f
 };
-constexpr UpdateRateFeedbackGains EXPERIMENT_FB_GAINS_INITIAL = GAIN_ZERO;
-constexpr UpdateRateFeedbackGains EXPERIMENT_FB_GAINS_FINAL = GAIN_ZERO;
+constexpr UpdateRateFeedbackGains EXPERIMENT_FB_GAINS_INITIAL = GAINS_MIN;
+constexpr UpdateRateFeedbackGains EXPERIMENT_FB_GAINS_FINAL = GAINS_MAX;
 
 constexpr X0Vx0FeedbackGains EXPERIMENT_X0_VX0_FB_GAINS_INITIAL = {
     0.0047f,

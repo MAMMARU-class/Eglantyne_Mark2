@@ -1,5 +1,7 @@
 #include "lower_body.h"
 #include "experimental_setup.h"
+#include "ExperimentConfig.h"
+#include "ExperimentConfigLoader.h"
 #include <string>
 #include <cstdio>
 
@@ -7,7 +9,8 @@ const char* const LOG_COLUMN_NAMES[] = {
     "acc_x_mps2", "acc_y_mps2", "acc_z_mps2",
     "angle_x_deg", "angle_y_deg", "angle_z_deg",
     "gyro_x_rps", "gyro_y_rps", "gyro_z_rps",
-    "t_sup_s", "pos_y", "update_rate_fb"
+    "t_sup_s", "pos_y", "update_rate_fb",
+    "experiment_content", "update_rate_kp", "update_rate_kd"
 };
 constexpr size_t LOG_COLUMN_COUNT =
     sizeof(LOG_COLUMN_NAMES) / sizeof(LOG_COLUMN_NAMES[0]);
@@ -34,83 +37,32 @@ static Robot* robot;
 static MotionSD* sd;
 GaitController controller;
 SensorFB sensor;
-
-static const char* feedback_gain_mode_name(FeedbackGainMode mode){
-    switch (mode){
-        case FeedbackGainMode::ZERO:
-            return "zero";
-        case FeedbackGainMode::FIXED_MAXIMUM:
-            return "fixed_max";
-        case FeedbackGainMode::T_SUP_DEPENDENT:
-            return "t_sup_function";
-        case FeedbackGainMode::FIXED_MINIMUM:
-            return "fixed_min";
-    }
-    return "unknown";
-}
-
-static float calculate_experiment_progress(size_t completed_steps){
-    if (completed_steps < EXPERIMENT_T_SUP_HOLD_STEP_COUNT){
-        return 0.0f;
-    }
-
-    const size_t ramp_step_count =
-        EXPERIMENT_LOG_ROW_COUNT - EXPERIMENT_T_SUP_HOLD_STEP_COUNT;
-    size_t current_ramp_step =
-        completed_steps - EXPERIMENT_T_SUP_HOLD_STEP_COUNT + 1;
-    if (current_ramp_step > ramp_step_count){
-        current_ramp_step = ramp_step_count;
-    }
-
-    return
-        static_cast<float>(current_ramp_step) /
-        static_cast<float>(ramp_step_count);
-}
-
-static float calculate_experiment_t_sup(size_t completed_steps){
-    const float progress = calculate_experiment_progress(completed_steps);
-    return EXPERIMENT_T_SUP_INITIAL +
-        (EXPERIMENT_T_SUP_FINAL - EXPERIMENT_T_SUP_INITIAL) * progress;
-}
+ExperimentConfig experiment_config;
+ExperimentConfigLoader experiment_config_loader;
+ExperimentManager experiment_manager;
+static UpdateRateFeedbackGains current_update_rate_fb_gains = {0.0f, 0.0f};
+static bool experiment_log_save_attempted = false;
+static bool experiment_log_save_succeeded = false;
+static bool motion_sd_initialized = false;
+static bool experiment_config_loaded = false;
 
 static UpdateRateFeedbackGains calculate_experiment_fb_gains(
-    size_t completed_steps)
+    float t_sup)
 {
-    if (EXPERIMENT_FEEDBACK_GAIN_MODE == FeedbackGainMode::FIXED_MAXIMUM){
-        return EXPERIMENT_FB_GAINS_FINAL;
-    }
-    if (EXPERIMENT_FEEDBACK_GAIN_MODE == FeedbackGainMode::FIXED_MINIMUM){
-        return EXPERIMENT_FB_GAINS_INITIAL;
-    }
-
-    const float progress = calculate_experiment_progress(completed_steps);
-    return {
-        EXPERIMENT_FB_GAINS_INITIAL.kp +
-            (EXPERIMENT_FB_GAINS_FINAL.kp - EXPERIMENT_FB_GAINS_INITIAL.kp) * progress,
-        EXPERIMENT_FB_GAINS_INITIAL.kd +
-            (EXPERIMENT_FB_GAINS_FINAL.kd - EXPERIMENT_FB_GAINS_INITIAL.kd) * progress
-    };
+    return experiment_config.calculate_update_rate_gains(t_sup);
 }
 
-static X0Vx0FeedbackGains calculate_experiment_x0_vx0_fb_gains(
-    size_t completed_steps)
-{
-    if (EXPERIMENT_FEEDBACK_GAIN_MODE == FeedbackGainMode::FIXED_MAXIMUM){
-        return EXPERIMENT_X0_VX0_FB_GAINS_FINAL;
-    }
-    if (EXPERIMENT_FEEDBACK_GAIN_MODE == FeedbackGainMode::FIXED_MINIMUM){
-        return EXPERIMENT_X0_VX0_FB_GAINS_INITIAL;
-    }
+static void apply_update_rate_fb_gains(float t_sup){
+    current_update_rate_fb_gains = calculate_experiment_fb_gains(t_sup);
+    sensor.set_update_rate_fb_gains(
+        current_update_rate_fb_gains.kp,
+        current_update_rate_fb_gains.kd);
+}
 
-    const float progress = calculate_experiment_progress(completed_steps);
-    return {
-        EXPERIMENT_X0_VX0_FB_GAINS_INITIAL.kp +
-            (EXPERIMENT_X0_VX0_FB_GAINS_FINAL.kp -
-             EXPERIMENT_X0_VX0_FB_GAINS_INITIAL.kp) * progress,
-        EXPERIMENT_X0_VX0_FB_GAINS_INITIAL.kd +
-            (EXPERIMENT_X0_VX0_FB_GAINS_FINAL.kd -
-             EXPERIMENT_X0_VX0_FB_GAINS_INITIAL.kd) * progress
-    };
+static void apply_current_experiment_condition(){
+    const float t_sup = experiment_manager.get_t_sup();
+    controller.set_T_sup(t_sup);
+    apply_update_rate_fb_gains(t_sup);
 }
 
 static void write_motion_log(bool include_feedback_values){
@@ -127,14 +79,19 @@ static void write_motion_log(bool include_feedback_values){
         bno_data.angular_velocity[2],
         controller.get_T_sup(),
         sensor.get_last_pos_y(),
-        sensor.get_last_update_rate_fb()
+        sensor.get_last_update_rate_fb(),
+        static_cast<float>(
+            static_cast<uint8_t>(experiment_manager.get_content())),
+        current_update_rate_fb_gains.kp,
+        current_update_rate_fb_gains.kd
     };
     const bool valid[LOG_COLUMN_COUNT] = {
         true, true, true,
         true, true, true,
         true, true, true,
         true,
-        include_feedback_values, include_feedback_values
+        include_feedback_values, include_feedback_values,
+        true, true, true
     };
 
     sd->write_csv_row(values, valid, LOG_COLUMN_COUNT);
@@ -143,91 +100,169 @@ static void write_motion_log(bool include_feedback_values){
 void lower_body_control_init(Robot* r, MotionSD* s){
     robot = r;
     sd = s;
+    experiment_config_loaded = false;
+    experiment_log_save_attempted = false;
+    experiment_log_save_succeeded = false;
 
-    sd->init();
+    motion_sd_initialized = sd->init();
 
     sensor.init();
     delay(1000);
     sensor.update();
     delay(1000);
-    Serial.println("Lower body control initialized");
+    Serial.println("Lower body hardware initialized");
 
-    Serial.println("Experimental setup");
-    Serial.print("T_sup: ");
-    Serial.print(EXPERIMENT_T_SUP_INITIAL, 3);
-    Serial.print(" -> ");
-    Serial.println(EXPERIMENT_T_SUP_FINAL, 3);
-    Serial.print("Fixed T_sup steps: ");
-    Serial.println(EXPERIMENT_T_SUP_HOLD_STEP_COUNT);
+    robot->init_home(1);
+    delay(500);
+}
+
+bool lower_body_load_experiment_config(){
+    if (robot == nullptr || sd == nullptr) {
+        Serial.println("Experiment configuration error: control objects are null");
+        return false;
+    }
+    if (!motion_sd_initialized) {
+        Serial.println("Experiment configuration error: SD card is unavailable");
+        return false;
+    }
+
+    ExperimentConfig loaded_config;
+    if (!experiment_config_loader.load(
+            loaded_config,
+            EXPERIMENT_OPTIONS_PATH,
+            EXPERIMENT_UPDATE_RATE_GAIN_PATH,
+            EXPERIMENT_PROCEDURE_PATH)) {
+        Serial.print("Experiment configuration error: ");
+        Serial.println(experiment_config_loader.error_message());
+        return false;
+    }
+
+    experiment_config = loaded_config;
+    experiment_manager.configure(
+        experiment_config.procedure.data(),
+        experiment_config.procedure_count);
+
+    Serial.println("Experimental setup loaded from SD card");
     Serial.print("Feedback gain mode: ");
-    Serial.println(feedback_gain_mode_name(EXPERIMENT_FEEDBACK_GAIN_MODE));
-    Serial.print("Initial update-rate gains: Kp=");
-    Serial.print(EXPERIMENT_FB_GAINS_INITIAL.kp, 3);
+    Serial.println(feedback_gain_mode_name(
+        experiment_config.feedback_gain_mode));
+    Serial.println("Update-rate feedback gain table:");
+    for (size_t gain_index = 0;
+         gain_index < experiment_config.update_rate_gain_count;
+         ++gain_index) {
+        const UpdateRateGainPoint& point =
+            experiment_config.update_rate_gain_table[gain_index];
+        Serial.print("  T_sup=");
+        Serial.print(point.t_sup, 4);
+        Serial.print(", Kp=");
+        Serial.print(point.kp, 6);
+        Serial.print(", Kd=");
+        Serial.println(point.kd, 6);
+    }
+    Serial.println("Experimental procedure:");
+    for (size_t procedure_index = 0;
+         procedure_index < experiment_config.procedure_count;
+         ++procedure_index) {
+        const ExperimentProcedureItem& item =
+            experiment_config.procedure[procedure_index];
+        Serial.print("  #");
+        Serial.print(procedure_index);
+        Serial.print(": T_sup=");
+        Serial.print(item.t_sup_start, 3);
+        Serial.print(" -> ");
+        Serial.print(item.t_sup_end, 3);
+        Serial.print(", steps=");
+        Serial.print(item.step_count);
+        Serial.print(", on_error=");
+        Serial.print(error_action_name(item.error_action));
+        Serial.print(", content=");
+        Serial.println(experiment_content_name(item.content));
+    }
+    Serial.print("Fixed x0/vx0 gains: Kp=");
+    Serial.print(experiment_config.x0_vx0_gains.kp, 6);
     Serial.print(", Kd=");
-    Serial.println(EXPERIMENT_FB_GAINS_INITIAL.kd, 3);
-    Serial.print("Final update-rate gains: Kp=");
-    Serial.print(EXPERIMENT_FB_GAINS_FINAL.kp, 3);
-    Serial.print(", Kd=");
-    Serial.println(EXPERIMENT_FB_GAINS_FINAL.kd, 3);
-    Serial.print("Initial x0/vx0 gains: Kp=");
-    Serial.print(EXPERIMENT_X0_VX0_FB_GAINS_INITIAL.kp, 6);
-    Serial.print(", Kd=");
-    Serial.println(EXPERIMENT_X0_VX0_FB_GAINS_INITIAL.kd, 6);
-    Serial.print("Final x0/vx0 gains: Kp=");
-    Serial.print(EXPERIMENT_X0_VX0_FB_GAINS_FINAL.kp, 6);
-    Serial.print(", Kd=");
-    Serial.println(EXPERIMENT_X0_VX0_FB_GAINS_FINAL.kd, 6);
+    Serial.println(experiment_config.x0_vx0_gains.kd, 6);
     Serial.print("Disturbance trial: ");
-    Serial.println(EXPERIMENT_DISTURBANCE_ENABLED ? "ON" : "OFF");
+    Serial.println(disturbance_type_name(
+        experiment_config.disturbance_type));
+    Serial.print("Log row count: ");
+    Serial.println(experiment_config.log_row_count);
 
-    std::string created_filename;
-    char filename_buf[64];
+    char experiment_name[80];
+    char filename_prefix[96];
+    char config_copy_prefix[128];
+    char filename_buf[112];
     const char* target_dir = "/data";
+    const char* config_copy_dir = "/data/experiment_config";
     sd->create_directory(target_dir);
+    sd->create_directory(config_copy_dir);
 
     int i = 0;
     while (true) {
-        snprintf(filename_buf, sizeof(filename_buf), "%s/T%.2f-%.2f_gain-%s_dist%d_exp%03d.csv",
-                 target_dir, EXPERIMENT_T_SUP_INITIAL, EXPERIMENT_T_SUP_FINAL,
-                 feedback_gain_mode_name(EXPERIMENT_FEEDBACK_GAIN_MODE),
-                 EXPERIMENT_DISTURBANCE_ENABLED ? 1 : 0, i);
+        snprintf(
+            experiment_name,
+            sizeof(experiment_name),
+            "T%.2f-%.2f_gain-%s_dist-%s_exp%03d",
+            experiment_config.procedure[0].t_sup_start,
+            experiment_config.procedure[
+                experiment_config.procedure_count - 1].t_sup_end,
+            feedback_gain_mode_name(
+                experiment_config.feedback_gain_mode),
+            disturbance_type_name(experiment_config.disturbance_type),
+            i);
+        snprintf(
+            filename_prefix,
+            sizeof(filename_prefix),
+            "%s/%s",
+            target_dir,
+            experiment_name);
+        snprintf(
+            filename_buf,
+            sizeof(filename_buf),
+            "%s.csv",
+            filename_prefix);
 
-        if (s->is_file_exist(filename_buf) == true) {
+        if (sd->is_file_exist(filename_buf)) {
             i++;
         } else {
             break;
         }
     }
-    created_filename = filename_buf;
 
-    if (!sd->begin_csv_log(
-            created_filename.c_str(),
-            LOG_COLUMN_NAMES,
-            LOG_COLUMN_COUNT,
-            EXPERIMENT_LOG_ROW_COUNT)) {
-        Serial.println("Motion log initialization failed");
+    snprintf(
+        config_copy_prefix,
+        sizeof(config_copy_prefix),
+        "%s/%s",
+        config_copy_dir,
+        experiment_name);
+    if (!experiment_config_loader.copy_loaded_files(config_copy_prefix)) {
+        Serial.print("Experiment configuration copy error: ");
+        Serial.println(experiment_config_loader.error_message());
+        return false;
     }
 
-    UpdateRateFeedbackGains initial_fb_gains =
-        calculate_experiment_fb_gains(0);
-    sensor.set_update_rate_fb_gains(
-        initial_fb_gains.kp,
-        initial_fb_gains.kd);
-    X0Vx0FeedbackGains initial_x0_vx0_fb_gains =
-        calculate_experiment_x0_vx0_fb_gains(0);
+    if (!sd->begin_csv_log(
+            filename_buf,
+            LOG_COLUMN_NAMES,
+            LOG_COLUMN_COUNT,
+            experiment_config.log_row_count)) {
+        Serial.println("Motion log initialization failed");
+        return false;
+    }
+
+    apply_update_rate_fb_gains(experiment_manager.get_t_sup());
     sensor.set_x0_vx0_fb_gains(
-        initial_x0_vx0_fb_gains.kp,
-        initial_x0_vx0_fb_gains.kd);
+        experiment_config.x0_vx0_gains.kp,
+        experiment_config.x0_vx0_gains.kd);
 
     Serial.print("Created File Name: ");
-    Serial.println(created_filename.c_str());
+    Serial.println(filename_buf);
 
     // initialize control parameters
-    controller.init_param_walk(HEIGHT_WALK, EXPERIMENT_T_SUP_INITIAL);
+    controller.init_param_walk(HEIGHT_WALK, experiment_manager.get_t_sup());
     controller.init_pose();
-
-    robot->init_home(1);
-    delay(500);
+    experiment_config_loaded = true;
+    return true;
 }
 
 void init_phase(Mode next_mode, Phase next_phase, float next_phase_time){
@@ -245,9 +280,9 @@ void init_phase(Mode next_mode, Phase next_phase, float next_phase_time){
 void update_phase(){
     // stop if no movement
     if (controller.p_n2p1_equels_p_n2m1() &&
-        abs(vd[0]) < VELOCITY_EPS &&
-        abs(vd[1]) < VELOCITY_EPS &&
-        abs(vd[2]) < VELOCITY_EPS){
+        abs(vd[0]) < experiment_config.velocity_eps &&
+        abs(vd[1]) < experiment_config.velocity_eps &&
+        abs(vd[2]) < experiment_config.velocity_eps){
             phase_next = Phase::END;
     }else{
         phase_next = Phase::DOUBLE;
@@ -266,19 +301,33 @@ void Core1Task(void * parameter){
         Serial.println("MotionSD is null");
         while(1);
     }
+    if(!experiment_config_loaded){
+        Serial.println("Experiment configuration is not loaded");
+        while(1);
+    }
     Serial.println("Core1Task started");
 
     while(1) {
         sensor.update();
         /* #########################################################################
         LED HANDLER */
-        array<int,3> WHITE  = {255, 255, 255}; // : WAIT
-        array<int,3> BLUE   = {0,   0,   255}; // : WALK
+        array<int,3> BLUE   = {0,   0,   255}; // : WALK content
+        array<int,3> YELLOW = {255, 255, 0};   // : SAVING LOG
+        array<int,3> GREEN  = {0,   255, 0};   // : other content / LOG SAVED
+        array<int,3> RED    = {255, 0,   0};   // : LOG SAVE FAILED
         /* ###################################################################### */
-        if (mode == Mode::WAIT){
-            neopixelWrite(RGB_BUILTIN, WHITE[0], WHITE[1], WHITE[2]);
-        }else if (mode == Mode::WALK){
+        if (experiment_log_save_attempted){
+            const array<int,3>& result_color =
+                experiment_log_save_succeeded ? GREEN : RED;
+            neopixelWrite(
+                RGB_BUILTIN,
+                result_color[0], result_color[1], result_color[2]);
+        }else if (experiment_manager.is_running() &&
+                  experiment_manager.get_content() ==
+                      ExperimentContent::WALK){
             neopixelWrite(RGB_BUILTIN, BLUE[0], BLUE[1], BLUE[2]);
+        }else{
+            neopixelWrite(RGB_BUILTIN, GREEN[0], GREEN[1], GREEN[2]);
         }
 
         /* #########################################################################
@@ -290,6 +339,13 @@ void Core1Task(void * parameter){
         ##########################################################################*/
         // fall check
         if(sensor.fall() && phase != Phase::FALL && phase != Phase::WAKE){
+            if (experiment_manager.is_running()){
+                const ErrorAction fall_action =
+                    experiment_manager.get_error_action();
+                experiment_manager.on_fall();
+                Serial.print("Experiment fall action: ");
+                Serial.println(error_action_name(fall_action));
+            }
             init_phase(
                 Mode::WALK,
                 Phase::FALL,
@@ -298,13 +354,17 @@ void Core1Task(void * parameter){
         }
 
         // update and feedback vd
-        vd = TARGET_VELOCITY;
+        if (experiment_manager.is_running()){
+            vd = experiment_config.target_velocity;
+        }else{
+            vd = {0.0f, 0.0f, 0.0f};
+        }
 
         // walk if vd is large enough
         if (mode == Mode::WAIT){
-            if (abs(vd[0]) > VELOCITY_EPS ||
-                abs(vd[1]) > VELOCITY_EPS ||
-                abs(vd[2]) > VELOCITY_EPS){
+            if (abs(vd[0]) > experiment_config.velocity_eps ||
+                abs(vd[1]) > experiment_config.velocity_eps ||
+                abs(vd[2]) > experiment_config.velocity_eps){
                 init_phase(
                     Mode::WALK,
                     Phase::START,
@@ -341,7 +401,11 @@ void Core1Task(void * parameter){
             case Phase::START:{
                 if (phase_count == 0){
                     Serial.println("phase: START");
-                    controller.init_param_walk(HEIGHT_WALK, EXPERIMENT_T_SUP_INITIAL);
+                    controller.init_param_walk(
+                        HEIGHT_WALK,
+                        experiment_manager.get_t_sup());
+                    apply_update_rate_fb_gains(
+                        experiment_manager.get_t_sup());
                     controller.init_pose();
                     controller.inverse_pivot();
                     controller.init_state_variables(true, false);
@@ -409,11 +473,37 @@ void Core1Task(void * parameter){
                 phase_count_x += UPDATE_RATE_BASE;
                 phase_count   += update_rate;
                 if (phase_count >= phase_length){
-                    init_phase(
-                        mode,
-                        phase_next,
-                        controller.get_T_ds()
-                    );
+                    if (phase_next == Phase::DOUBLE &&
+                        experiment_manager.is_running()){
+                        const bool procedure_changed =
+                            experiment_manager.on_step_completed();
+                        if (procedure_changed){
+                            if (experiment_manager.is_end()){
+                                Serial.println("Experiment procedure: END");
+                            }else{
+                                Serial.print("Experiment procedure index: ");
+                                Serial.print(
+                                    experiment_manager.get_procedure_index());
+                                Serial.print(", content: ");
+                                Serial.print(experiment_content_name(
+                                    experiment_manager.get_content()));
+                                Serial.print(", T_sup: ");
+                                Serial.println(
+                                    experiment_manager.get_t_sup(), 4);
+                            }
+                        }
+                    }
+
+                    if (experiment_manager.is_end()){
+                        vd = {0.0f, 0.0f, 0.0f};
+                        init_phase(mode, Phase::END, 0);
+                    }else{
+                        init_phase(
+                            mode,
+                            phase_next,
+                            controller.get_T_ds()
+                        );
+                    }
                 }
                 break;
             }
@@ -422,24 +512,13 @@ void Core1Task(void * parameter){
                 if (phase_count == 0){
                     Serial.println("phase: DOUBLE");
                     controller.inverse_pivot();
-                    controller.init_state_variables(false, false);
 
                     // Keep T_sup fixed during single support. Update it only
                     // after the completed step has entered double support.
-                    controller.set_T_sup(calculate_experiment_t_sup(
-                        sd->get_csv_log_row_count()));
-                    UpdateRateFeedbackGains fb_gains =
-                        calculate_experiment_fb_gains(
-                            sd->get_csv_log_row_count());
-                    sensor.set_update_rate_fb_gains(
-                        fb_gains.kp,
-                        fb_gains.kd);
-                    X0Vx0FeedbackGains x0_vx0_fb_gains =
-                        calculate_experiment_x0_vx0_fb_gains(
-                            sd->get_csv_log_row_count());
-                    sensor.set_x0_vx0_fb_gains(
-                        x0_vx0_fb_gains.kp,
-                        x0_vx0_fb_gains.kd);
+                    apply_current_experiment_condition();
+                    controller.init_state_variables(false, false);
+                    phase_length =
+                        controller.get_T_ds() * CTRL_STEP * UPDATE_RATE_BASE;
                 }
                 com_pos = controller.calc_com_traj_double(phase_count / (float)CTRL_STEP / (float)UPDATE_RATE_BASE);
                 
@@ -503,7 +582,12 @@ void Core1Task(void * parameter){
                 );
 
                 // initialize pose to WALK
-                controller.init_param_walk(HEIGHT_WALK, EXPERIMENT_T_SUP_INITIAL);
+                experiment_manager.on_recovery_completed();
+                controller.init_param_walk(
+                    HEIGHT_WALK,
+                    experiment_manager.get_t_sup());
+                apply_update_rate_fb_gains(
+                    experiment_manager.get_t_sup());
                 com_pos = controller.get_default_com_pos();
 
                 break;
@@ -513,6 +597,29 @@ void Core1Task(void * parameter){
             idring
             ####################################################### */
             case Phase::WAIT:{
+                if (experiment_manager.is_end() &&
+                    !experiment_log_save_attempted){
+                    Serial.println("Saving experiment log...");
+                    neopixelWrite(
+                        RGB_BUILTIN,
+                        YELLOW[0], YELLOW[1], YELLOW[2]);
+
+                    experiment_log_save_succeeded =
+                        sd->finish_csv_log();
+                    experiment_log_save_attempted = true;
+
+                    if (experiment_log_save_succeeded){
+                        Serial.println("Experiment log saved");
+                        neopixelWrite(
+                            RGB_BUILTIN,
+                            GREEN[0], GREEN[1], GREEN[2]);
+                    }else{
+                        Serial.println("Experiment log save failed");
+                        neopixelWrite(
+                            RGB_BUILTIN,
+                            RED[0], RED[1], RED[2]);
+                    }
+                }
                 break;
             }
         }

@@ -45,9 +45,10 @@ public:
     void set_update_rate_fb_gains(float kp, float kd){ this->kp_update_rate = kp; this->kd_update_rate = kd; }
     void set_x0_vx0_fb_gains(float kp, float kd){ this->kp_x0_vx0 = kp; this->kd_x0_vx0 = kd; }
 private:
-    static constexpr float ACCEL_LPF_CUTOFF_HZ = 2.0f;
-    static constexpr float GYRO_LPF_CUTOFF_HZ = 2.0f;
-    static constexpr float ANGLE_LPF_CUTOFF_HZ = 1.0f;
+    static constexpr float PHI_TARGET_DEG = -5.81f;
+    static constexpr float ACCEL_LPF_CUTOFF_HZ = 5.0f;
+    static constexpr float GYRO_LPF_CUTOFF_HZ = 5.0f;
+    static constexpr float ANGLE_LPF_CUTOFF_HZ = 2.5f;
 
     static float low_pass_filter(
         float input, float previous, float cutoff_hz, float dt_s);
@@ -69,16 +70,8 @@ private:
     float kp_phi_body    = 0.45f;
     float kd_phi_body    = 0.015f;
 
-    // successive gains
-    // float kp_update_rate = 7.0f;
-    // float kd_update_rate = 0.5f;
-    // testing
     float kp_update_rate = 2.5f;
     float kd_update_rate = 1.8f;
-    // float kp_update_rate = 120.0f;
-    // float kd_update_rate = 50.0f;
-    // float kp_update_rate = 1.0f;
-    // float kd_update_rate = 0.1f;
 
     float kp_x0_vx0 = 0.0027f;
     float kd_x0_vx0 = 0.000005f;

@@ -39,7 +39,7 @@ void setup(){
     Eglantyne.setSerial(&krs1, &krs2);
     Eglantyne.setLink();
     // reinit home
-    Eglantyne.set_leg_home_pose(0.045, HEIGHT_WALK);
+    Eglantyne.set_leg_home_pose(0.055, HEIGHT_WALK);
     Serial.println("Eglantyne Mark2 prepared");
 
     array<float, LINK_SIZE> current = Eglantyne.current();
@@ -49,7 +49,27 @@ void setup(){
 
     lower_body_control_init(&Eglantyne, &sd);
     Serial.println("Eglantyne Mark2 ready");
+    neopixelWrite(RGB_BUILTIN, 0, 255, 0);
+
+    // satart after SW pushed
+    pinMode(SW, INPUT);
+    while (digitalRead(SW) == HIGH){
+        delay(10);
+    }
+
+    // Load and validate the experiment configuration only after the start
+    // switch is pressed. A failure keeps the robot stopped with a red LED.
+    if (!lower_body_load_experiment_config()){
+        Serial.println(
+            "Experiment configuration load failed. Walking is disabled.");
+        neopixelWrite(RGB_BUILTIN, 255, 0, 0);
+        while (true){
+            delay(1000);
+        }
+    }
+
     neopixelWrite(RGB_BUILTIN, 0, 0, 255);
+    delay(1000);
 
     // lower body control task (core 1)
     xTaskCreatePinnedToCore(

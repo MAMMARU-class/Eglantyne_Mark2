@@ -4,20 +4,21 @@ static Robot* robot;
 
 MotionSD::MotionSD(){}
 
-void MotionSD::init(){
+bool MotionSD::init(){
     SPI.begin(CLK, MISO, MOSI, CS);
     if (!SD.begin(CS)){
         Serial.println("Failed to initialize MotionSD card");
-        delay(100);
+        return false;
     }
 
     // check Card type
     uint8_t cardType = SD.cardType();
     if (cardType == CARD_NONE) {
         Serial.println("No SD card attached");
-        return;
+        return false;
     }
     Serial.println("MotionSD card initialized");
+    return true;
 }
 
 /* #########################################################################
@@ -45,10 +46,21 @@ bool MotionSD::begin_csv_log(
         return false;
     }
 
+    const size_t max_size = static_cast<size_t>(-1);
+    if (row_capacity > max_size / column_count ||
+        row_capacity * column_count > max_size / sizeof(float)) {
+        Serial.println("CSV log buffer size overflow");
+        return false;
+    }
+
+    const size_t allocation_size =
+        sizeof(float) * column_count * row_capacity;
     csv_log_buffer = static_cast<float*>(
-        malloc(sizeof(float) * column_count * row_capacity));
+        malloc(allocation_size));
     if (csv_log_buffer == nullptr) {
         Serial.println("Failed to allocate CSV log buffer");
+        Serial.print("Requested CSV log buffer bytes: ");
+        Serial.println(allocation_size);
         return false;
     }
 
@@ -76,7 +88,10 @@ bool MotionSD::write_csv_row(
 
     csv_log_row_count++;
     if (csv_log_row_count >= csv_log_row_capacity) {
-        return finish_csv_log();
+        csv_log_active = false;
+        Serial.print("CSV capture buffer full: ");
+        Serial.print(csv_log_row_count);
+        Serial.println(" rows. Waiting for experiment end to save.");
     }
 
     return true;
@@ -95,14 +110,17 @@ bool MotionSD::write_csv_null_row(){
 
     csv_log_row_count++;
     if (csv_log_row_count >= csv_log_row_capacity) {
-        return finish_csv_log();
+        csv_log_active = false;
+        Serial.print("CSV capture buffer full: ");
+        Serial.print(csv_log_row_count);
+        Serial.println(" rows. Waiting for experiment end to save.");
     }
 
     return true;
 }
 
 bool MotionSD::finish_csv_log(){
-    if (!csv_log_active || csv_log_buffer == nullptr) {
+    if (csv_log_buffer == nullptr || csv_column_count == 0) {
         return false;
     }
 

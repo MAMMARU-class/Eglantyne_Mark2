@@ -2,6 +2,7 @@
 
 SensorFB::SensorFB(){}
 
+// data filtering functions
 float SensorFB::low_pass_filter(
     float input, float previous, float cutoff_hz, float dt_s)
 {
@@ -25,6 +26,7 @@ float SensorFB::low_pass_angle_deg(
         low_pass_filter(angle_difference, 0.0f, cutoff_hz, dt_s) + previous);
 }
 
+// initialization
 void SensorFB::init(){
     Serial.println("Initializing BNO055...");
 
@@ -48,6 +50,7 @@ void SensorFB::init(){
     Serial.println("BNO055 initialized");
 }
 
+// update sensor data
 void SensorFB::update(){
     const unsigned long current_us = micros();
     float dt_s = (current_us - this->last_bno_update_us) * 1.0e-6f;
@@ -99,6 +102,7 @@ void SensorFB::update(){
         gyro_raw.z(), this->gyro.z(), GYRO_LPF_CUTOFF_HZ, dt_s);
 }
 
+// getters
 BNO055Data SensorFB::get_bno055_data() const{
     return {
         {
@@ -130,6 +134,7 @@ bool SensorFB::fall(){
     }
 }
 
+// check body state
 bool SensorFB::face_up(){
     if(-this->euler.y()<0){
         return true;
@@ -138,11 +143,12 @@ bool SensorFB::face_up(){
     }
 }
 
+// body angle feedback
 float SensorFB::angle_phi_fb(){
     // rotate body base roll angle accordance with body angle.
     // calculate angle error
-    float err = -this->euler.y();
-    float err_last = -this->euler_last.y();
+    float err = -this->euler.y() - PHI_TARGET_DEG;
+    float err_last = -this->euler_last.y() - PHI_TARGET_DEG;
     float derr = err - err_last;
 
     err  = err  * PI / 180.0f;
@@ -152,7 +158,7 @@ float SensorFB::angle_phi_fb(){
     return angle_phi_fb;
 }
 
-// acceleration feedback
+// acceleration feedback (to phi)
 int SensorFB::update_rate_fb(
     float t_ideal, array<float, 2> acc_ideal,
     array<float, 3> approx_coeff, float Tc, int update_rate, 
@@ -221,20 +227,10 @@ int SensorFB::update_rate_fb(
     if (update_rate_fb_int == 0){
         update_rate_fb_int = 1;
     }
-
-    // Serial.println();
-    // Serial.print("a: "); Serial.print(a, 4); Serial.print(", b: "); Serial.print(b, 4); Serial.print(", c: "); Serial.println(c, 4);
-    // Serial.print("acc_ideal: "); Serial.print(acc_ideal[1], 4); Serial.print(", acc: "); Serial.println(acc, 4);
-    // Serial.print("ideal y: "); Serial.print(com_pos, 4); Serial.print(", calculated y: "); Serial.println(a * t_ideal * t_ideal + c_dash, 4);
-    // Serial.print(", pos_y: "); Serial.println(pos_y, 4);
-    // Serial.print("t_ideal: "); Serial.print(t_ideal, 4); Serial.print(", calculated t: "); Serial.println(sqrt((com_pos - c_dash)/a) * sig, 4);
-    // Serial.print("t_now: "); Serial.println(sqrt((pos_y - c_dash)/a) * sig, 4);
-    // Serial.print("t_err: "); Serial.println(t_err, 4);
-    // Serial.print("update_rate_fb: "); Serial.println(update_rate_fb, 4);
-
     return update_rate_fb_int;
 }
 
+// acceleration feedback (anterior and posterior direction)
 array<float, 2> SensorFB::x0_vx0_fb(
     float tx, 
     float x0, float vx0, 
@@ -242,7 +238,11 @@ array<float, 2> SensorFB::x0_vx0_fb(
     float com_x_pos)
 {
     // get acceleration, estimate position and velocity
-    float acc      = this->acc.x();
+    float acc = this->acc.x();
+    // amplitude for front direction
+    // if (acc > 0){
+    //     acc *= 2.0f;
+    // }
     float acc_last = this->acc_last.x();
 
     float pos_x      = acc      * (Tc*Tc);
@@ -279,12 +279,5 @@ array<float, 2> SensorFB::x0_vx0_fb(
     float pd_x0_fb  = this->kp_x0_vx0 * x0_fb  + this->kd_x0_vx0 * x0_fb_d;
     float pd_vx0_fb = this->kp_x0_vx0 * vx0_fb + this->kd_x0_vx0 * vx0_fb_d;
 
-    // Serial.println();
-    // Serial.print("com_x_pos: "); Serial.println(com_x_pos, 4);
-    // Serial.print("estimated x: "); Serial.print(pos_x, 4); Serial.print(", estimated vx: "); Serial.println(vel_x, 4);
-    // Serial.print("x0: "); Serial.print(x0, 4); Serial.print(", vx0: "); Serial.println(vx0, 4);
-    // Serial.print("x0_fb_pos: "); Serial.print(x0_fb_pos, 4); Serial.print(", vx0_fb_pos: "); Serial.println(vx0_fb_pos, 4);
-    // Serial.print("x0_fb_vel: "); Serial.print(x0_fb_vel, 4); Serial.print(", vx0_fb_vel: "); Serial.println(vx0_fb_vel, 4);
-    // Serial.print("x0_fb: "); Serial.print(x0_fb, 4); Serial.print(", vx0_fb: "); Serial.println(vx0_fb, 4);
     return {pd_x0_fb, pd_vx0_fb};
 }

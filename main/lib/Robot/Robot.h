@@ -76,7 +76,7 @@ private:
     float l_roll_com = l_com_z + l_base_roll;
 
     float l_foot_z = 37.5;
-    float l_foot_x = 23.0;
+    float l_foot_x = 14.0;
 
     // serial
     IcsHardSerialClass* serial1;

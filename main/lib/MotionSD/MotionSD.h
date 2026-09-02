@@ -20,7 +20,7 @@ class MotionSD{
 public:
     MotionSD();
 
-    void init();
+    bool init();
 
     bool begin_csv_log(
         const char* filename,

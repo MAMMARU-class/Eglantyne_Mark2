@@ -66,6 +66,7 @@ void SensorFB::update(){
     if (!this->bno_filter_initialized || dt_s <= 0.0f){
         // Initialize from the first measurement to avoid a zero-origin transient.
         this->euler = euler_raw;
+        this->euler.x() = normalize_angle_deg(this->euler.x());
         this->euler.y() = normalize_angle_deg(this->euler.y());
         this->euler.z() = normalize_angle_deg(this->euler.z());
         this->euler_last = this->euler;
@@ -80,8 +81,8 @@ void SensorFB::update(){
     this->euler_last = this->euler;
     this->acc_last = this->acc;
 
-    // angle_x is yaw and remains unfiltered and unnormalized.
-    this->euler.x() = euler_raw.x();
+    // angle_x is yaw. Keep it unfiltered, but express it in [-180, 180).
+    this->euler.x() = normalize_angle_deg(euler_raw.x());
     this->euler.y() = low_pass_angle_deg(
         euler_raw.y(), this->euler_last.y(), ANGLE_LPF_CUTOFF_HZ, dt_s);
     this->euler.z() = low_pass_angle_deg(

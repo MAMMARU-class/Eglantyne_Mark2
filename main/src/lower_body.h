@@ -32,6 +32,7 @@ enum class Phase: uint8_t {
 
 void lower_body_control_init(Robot* r, MotionSD* s);
 bool lower_body_load_experiment_config();
+void set_target_yaw_deg(float yaw_target_deg);
 
 void init_phase(Mode next_mode, Phase next_phase, float next_phase_length);
 void update_phase();

@@ -2,6 +2,7 @@
 #include "experimental_setup.h"
 #include "ExperimentConfig.h"
 #include "ExperimentConfigLoader.h"
+#include "velocity_control.h"
 #include <string>
 #include <cstdio>
 
@@ -37,6 +38,7 @@ static Robot* robot;
 static MotionSD* sd;
 GaitController controller;
 SensorFB sensor;
+VelocityControl velocity_control;
 ExperimentConfig experiment_config;
 ExperimentConfigLoader experiment_config_loader;
 ExperimentManager experiment_manager;
@@ -63,6 +65,11 @@ static void apply_current_experiment_condition(){
     const float t_sup = experiment_manager.get_t_sup();
     controller.set_T_sup(t_sup);
     apply_update_rate_fb_gains(t_sup);
+}
+
+void set_target_yaw_deg(float yaw_target_deg){
+    velocity_control.set_yaw_target_deg(yaw_target_deg);
+    velocity_control.reset_yaw_feedback();
 }
 
 static void write_motion_log(bool include_feedback_values){
@@ -255,6 +262,14 @@ bool lower_body_load_experiment_config(){
         experiment_config.x0_vx0_gains.kp,
         experiment_config.x0_vx0_gains.kd);
 
+    // target_velocity_x/y specify vd_x/y at T_sup = 0.14 s.
+    velocity_control.set_x_velocity_at_reference(
+        experiment_config.target_velocity[0]);
+    velocity_control.set_y_velocity_at_reference(
+        experiment_config.target_velocity[1]);
+    // Keep the yaw command at zero until an external command source is added.
+    set_target_yaw_deg(0.0f);
+
     Serial.print("Created File Name: ");
     Serial.println(filename_buf);
 
@@ -356,8 +371,17 @@ void Core1Task(void * parameter){
         // update and feedback vd
         if (experiment_manager.is_running()){
             vd = experiment_config.target_velocity;
+            vd[0] = velocity_control.calculate_x_velocity(
+                controller.get_T_sup());
+            vd[1] = velocity_control.calculate_y_velocity(
+                controller.get_T_sup());
+
+            const BNO055Data bno_data = sensor.get_bno055_data();
+            vd[2] = velocity_control.calculate_yaw_velocity(
+                bno_data.angle[0], 1.0f / static_cast<float>(CTRL_STEP));
         }else{
             vd = {0.0f, 0.0f, 0.0f};
+            velocity_control.reset_yaw_feedback();
         }
 
         // walk if vd is large enough

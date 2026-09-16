@@ -163,7 +163,10 @@ void GaitController::init_state_variables(bool zero_start, bool zero_end)
     );
 }
 
-void GaitController::update_state_variables(array<float, 3> vd){
+void GaitController::update_state_variables(
+    array<float, 3> vd,
+    float pitch_foot_offset_x)
+{
     // normalize control input
     vd = model.normalize_vel(vd);
 
@@ -192,6 +195,7 @@ void GaitController::update_state_variables(array<float, 3> vd){
         this->pn, 
         this->T_sup_x, this->T_sup
     );
+    this->pn_p1[0] += pitch_foot_offset_x;
 }
 
 /* #########################################################################

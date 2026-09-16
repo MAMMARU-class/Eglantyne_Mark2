@@ -259,6 +259,8 @@ bool ExperimentConfigLoader::load_options(
         VELOCITY_YAW,
         VELOCITY_EPSILON,
         LOG_ROWS,
+        PITCH_FOOT_KP,
+        PITCH_FOOT_KD,
         OPTION_KEY_COUNT
     };
 
@@ -322,6 +324,10 @@ bool ExperimentConfigLoader::load_options(
             key_id = VELOCITY_EPSILON;
         }else if (equals_ignore_case(key, "log_row_count")) {
             key_id = LOG_ROWS;
+        }else if (equals_ignore_case(key, "pitch_foot_kp")) {
+            key_id = PITCH_FOOT_KP;
+        }else if (equals_ignore_case(key, "pitch_foot_kd")) {
+            key_id = PITCH_FOOT_KD;
         }
 
         if (key_id < 0) {
@@ -381,6 +387,14 @@ bool ExperimentConfigLoader::load_options(
             case LOG_ROWS:
                 parsed = parse_size_value(value, config.log_row_count);
                 break;
+            case PITCH_FOOT_KP:
+                parsed = parse_float_value(
+                    value, config.pitch_foot_gains.kp);
+                break;
+            case PITCH_FOOT_KD:
+                parsed = parse_float_value(
+                    value, config.pitch_foot_gains.kd);
+                break;
             default:
                 break;
         }
@@ -395,9 +409,11 @@ bool ExperimentConfigLoader::load_options(
     }
 
     file.close();
-    const uint16_t all_keys =
-        static_cast<uint16_t>((1U << OPTION_KEY_COUNT) - 1U);
-    if (seen_keys != all_keys) {
+    // Keep the new pitch-foot gains optional so existing version-1 option
+    // files continue to load with their default gains of zero.
+    const uint16_t required_keys =
+        static_cast<uint16_t>((1U << PITCH_FOOT_KP) - 1U);
+    if ((seen_keys & required_keys) != required_keys) {
         set_error("Options file is missing one or more required values: %s",
                   path);
         return false;
@@ -598,6 +614,14 @@ bool ExperimentConfigLoader::validate(const ExperimentConfig& config){
         config.x0_vx0_gains.kp > MAX_FEEDBACK_GAIN ||
         config.x0_vx0_gains.kd > MAX_FEEDBACK_GAIN) {
         set_error("x0/vx0 gains are outside the safe range");
+        return false;
+    }
+
+    if (config.pitch_foot_gains.kp < 0.0f ||
+        config.pitch_foot_gains.kd < 0.0f ||
+        config.pitch_foot_gains.kp > MAX_FEEDBACK_GAIN ||
+        config.pitch_foot_gains.kd > MAX_FEEDBACK_GAIN) {
+        set_error("pitch-foot gains are outside the safe range");
         return false;
     }
 

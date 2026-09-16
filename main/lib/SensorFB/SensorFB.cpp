@@ -159,6 +159,30 @@ float SensorFB::angle_phi_fb(){
     return angle_phi_fb;
 }
 
+// body pitch feedback to the next foot position [m]
+float SensorFB::pitch_foot_fb(){
+    float err = -this->euler.y() - PHI_TARGET_DEG;
+    float derr = 0.0f;
+
+    if (this->pitch_foot_fb_initialized){
+        derr = err - this->pitch_foot_err_last;
+    }else{
+        this->pitch_foot_fb_initialized = true;
+    }
+    this->pitch_foot_err_last = err;
+
+    err  = err  * PI / 180.0f;
+    derr = derr * PI / 180.0f;
+
+    const float pitch_foot_offset =
+        this->kp_pitch_foot * err + this->kd_pitch_foot * derr;
+
+    return constrain(
+        pitch_foot_offset,
+        -PITCH_FOOT_OFFSET_MAX,
+        PITCH_FOOT_OFFSET_MAX);
+}
+
 // acceleration feedback (to phi)
 int SensorFB::update_rate_fb(
     float t_ideal, array<float, 2> acc_ideal,

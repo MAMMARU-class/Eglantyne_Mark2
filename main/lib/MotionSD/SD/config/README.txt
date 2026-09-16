@@ -18,6 +18,10 @@ disturbance_type accepts:
   PUSH
   STEP
 
+pitch_foot_kp and pitch_foot_kd are optional for version-1 option files.
+When omitted, both gains default to zero. The pitch-foot correction is
+limited to +/-0.060 m in SensorFB.
+
 error_action accepts:
   RESTART
   SKIP

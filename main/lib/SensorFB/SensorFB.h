@@ -33,6 +33,7 @@ public:
 
     // feedback
     float angle_phi_fb();
+    float pitch_foot_fb();
 
     // acceleration feedback
     int update_rate_fb(
@@ -44,8 +45,14 @@ public:
     // setters
     void set_update_rate_fb_gains(float kp, float kd){ this->kp_update_rate = kp; this->kd_update_rate = kd; }
     void set_x0_vx0_fb_gains(float kp, float kd){ this->kp_x0_vx0 = kp; this->kd_x0_vx0 = kd; }
+    void set_pitch_foot_fb_gains(float kp, float kd){
+        this->kp_pitch_foot = kp;
+        this->kd_pitch_foot = kd;
+        this->pitch_foot_fb_initialized = false;
+    }
 private:
     static constexpr float PHI_TARGET_DEG = -5.81f;
+    static constexpr float PITCH_FOOT_OFFSET_MAX = 0.060f;
     static constexpr float ACCEL_LPF_CUTOFF_HZ = 5.0f;
     static constexpr float GYRO_LPF_CUTOFF_HZ = 5.0f;
     static constexpr float ANGLE_LPF_CUTOFF_HZ = 2.5f;
@@ -81,6 +88,9 @@ private:
     float a_pos = 1.0f;
     float a_vel = 0.007f;
 
+    float kp_pitch_foot = 0.0f;
+    float kd_pitch_foot = 0.0f;
+
     // feedback state variables
     // update rate feedback
     float last_update_rate_fb = NAN;
@@ -92,5 +102,9 @@ private:
     // x0 and vx0 feedback
     float x0_fb_last  = 0.0f;
     float vx0_fb_last = 0.0f;
+
+    // pitch-to-foot-position feedback
+    float pitch_foot_err_last = 0.0f;
+    bool pitch_foot_fb_initialized = false;
 
 };

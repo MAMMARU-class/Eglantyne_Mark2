@@ -29,6 +29,11 @@ struct X0Vx0FeedbackGains {
     float kd;
 };
 
+struct PitchFootFeedbackGains {
+    float kp;
+    float kd;
+};
+
 struct UpdateRateGainPoint {
     float t_sup;
     float kp;
@@ -43,6 +48,7 @@ struct ExperimentConfig {
         FeedbackGainMode::T_SUP_DEPENDENT;
     DisturbanceType disturbance_type = DisturbanceType::NONE;
     X0Vx0FeedbackGains x0_vx0_gains = {0.0f, 0.0f};
+    PitchFootFeedbackGains pitch_foot_gains = {0.0f, 0.0f};
     std::array<float, 3> target_velocity = {{0.0f, 0.0f, 0.0f}};
     float velocity_eps = 0.0f;
     size_t log_row_count = 0;

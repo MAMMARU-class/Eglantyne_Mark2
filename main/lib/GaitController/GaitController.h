@@ -46,7 +46,9 @@ public:
     ##########################*/
     // update state variables
     void init_state_variables(bool zero_start = false, bool zero_end = false);
-    void update_state_variables(array<float, 3> vd);
+    void update_state_variables(
+        array<float, 3> vd,
+        float pitch_foot_offset_x = 0.0f);
     void feedback_x0_vx0(array<float, 2> x0_vx0_fb){
         // this->pn_p1[0] += x0_vx0_fb[0];
         this->pn[0] += x0_vx0_fb[0];

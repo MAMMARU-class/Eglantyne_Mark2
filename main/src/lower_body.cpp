@@ -189,6 +189,10 @@ bool lower_body_load_experiment_config(){
     Serial.print(experiment_config.x0_vx0_gains.kp, 6);
     Serial.print(", Kd=");
     Serial.println(experiment_config.x0_vx0_gains.kd, 6);
+    Serial.print("Fixed pitch-foot gains: Kp=");
+    Serial.print(experiment_config.pitch_foot_gains.kp, 6);
+    Serial.print(", Kd=");
+    Serial.println(experiment_config.pitch_foot_gains.kd, 6);
     Serial.print("Disturbance trial: ");
     Serial.println(disturbance_type_name(
         experiment_config.disturbance_type));
@@ -261,6 +265,9 @@ bool lower_body_load_experiment_config(){
     sensor.set_x0_vx0_fb_gains(
         experiment_config.x0_vx0_gains.kp,
         experiment_config.x0_vx0_gains.kd);
+    sensor.set_pitch_foot_fb_gains(
+        experiment_config.pitch_foot_gains.kp,
+        experiment_config.pitch_foot_gains.kd);
 
     // target_velocity_x/y specify vd_x/y at T_sup = 0.14 s.
     velocity_control.set_x_velocity_at_reference(
@@ -324,6 +331,7 @@ void Core1Task(void * parameter){
 
     while(1) {
         sensor.update();
+        const float pitch_foot_offset_x = sensor.pitch_foot_fb();
         /* #########################################################################
         LED HANDLER */
         array<int,3> BLUE   = {0,   0,   255}; // : WALK content
@@ -484,7 +492,9 @@ void Core1Task(void * parameter){
                     Serial.println("calculate single");
                     single_calculated = true;
                     // update state variables in gait controller
-                    controller.update_state_variables(vd);
+                    controller.update_state_variables(
+                        vd,
+                        pitch_foot_offset_x);
                     update_phase();
                 }
                 com_pos = controller.calc_com_traj_single(

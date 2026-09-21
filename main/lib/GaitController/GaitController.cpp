@@ -16,7 +16,7 @@ void GaitController::init_param_walk(float z0, float T_sup_base){
     model.set_T_sup_base(T_sup_base);
     // model.set_T_sup_base(0.18f);
     model.set_T_sup_min(0.3f);
-    model.set_fb_gain(0.03, 0.003f, 0.05f, 0.005f);
+    model.set_fb_gain(0.007, 0.0007f, 0.01f, 0.001f);
     // model.set_fb_gain(0.001, 0.0001f, 0.001f, 0.0001f);
     model.calculate_initial_params();
     set_ds_ratio(0.25f);

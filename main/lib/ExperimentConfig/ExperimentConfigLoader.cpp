@@ -809,7 +809,7 @@ void ExperimentConfigLoader::build_single_experiment(
     config.procedure[1] = {
         config.single_t_sup,
         config.single_t_sup,
-        100,
+        50,
         ErrorAction::SKIP,
         ExperimentContent::WALK
     };

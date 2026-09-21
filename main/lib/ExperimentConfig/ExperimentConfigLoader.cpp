@@ -69,6 +69,18 @@ bool parse_size_value(const char* text, size_t& value){
     return static_cast<unsigned long>(value) == parsed;
 }
 
+bool parse_bool_value(const char* text, bool& value){
+    if (equals_ignore_case(text, "true")) {
+        value = true;
+        return true;
+    }
+    if (equals_ignore_case(text, "false")) {
+        value = false;
+        return true;
+    }
+    return false;
+}
+
 bool parse_disturbance_type(
     const char* text,
     DisturbanceType& type)
@@ -210,12 +222,23 @@ bool ExperimentConfigLoader::load(
     const char* procedure_path)
 {
     error_buffer[0] = '\0';
+    loaded_options_path[0] = '\0';
+    loaded_gain_path[0] = '\0';
+    loaded_procedure_path[0] = '\0';
     ExperimentConfig candidate;
 
-    if (!load_options(candidate, options_path) ||
-        !load_gain_table(candidate, gain_path) ||
-        !load_procedure(candidate, procedure_path) ||
-        !validate(candidate)) {
+    if (!load_options(candidate, options_path)) {
+        return false;
+    }
+
+    if (candidate.single_t_sup_exp) {
+        build_single_experiment(candidate);
+    }else if (!load_gain_table(candidate, gain_path) ||
+              !load_procedure(candidate, procedure_path)) {
+        return false;
+    }
+
+    if (!validate(candidate)) {
         return false;
     }
 
@@ -225,16 +248,18 @@ bool ExperimentConfigLoader::load(
         sizeof(loaded_options_path),
         "%s",
         options_path);
-    snprintf(
-        loaded_gain_path,
-        sizeof(loaded_gain_path),
-        "%s",
-        gain_path);
-    snprintf(
-        loaded_procedure_path,
-        sizeof(loaded_procedure_path),
-        "%s",
-        procedure_path);
+    if (!candidate.single_t_sup_exp) {
+        snprintf(
+            loaded_gain_path,
+            sizeof(loaded_gain_path),
+            "%s",
+            gain_path);
+        snprintf(
+            loaded_procedure_path,
+            sizeof(loaded_procedure_path),
+            "%s",
+            procedure_path);
+    }
     return true;
 }
 
@@ -261,10 +286,14 @@ bool ExperimentConfigLoader::load_options(
         LOG_ROWS,
         PITCH_FOOT_KP,
         PITCH_FOOT_KD,
+        SINGLE_T_SUP_EXP,
+        SINGLE_T_SUP,
+        SINGLE_GAIN_P,
+        SINGLE_GAIN_D,
         OPTION_KEY_COUNT
     };
 
-    uint16_t seen_keys = 0;
+    uint32_t seen_keys = 0;
     size_t line_number = 0;
     char line[CONFIG_LINE_BUFFER_SIZE];
     bool too_long = false;
@@ -328,6 +357,14 @@ bool ExperimentConfigLoader::load_options(
             key_id = PITCH_FOOT_KP;
         }else if (equals_ignore_case(key, "pitch_foot_kd")) {
             key_id = PITCH_FOOT_KD;
+        }else if (equals_ignore_case(key, "single_T_sup_exp")) {
+            key_id = SINGLE_T_SUP_EXP;
+        }else if (equals_ignore_case(key, "single_T_sup")) {
+            key_id = SINGLE_T_SUP;
+        }else if (equals_ignore_case(key, "single_gain_p")) {
+            key_id = SINGLE_GAIN_P;
+        }else if (equals_ignore_case(key, "single_gain_d")) {
+            key_id = SINGLE_GAIN_D;
         }
 
         if (key_id < 0) {
@@ -337,8 +374,7 @@ bool ExperimentConfigLoader::load_options(
             return false;
         }
 
-        const uint16_t key_mask =
-            static_cast<uint16_t>(1U << key_id);
+        const uint32_t key_mask = 1UL << key_id;
         if ((seen_keys & key_mask) != 0) {
             file.close();
             set_error("%s:%u duplicate option: %s", path,
@@ -395,6 +431,19 @@ bool ExperimentConfigLoader::load_options(
                 parsed = parse_float_value(
                     value, config.pitch_foot_gains.kd);
                 break;
+            case SINGLE_T_SUP_EXP:
+                parsed = parse_bool_value(
+                    value, config.single_t_sup_exp);
+                break;
+            case SINGLE_T_SUP:
+                parsed = parse_float_value(value, config.single_t_sup);
+                break;
+            case SINGLE_GAIN_P:
+                parsed = parse_float_value(value, config.single_gain_p);
+                break;
+            case SINGLE_GAIN_D:
+                parsed = parse_float_value(value, config.single_gain_d);
+                break;
             default:
                 break;
         }
@@ -411,12 +460,24 @@ bool ExperimentConfigLoader::load_options(
     file.close();
     // Keep the new pitch-foot gains optional so existing version-1 option
     // files continue to load with their default gains of zero.
-    const uint16_t required_keys =
-        static_cast<uint16_t>((1U << PITCH_FOOT_KP) - 1U);
+    const uint32_t required_keys = (1UL << PITCH_FOOT_KP) - 1UL;
     if ((seen_keys & required_keys) != required_keys) {
         set_error("Options file is missing one or more required values: %s",
                   path);
         return false;
+    }
+
+    if (config.single_t_sup_exp) {
+        const uint32_t required_single_keys =
+            (1UL << SINGLE_T_SUP) |
+            (1UL << SINGLE_GAIN_P) |
+            (1UL << SINGLE_GAIN_D);
+        if ((seen_keys & required_single_keys) != required_single_keys) {
+            set_error(
+                "Single-T_sup experiment is missing T_sup or gains: %s",
+                path);
+            return false;
+        }
     }
     return true;
 }
@@ -636,6 +697,17 @@ bool ExperimentConfigLoader::validate(const ExperimentConfig& config){
         return false;
     }
 
+    if (config.single_t_sup_exp &&
+        (config.single_t_sup < MIN_T_SUP ||
+         config.single_t_sup > MAX_T_SUP ||
+         config.single_gain_p < 0.0f ||
+         config.single_gain_d < 0.0f ||
+         config.single_gain_p > MAX_FEEDBACK_GAIN ||
+         config.single_gain_d > MAX_FEEDBACK_GAIN)) {
+        set_error("Single-T_sup experiment values are outside the safe range");
+        return false;
+    }
+
     if (config.feedback_gain_mode == FeedbackGainMode::T_SUP_DEPENDENT &&
         config.update_rate_gain_count < 2) {
         set_error("T_SUP_DEPENDENT requires at least two gain points");
@@ -715,12 +787,46 @@ bool ExperimentConfigLoader::validate(const ExperimentConfig& config){
     return true;
 }
 
-bool ExperimentConfigLoader::copy_loaded_files(
-    const char* destination_prefix)
+void ExperimentConfigLoader::build_single_experiment(
+    ExperimentConfig& config)
 {
-    if (loaded_options_path[0] == '\0' ||
-        loaded_gain_path[0] == '\0' ||
-        loaded_procedure_path[0] == '\0') {
+    config.feedback_gain_mode = FeedbackGainMode::FIXED_MINIMUM;
+    config.update_rate_gain_count = 1;
+    config.update_rate_gain_table[0] = {
+        config.single_t_sup,
+        config.single_gain_p,
+        config.single_gain_d
+    };
+
+    config.procedure_count = 3;
+    config.procedure[0] = {
+        config.single_t_sup,
+        config.single_t_sup,
+        30,
+        ErrorAction::RESTART,
+        ExperimentContent::WARMUP
+    };
+    config.procedure[1] = {
+        config.single_t_sup,
+        config.single_t_sup,
+        100,
+        ErrorAction::SKIP,
+        ExperimentContent::WALK
+    };
+    config.procedure[2] = {
+        config.single_t_sup,
+        config.single_t_sup,
+        5,
+        ErrorAction::RESTART,
+        ExperimentContent::WARMUP
+    };
+}
+
+bool ExperimentConfigLoader::copy_loaded_files(
+    const char* destination_prefix,
+    const ExperimentConfig& config)
+{
+    if (loaded_options_path[0] == '\0') {
         set_error("No successfully loaded configuration to copy");
         return false;
     }
@@ -734,13 +840,82 @@ bool ExperimentConfigLoader::copy_loaded_files(
 
     snprintf(destination, sizeof(destination), "%s_gain.csv",
              destination_prefix);
-    if (!copy_file(loaded_gain_path, destination)) {
-        return false;
+    if (config.single_t_sup_exp) {
+        if (!write_generated_gain_file(destination, config)) {
+            return false;
+        }
+    }else{
+        if (loaded_gain_path[0] == '\0' ||
+            !copy_file(loaded_gain_path, destination)) {
+            return false;
+        }
     }
 
     snprintf(destination, sizeof(destination), "%s_procedure.csv",
              destination_prefix);
-    return copy_file(loaded_procedure_path, destination);
+    if (config.single_t_sup_exp) {
+        return write_generated_procedure_file(destination, config);
+    }
+    return loaded_procedure_path[0] != '\0' &&
+        copy_file(loaded_procedure_path, destination);
+}
+
+bool ExperimentConfigLoader::write_generated_gain_file(
+    const char* destination,
+    const ExperimentConfig& config)
+{
+    if (SD.exists(destination) && !SD.remove(destination)) {
+        set_error("Cannot replace generated gain file: %s", destination);
+        return false;
+    }
+
+    File output = SD.open(destination, FILE_WRITE);
+    if (!output) {
+        set_error("Cannot create generated gain file: %s", destination);
+        return false;
+    }
+
+    output.println("t_sup,kp,kd");
+    output.print(config.single_t_sup, 6);
+    output.print(',');
+    output.print(config.single_gain_p, 6);
+    output.print(',');
+    output.println(config.single_gain_d, 6);
+    output.close();
+    return true;
+}
+
+bool ExperimentConfigLoader::write_generated_procedure_file(
+    const char* destination,
+    const ExperimentConfig& config)
+{
+    if (SD.exists(destination) && !SD.remove(destination)) {
+        set_error("Cannot replace generated procedure file: %s", destination);
+        return false;
+    }
+
+    File output = SD.open(destination, FILE_WRITE);
+    if (!output) {
+        set_error(
+            "Cannot create generated procedure file: %s", destination);
+        return false;
+    }
+
+    output.println("t_sup_start,t_sup_end,steps,error_action,content");
+    for (size_t index = 0; index < config.procedure_count; ++index) {
+        const ExperimentProcedureItem& item = config.procedure[index];
+        output.print(item.t_sup_start, 6);
+        output.print(',');
+        output.print(item.t_sup_end, 6);
+        output.print(',');
+        output.print(item.step_count);
+        output.print(',');
+        output.print(error_action_name(item.error_action));
+        output.print(',');
+        output.println(experiment_content_name(item.content));
+    }
+    output.close();
+    return true;
 }
 
 bool ExperimentConfigLoader::copy_file(

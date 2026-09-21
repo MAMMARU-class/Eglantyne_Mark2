@@ -1,7 +1,9 @@
 Copy this config directory to the root of the robot's SD card.
 
-Required paths:
+Required path:
   /config/options.ini
+
+When single_T_sup_exp is false, these paths are also required:
   /config/update_rate_gain.csv
   /config/procedure.csv
 
@@ -17,6 +19,22 @@ disturbance_type accepts:
   NONE
   PUSH
   STEP
+
+Single-T_sup experiment options:
+  single_T_sup_exp=true or false
+  single_T_sup=<fixed T_sup in seconds>
+  single_gain_p=<fixed update-rate proportional gain>
+  single_gain_d=<fixed update-rate derivative gain>
+
+When single_T_sup_exp is true, update_rate_gain.csv and procedure.csv are not
+loaded. The firmware uses the specified fixed T_sup and gains, and generates
+this procedure:
+  30 steps, RESTART, WARMUP
+  100 steps, SKIP, WALK
+  5 steps, RESTART, WARMUP
+
+The generated gain table and procedure are copied to the experiment_config
+output directory with the options file.
 
 pitch_foot_kp and pitch_foot_kd are optional for version-1 option files.
 When omitted, both gains default to zero. The pitch-foot correction is

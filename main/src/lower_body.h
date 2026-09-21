@@ -8,7 +8,7 @@
 #include "pinassign.h"
 
 // #define CTRL_STEP 100 //Hz
-#define CTRL_STEP 130 //Hz
+#define CTRL_STEP 120 //Hz
 #define UPDATE_RATE_BASE 100 // step
 
 enum class Mode: uint8_t {

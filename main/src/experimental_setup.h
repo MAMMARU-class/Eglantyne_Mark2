@@ -1,8 +1,8 @@
 #ifndef EXPERIMENTAL_SETUP_H
 #define EXPERIMENTAL_SETUP_H
 
-// Experiment values are loaded from these files after the start switch is
-// pressed. Invalid or missing files prevent the walking task from starting.
+// options.ini is always loaded after the start switch is pressed. The gain
+// and procedure CSV files are loaded only for non-single-T_sup experiments.
 constexpr const char* EXPERIMENT_OPTIONS_PATH =
     "/config/options.ini";
 constexpr const char* EXPERIMENT_UPDATE_RATE_GAIN_PATH =

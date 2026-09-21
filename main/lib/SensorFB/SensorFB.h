@@ -40,6 +40,7 @@ public:
         float t_ideal, array<float, 2> acc_ideal,
         array<float, 3> approx_coeff, float Tc, int update_rate,
         float com_pos);
+    void reset_update_rate_feedback();
     array<float, 2> x0_vx0_fb(float tx, float x0, float vx0, float Tc, int control_step, float com_x_pos);
 
     // setters
@@ -98,6 +99,7 @@ private:
     float t_err_last     = 0.0f;
     float last_pos_y = NAN;
     float fb = NAN;
+    bool update_rate_fb_initialized = false;
 
     // x0 and vx0 feedback
     float x0_fb_last  = 0.0f;

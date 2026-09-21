@@ -47,6 +47,10 @@ struct ExperimentConfig {
     FeedbackGainMode feedback_gain_mode =
         FeedbackGainMode::T_SUP_DEPENDENT;
     DisturbanceType disturbance_type = DisturbanceType::NONE;
+    bool single_t_sup_exp = false;
+    float single_t_sup = 0.0f;
+    float single_gain_p = 0.0f;
+    float single_gain_d = 0.0f;
     X0Vx0FeedbackGains x0_vx0_gains = {0.0f, 0.0f};
     PitchFootFeedbackGains pitch_foot_gains = {0.0f, 0.0f};
     std::array<float, 3> target_velocity = {{0.0f, 0.0f, 0.0f}};

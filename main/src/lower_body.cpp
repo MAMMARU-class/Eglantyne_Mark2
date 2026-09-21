@@ -5,13 +5,16 @@
 #include "velocity_control.h"
 #include <string>
 #include <cstdio>
+#include <cstring>
+#include "esp_timer.h"
 
 const char* const LOG_COLUMN_NAMES[] = {
+    "time_s",
     "acc_x_mps2", "acc_y_mps2", "acc_z_mps2",
     "angle_x_deg", "angle_y_deg", "angle_z_deg",
     "gyro_x_rps", "gyro_y_rps", "gyro_z_rps",
     "t_sup_s", "pos_y", "update_rate_fb",
-    "experiment_content", "update_rate_kp", "update_rate_kd"
+    "experiment_content", "update_rate_kp", "update_rate_kd",
 };
 constexpr size_t LOG_COLUMN_COUNT =
     sizeof(LOG_COLUMN_NAMES) / sizeof(LOG_COLUMN_NAMES[0]);
@@ -32,6 +35,14 @@ static int phase_count;
 static int phase_count_x;
 static int update_rate = UPDATE_RATE_BASE;
 bool single_calculated = true;
+
+// log timer
+static int64_t current_sample_time_us = 0;
+static int64_t log_start_time_us = -1;
+
+// control cycle timer (reset at each step boundary)
+static int64_t step_start_time_us = 0;
+static uint64_t cycle_in_step = 0;
 
 // control classes
 static Robot* robot;
@@ -67,14 +78,42 @@ static void apply_current_experiment_condition(){
     apply_update_rate_fb_gains(t_sup);
 }
 
+static void format_filename_decimal(
+    float value,
+    char* destination,
+    size_t destination_size)
+{
+    snprintf(destination, destination_size, "%.6f", value);
+    char* decimal_point = strchr(destination, '.');
+    if (decimal_point == nullptr) {
+        return;
+    }
+
+    size_t length = strlen(destination);
+    while (length > static_cast<size_t>(decimal_point - destination) + 2 &&
+           destination[length - 1] == '0') {
+        destination[--length] = '\0';
+    }
+}
+
 void set_target_yaw_deg(float yaw_target_deg){
     velocity_control.set_yaw_target_deg(yaw_target_deg);
     velocity_control.reset_yaw_feedback();
 }
 
 static void write_motion_log(bool include_feedback_values){
+    // timer
+    if (log_start_time_us < 0){
+        log_start_time_us = current_sample_time_us;
+    }
+    const float time_s =
+        static_cast<float>(current_sample_time_us - log_start_time_us) * 1e-6f;
+
+    // imu
     BNO055Data bno_data = sensor.get_bno055_data();
+
     const float values[LOG_COLUMN_COUNT] = {
+        time_s,
         bno_data.acceleration[0],
         bno_data.acceleration[1],
         bno_data.acceleration[2],
@@ -93,6 +132,7 @@ static void write_motion_log(bool include_feedback_values){
         current_update_rate_fb_gains.kd
     };
     const bool valid[LOG_COLUMN_COUNT] = {
+        true,
         true, true, true,
         true, true, true,
         true, true, true,
@@ -196,6 +236,16 @@ bool lower_body_load_experiment_config(){
     Serial.print("Disturbance trial: ");
     Serial.println(disturbance_type_name(
         experiment_config.disturbance_type));
+    Serial.print("Single T_sup experiment: ");
+    Serial.println(experiment_config.single_t_sup_exp ? "true" : "false");
+    if (experiment_config.single_t_sup_exp) {
+        Serial.print("Single T_sup: ");
+        Serial.println(experiment_config.single_t_sup, 6);
+        Serial.print("Single gains: Kp=");
+        Serial.print(experiment_config.single_gain_p, 6);
+        Serial.print(", Kd=");
+        Serial.println(experiment_config.single_gain_d, 6);
+    }
     Serial.print("Log row count: ");
     Serial.println(experiment_config.log_row_count);
 
@@ -208,19 +258,42 @@ bool lower_body_load_experiment_config(){
     sd->create_directory(target_dir);
     sd->create_directory(config_copy_dir);
 
+    char single_gain_p_text[24];
+    char single_gain_d_text[24];
+    format_filename_decimal(
+        experiment_config.single_gain_p,
+        single_gain_p_text,
+        sizeof(single_gain_p_text));
+    format_filename_decimal(
+        experiment_config.single_gain_d,
+        single_gain_d_text,
+        sizeof(single_gain_d_text));
+
     int i = 0;
     while (true) {
-        snprintf(
-            experiment_name,
-            sizeof(experiment_name),
-            "T%.2f-%.2f_gain-%s_dist-%s_exp%03d",
-            experiment_config.procedure[0].t_sup_start,
-            experiment_config.procedure[
-                experiment_config.procedure_count - 1].t_sup_end,
-            feedback_gain_mode_name(
-                experiment_config.feedback_gain_mode),
-            disturbance_type_name(experiment_config.disturbance_type),
-            i);
+        if (experiment_config.single_t_sup_exp) {
+            snprintf(
+                experiment_name,
+                sizeof(experiment_name),
+                "T_%.2f_gain_p_%s_gain_d_%s_dist-%s_exp%03d",
+                experiment_config.single_t_sup,
+                single_gain_p_text,
+                single_gain_d_text,
+                disturbance_type_name(experiment_config.disturbance_type),
+                i);
+        }else{
+            snprintf(
+                experiment_name,
+                sizeof(experiment_name),
+                "T%.2f-%.2f_gain-%s_dist-%s_exp%03d",
+                experiment_config.procedure[0].t_sup_start,
+                experiment_config.procedure[
+                    experiment_config.procedure_count - 1].t_sup_end,
+                feedback_gain_mode_name(
+                    experiment_config.feedback_gain_mode),
+                disturbance_type_name(experiment_config.disturbance_type),
+                i);
+        }
         snprintf(
             filename_prefix,
             sizeof(filename_prefix),
@@ -246,7 +319,9 @@ bool lower_body_load_experiment_config(){
         "%s/%s",
         config_copy_dir,
         experiment_name);
-    if (!experiment_config_loader.copy_loaded_files(config_copy_prefix)) {
+    if (!experiment_config_loader.copy_loaded_files(
+            config_copy_prefix,
+            experiment_config)) {
         Serial.print("Experiment configuration copy error: ");
         Serial.println(experiment_config_loader.error_message());
         return false;
@@ -331,6 +406,7 @@ void Core1Task(void * parameter){
 
     while(1) {
         sensor.update();
+        current_sample_time_us = esp_timer_get_time();
         const float pitch_foot_offset_x = sensor.pitch_foot_fb();
         /* #########################################################################
         LED HANDLER */
@@ -425,13 +501,17 @@ void Core1Task(void * parameter){
         // save t_ideal before phase_count updated (for update_rate feedback)
         float t_ideal = phase_count   / (float)CTRL_STEP / (float)UPDATE_RATE_BASE + controller.get_T_ds()/2;
         float tx      = phase_count_x / (float)CTRL_STEP / (float)UPDATE_RATE_BASE + controller.get_T_ds()/2;
+        const Phase phase_this_cycle = phase;
         // phase switch-case sentences
-        switch (phase){
+        switch (phase_this_cycle){
             /* #######################################################
             normal walking
             ####################################################### */
             case Phase::START:{
                 if (phase_count == 0){
+                    step_start_time_us = esp_timer_get_time();
+                    cycle_in_step = 0;
+
                     Serial.println("phase: START");
                     controller.init_param_walk(
                         HEIGHT_WALK,
@@ -486,6 +566,7 @@ void Core1Task(void * parameter){
                 if (phase_count == 0){
                     Serial.println("phase: SINGLE");
                     controller.init_single();
+                    sensor.reset_update_rate_feedback();
                     single_calculated = false;
                 }
                 if (!single_calculated && phase_count >= int(phase_length/2)){
@@ -511,6 +592,9 @@ void Core1Task(void * parameter){
                         experiment_manager.is_running()){
                         const bool procedure_changed =
                             experiment_manager.on_step_completed();
+                        step_start_time_us = esp_timer_get_time();
+                        cycle_in_step = 0;
+
                         if (procedure_changed){
                             if (experiment_manager.is_end()){
                                 Serial.println("Experiment procedure: END");
@@ -675,7 +759,7 @@ void Core1Task(void * parameter){
         // update_rate feedback
         array<float, 2> acc_ideal = {com_pos[2][0], com_pos[2][1]};
         float Tc = controller.get_Tc();
-        if (phase == Phase::SINGLE){
+        if (phase_this_cycle == Phase::SINGLE){
             // com calculation check
             float com_y_pos;
             if(controller.is_pivot_right()){
@@ -692,10 +776,11 @@ void Core1Task(void * parameter){
         }else{
             update_rate = UPDATE_RATE_BASE;
         }
-        controller.update_T_sup_x(float(1/CTRL_STEP)* (UPDATE_RATE_BASE - update_rate)/UPDATE_RATE_BASE);
+        controller.update_T_sup_x(float(1.0/CTRL_STEP)* (UPDATE_RATE_BASE - update_rate)/UPDATE_RATE_BASE);
 
         // at START and phase one after, dont make swing leg, and move slowly
-        if (phase == Phase::START || phase_last == Phase::START){
+        if (phase_this_cycle == Phase::START ||
+            phase_last == Phase::START){
             float height = max(com_pos[0][2], com_pos[1][2]);
             com_pos[0][2] = height;
             com_pos[1][2] = height;
@@ -703,7 +788,7 @@ void Core1Task(void * parameter){
         }
 
         // x0 and vx0 feedback
-        if (phase == Phase::SINGLE){
+        if (phase_this_cycle == Phase::SINGLE){
             array<float, 2> x0_vx0 = controller.get_x0_vx0();
             // com calculation check
             float com_x_pos;
@@ -724,9 +809,9 @@ void Core1Task(void * parameter){
 
         // Record BNO055 data throughout normal walking. Feedback values are
         // meaningful only during single support.
-        if (phase == Phase::SINGLE){
+        if (phase_this_cycle == Phase::SINGLE){
             write_motion_log(true);
-        }else if (phase == Phase::DOUBLE){
+        }else if (phase_this_cycle == Phase::DOUBLE){
             write_motion_log(false);
         }
 
@@ -762,9 +847,42 @@ void Core1Task(void * parameter){
         /* #########################################################################
         DELAY for NEXT CYCLE
         ##########################################################################*/
-        // delay
-        // vTaskDelay(pdMS_TO_TICKS(delay_duration));
-        vTaskDelay(pdMS_TO_TICKS(1000.0f / CTRL_STEP));
+        if (mode == Mode::WALK){
+            cycle_in_step++;
+            const int64_t next_cycle_time_us =
+                step_start_time_us
+                + (static_cast<int64_t>(cycle_in_step) * 1000000LL)
+                    / CTRL_STEP;
+
+            int64_t remaining_time_us =
+                next_cycle_time_us - esp_timer_get_time();
+
+            Serial.printf(
+                "cycle=%llu | update_rate=%d | phase_count=%d | phase_length=%d | remaining_us=%lld\n",
+                static_cast<unsigned long long>(cycle_in_step),
+                update_rate,
+                phase_count,
+                phase_length,
+                static_cast<long long>(remaining_time_us)
+            );
+
+            // Use FreeRTOS for the coarse wait, then wait out the remainder.
+            if (remaining_time_us > 1000){
+                const TickType_t delay_ticks = pdMS_TO_TICKS(
+                    (remaining_time_us - 1000) / 1000);
+                if (delay_ticks > 0){
+                    vTaskDelay(delay_ticks);
+                }
+            }
+
+            remaining_time_us = next_cycle_time_us - esp_timer_get_time();
+            if (remaining_time_us > 0){
+                delayMicroseconds(
+                    static_cast<uint32_t>(remaining_time_us));
+            }
+        }else{
+            vTaskDelay(pdMS_TO_TICKS(1000.0f / CTRL_STEP));
+        }
     }
 }
 

@@ -798,7 +798,7 @@ void ExperimentConfigLoader::build_single_experiment(
         config.single_gain_d
     };
 
-    config.procedure_count = 3;
+    config.procedure_count = 2;
     config.procedure[0] = {
         config.single_t_sup,
         config.single_t_sup,
@@ -812,13 +812,6 @@ void ExperimentConfigLoader::build_single_experiment(
         50,
         ErrorAction::SKIP,
         ExperimentContent::WALK
-    };
-    config.procedure[2] = {
-        config.single_t_sup,
-        config.single_t_sup,
-        7,
-        ErrorAction::RESTART,
-        ExperimentContent::WARMUP
     };
 }
 

@@ -31,7 +31,6 @@ loaded. The firmware uses the specified fixed T_sup and gains, and generates
 this procedure:
   7 steps, RESTART, WARMUP
   50 steps, SKIP, WALK
-  7 steps, RESTART, WARMUP
 
 The generated gain table and procedure are copied to the experiment_config
 output directory with the options file.

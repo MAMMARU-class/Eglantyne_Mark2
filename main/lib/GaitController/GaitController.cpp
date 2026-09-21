@@ -10,7 +10,7 @@ void GaitController::init_param_walk(float z0, float T_sup_base){
     // initialize control parameters
     model.set_z0(z0);
     // model.set_z_flight(0.025f);
-    model.set_z_flight(0.045f);
+    model.set_z_flight(0.05f);
     model.set_foot_dist_y_base(0.055f);
     model.set_foot_dist_x_max(0.12f);
     model.set_T_sup_base(T_sup_base);
@@ -19,7 +19,13 @@ void GaitController::init_param_walk(float z0, float T_sup_base){
     model.set_fb_gain(0.0005, 0.00005f, 0.01f, 0.001f);
     // model.set_fb_gain(0.001, 0.0001f, 0.001f, 0.0001f);
     model.calculate_initial_params();
-    set_ds_ratio(0.25f);
+
+    // T_sup : ds_ratio -> 0.3:0.35, 0.14:0.1
+    ds_ratio =
+        0.10f
+        + (0.35f - 0.10f) / (0.30f - 0.14f)
+        * (T_sup - 0.14f);
+    set_ds_ratio(ds_ratio);
 
     this->T_sup = model.get_T_sup_base();
     this->T_sup_x = this->T_sup;

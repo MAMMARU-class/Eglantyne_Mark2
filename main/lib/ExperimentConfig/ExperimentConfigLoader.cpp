@@ -802,7 +802,7 @@ void ExperimentConfigLoader::build_single_experiment(
     config.procedure[0] = {
         config.single_t_sup,
         config.single_t_sup,
-        30,
+        7,
         ErrorAction::RESTART,
         ExperimentContent::WARMUP
     };
@@ -816,7 +816,7 @@ void ExperimentConfigLoader::build_single_experiment(
     config.procedure[2] = {
         config.single_t_sup,
         config.single_t_sup,
-        5,
+        7,
         ErrorAction::RESTART,
         ExperimentContent::WARMUP
     };

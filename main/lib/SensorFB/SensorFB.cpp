@@ -1,5 +1,4 @@
 #include "SensorFB.h"
-#include <cmath>
 
 SensorFB::SensorFB(){}
 
@@ -188,9 +187,6 @@ float SensorFB::pitch_foot_fb(){
 void SensorFB::reset_update_rate_feedback()
 {
     this->t_err_last = 0.0f;
-    this->last_update_rate_fb = NAN;
-    this->last_pos_y = NAN;
-    this->update_rate_fb_initialized = false;
 }
 
 int SensorFB::update_rate_fb(
@@ -209,32 +205,10 @@ int SensorFB::update_rate_fb(
     float a = approx_coeff[0];
     float b = approx_coeff[1];
     float c = approx_coeff[2];
-
-    const auto use_nominal_update_rate = [this, update_rate]() {
-        this->last_update_rate_fb = static_cast<float>(update_rate);
-        this->last_pos_y = NAN;
-        this->update_rate_fb_initialized = false;
-        return update_rate;
-    };
-
-    constexpr float APPROX_COEFF_EPSILON = 1.0e-6f;
-    if (!std::isfinite(a) || !std::isfinite(b) || !std::isfinite(c) ||
-        !std::isfinite(Tc) || Tc <= 0.0f ||
-        !std::isfinite(t_ideal) || !std::isfinite(acc) ||
-        std::fabs(a) < APPROX_COEFF_EPSILON){
-        return use_nominal_update_rate();
-    }
-
     // move trajectory to reduce single term: y = a*(t-t_mid)^2 + c_dash
-    float c_dash = c - (b * b) / (4.0f * a);
-    float t_mid = -b / (2.0f * a);
-    if (!std::isfinite(c_dash) || !std::isfinite(t_mid)){
-        return use_nominal_update_rate();
-    }
+    float c_dash = a * (b*b)/(4*a*a) - b * b/(2*a) + c;
+    float t_mid = -b/(2*a);
     t_ideal = t_ideal - t_mid;
-    if (!std::isfinite(t_ideal)){
-        return use_nominal_update_rate();
-    }
 
     // time signiture
     int sig;
@@ -246,15 +220,8 @@ int SensorFB::update_rate_fb(
 
     // estimate current pos and phase(time) based on current acceleration.
     float pos_y = acc * (Tc*Tc);
-    const float radicand = (pos_y - c_dash) / a;
-    if (!std::isfinite(pos_y) || !std::isfinite(radicand) ||
-        radicand < 0.0f){
-        return use_nominal_update_rate();
-    }
-    float t_now = std::sqrt(radicand) * sig;
-    if (!std::isfinite(t_now)){
-        return use_nominal_update_rate();
-    }
+    float t_now;
+    t_now = sqrt((pos_y - c_dash)/a) * sig;
 
     // error handling: if pos_y is out of range, set defalut value
     if(c_dash > 0 && pos_y < c_dash){
@@ -267,23 +234,11 @@ int SensorFB::update_rate_fb(
     this->last_pos_y = pos_y;
 
     float t_err = t_now - t_ideal;
-    if (!std::isfinite(t_err)){
-        return use_nominal_update_rate();
-    }
-
-    float t_derr = 0.0f;
-    if (this->update_rate_fb_initialized){
-        t_derr = t_err - this->t_err_last;
-    }else{
-        this->update_rate_fb_initialized = true;
-    }
+    float t_derr = t_err - this->t_err_last;
     this->t_err_last = t_err;
 
     // float acc_fb = abs(this->kp_update_rate * t_err + this->kd_update_rate * t_derr) + 1.0f;
     float acc_fb = abs(this->kp_update_rate * t_err + this->kd_update_rate * t_derr) + 1.0f;
-    if (!std::isfinite(acc_fb) || acc_fb <= 0.0f){
-        return use_nominal_update_rate();
-    }
     // Serial.print("acc_fb: "); Serial.println(acc_fb, 4);
 
     // return update rate
@@ -294,9 +249,6 @@ int SensorFB::update_rate_fb(
     }else{
         // advance. slower phase velocity.
         update_rate_fb = update_rate / acc_fb;
-    }
-    if (!std::isfinite(update_rate_fb)){
-        return use_nominal_update_rate();
     }
     this->last_update_rate_fb = update_rate_fb;
 

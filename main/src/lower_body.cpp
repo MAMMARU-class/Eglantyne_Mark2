@@ -857,14 +857,14 @@ void Core1Task(void * parameter){
             int64_t remaining_time_us =
                 next_cycle_time_us - esp_timer_get_time();
 
-            Serial.printf(
-                "cycle=%llu | update_rate=%d | phase_count=%d | phase_length=%d | remaining_us=%lld\n",
-                static_cast<unsigned long long>(cycle_in_step),
-                update_rate,
-                phase_count,
-                phase_length,
-                static_cast<long long>(remaining_time_us)
-            );
+            // Serial.printf(
+            //     "cycle=%llu | update_rate=%d | phase_count=%d | phase_length=%d | remaining_us=%lld\n",
+            //     static_cast<unsigned long long>(cycle_in_step),
+            //     update_rate,
+            //     phase_count,
+            //     phase_length,
+            //     static_cast<long long>(remaining_time_us)
+            // );
 
             // Use FreeRTOS for the coarse wait, then wait out the remainder.
             if (remaining_time_us > 1000){

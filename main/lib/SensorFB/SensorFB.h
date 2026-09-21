@@ -99,7 +99,6 @@ private:
     float t_err_last     = 0.0f;
     float last_pos_y = NAN;
     float fb = NAN;
-    bool update_rate_fb_initialized = false;
 
     // x0 and vx0 feedback
     float x0_fb_last  = 0.0f;

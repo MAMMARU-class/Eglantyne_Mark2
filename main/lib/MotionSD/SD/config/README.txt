@@ -29,9 +29,9 @@ Single-T_sup experiment options:
 When single_T_sup_exp is true, update_rate_gain.csv and procedure.csv are not
 loaded. The firmware uses the specified fixed T_sup and gains, and generates
 this procedure:
-  30 steps, RESTART, WARMUP
+  7 steps, RESTART, WARMUP
   50 steps, SKIP, WALK
-  5 steps, RESTART, WARMUP
+  7 steps, RESTART, WARMUP
 
 The generated gain table and procedure are copied to the experiment_config
 output directory with the options file.

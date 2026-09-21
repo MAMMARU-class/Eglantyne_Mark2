@@ -467,6 +467,12 @@ void Core1Task(void * parameter){
             vd = {0.0f, 0.0f, 0.0f};
             velocity_control.reset_yaw_feedback();
         }
+        Serial.print("vd: ");
+        Serial.print(vd[0], 4);
+        Serial.print(", ");
+        Serial.print(vd[1], 4);
+        Serial.print(", ");
+        Serial.println(vd[2], 4);
 
         // walk if vd is large enough
         if (mode == Mode::WAIT){

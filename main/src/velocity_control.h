@@ -32,9 +32,9 @@ private:
     // vd[2] is a normalized rotation command, so these gains produce a
     // dimensionless output from degree, degree-second, and degree/second
     // errors.
-    float yaw_kp = 0.08f;
-    float yaw_ki = 0.002f;
-    float yaw_kd = 0.0001f;
+    float yaw_kp = 0.002f;
+    float yaw_ki = 0.00005f;
+    float yaw_kd = 0.000001f;
 
     float yaw_error_last_deg = 0.0f;
     float yaw_error_integral_deg_s = 0.0f;

@@ -54,9 +54,9 @@ public:
 private:
     static constexpr float PHI_TARGET_DEG = -5.81f;
     static constexpr float PITCH_FOOT_OFFSET_MAX = 0.060f;
-    static constexpr float ACCEL_LPF_CUTOFF_HZ = 5.0f;
-    static constexpr float GYRO_LPF_CUTOFF_HZ = 5.0f;
-    static constexpr float ANGLE_LPF_CUTOFF_HZ = 2.5f;
+    static constexpr float ACCEL_LPF_CUTOFF_HZ = 15.0f;
+    static constexpr float GYRO_LPF_CUTOFF_HZ = 15.0f;
+    static constexpr float ANGLE_LPF_CUTOFF_HZ = 8.0f;
 
     static float low_pass_filter(
         float input, float previous, float cutoff_hz, float dt_s);
